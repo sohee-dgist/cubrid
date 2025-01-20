@@ -152,6 +152,22 @@ static void qo_reduce_predicate_for_parent_spec (PARSER_CONTEXT * parser, PT_NOD
       } \
   } while (0)
 
+#define PROCESS_CONDITION(parser, condition, func) \
+  do { \
+      if (*(condition)) \
+      { \
+        func(parser, condition); \
+      } \
+  } while (0)
+
+#define PROCESS_CONDITION_P(parser, condition, func) \
+  do { \
+      if (*(condition)) \
+      { \
+        func(parser, *condition); \
+      } \
+  } while (0)
+
 /*
  * qo_find_best_path_type () -
  *   return: PT_NODE *
@@ -9034,43 +9050,17 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 	    }
 	}
 
-      /* convert to CNF and tag taggable terms */
-      if (*wherep)
-	{
-	  *wherep = pt_cnf (parser, *wherep);
-	}
-      if (*havingp)
-	{
-	  *havingp = pt_cnf (parser, *havingp);
-	}
-      if (*startwithp)
-	{
-	  *startwithp = pt_cnf (parser, *startwithp);
-	}
-      if (*connectbyp)
-	{
-	  *connectbyp = pt_cnf (parser, *connectbyp);
-	}
-      if (*aftercbfilterp)
-	{
-	  *aftercbfilterp = pt_cnf (parser, *aftercbfilterp);
-	}
-      if (*merge_upd_wherep)
-	{
-	  *merge_upd_wherep = pt_cnf (parser, *merge_upd_wherep);
-	}
-      if (*merge_ins_wherep)
-	{
-	  *merge_ins_wherep = pt_cnf (parser, *merge_ins_wherep);
-	}
-      if (*merge_del_wherep)
-	{
-	  *merge_del_wherep = pt_cnf (parser, *merge_del_wherep);
-	}
-      if (*orderby_for_p)
-	{
-	  *orderby_for_p = pt_cnf (parser, *orderby_for_p);
-	}
+    /* convert to CNF and tag taggable terms */
+	PROCESS_CONDITION_P(parser, wherep, pt_cnf);
+	PROCESS_CONDITION_P(parser, havingp, pt_cnf);
+	PROCESS_CONDITION_P(parser, startwithp, pt_cnf);
+	PROCESS_CONDITION_P(parser, connectbyp, pt_cnf);
+	PROCESS_CONDITION_P(parser, aftercbfilterp, pt_cnf);
+	PROCESS_CONDITION_P(parser, merge_upd_wherep, pt_cnf);
+	PROCESS_CONDITION_P(parser, merge_ins_wherep, pt_cnf);
+	PROCESS_CONDITION_P(parser, merge_del_wherep, pt_cnf);
+	PROCESS_CONDITION_P(parser, orderby_for_p, pt_cnf);
+
 
       /* in HAVING clause with GROUP BY, move non-aggregate terms to WHERE clause */
       if (PT_IS_SELECT (node) && node->info.query.q.select.group_by && *havingp)
@@ -9195,211 +9185,62 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 	  QO_CHECK_AND_REDUCE_EQUALITY_TERMS (parser, node, merge_del_wherep);
 	}
 
-      /* convert terms of the form 'const op attr' to 'attr op const' */
-      if (*wherep)
-	{
-	  qo_converse_sarg_terms (parser, *wherep);
-	}
-      if (*havingp)
-	{
-	  qo_converse_sarg_terms (parser, *havingp);
-	}
-      if (*startwithp)
-	{
-	  qo_converse_sarg_terms (parser, *startwithp);
-	}
-      if (*connectbyp)
-	{
-	  qo_converse_sarg_terms (parser, *connectbyp);
-	}
-      if (*aftercbfilterp)
-	{
-	  qo_converse_sarg_terms (parser, *aftercbfilterp);
-	}
-      if (*merge_upd_wherep)
-	{
-	  qo_converse_sarg_terms (parser, *merge_upd_wherep);
-	}
-      if (*merge_ins_wherep)
-	{
-	  qo_converse_sarg_terms (parser, *merge_ins_wherep);
-	}
-      if (*merge_del_wherep)
-	{
-	  qo_converse_sarg_terms (parser, *merge_del_wherep);
-	}
-
-      /* reduce a pair of comparison terms into one BETWEEN term */
-      if (*wherep)
-	{
-	  qo_reduce_comp_pair_terms (parser, wherep);
-	}
-      if (*havingp)
-	{
-	  qo_reduce_comp_pair_terms (parser, havingp);
-	}
-      if (*startwithp)
-	{
-	  qo_reduce_comp_pair_terms (parser, startwithp);
-	}
-      if (*connectbyp)
-	{
-	  qo_reduce_comp_pair_terms (parser, connectbyp);
-	}
-      if (*aftercbfilterp)
-	{
-	  qo_reduce_comp_pair_terms (parser, aftercbfilterp);
-	}
-      if (*merge_upd_wherep)
-	{
-	  qo_reduce_comp_pair_terms (parser, merge_upd_wherep);
-	}
-      if (*merge_ins_wherep)
-	{
-	  qo_reduce_comp_pair_terms (parser, merge_ins_wherep);
-	}
-      if (*merge_del_wherep)
-	{
-	  qo_reduce_comp_pair_terms (parser, merge_del_wherep);
-	}
-
-      /* convert a leftmost LIKE term to a BETWEEN (GE_LT) term */
-      if (*wherep)
-	{
-	  qo_rewrite_like_terms (parser, wherep);
-	}
-      if (*havingp)
-	{
-	  qo_rewrite_like_terms (parser, havingp);
-	}
-      if (*startwithp)
-	{
-	  qo_rewrite_like_terms (parser, startwithp);
-	}
-      if (*connectbyp)
-	{
-	  qo_rewrite_like_terms (parser, connectbyp);
-	}
-      if (*aftercbfilterp)
-	{
-	  qo_rewrite_like_terms (parser, aftercbfilterp);
-	}
-      if (*merge_upd_wherep)
-	{
-	  qo_rewrite_like_terms (parser, merge_upd_wherep);
-	}
-      if (*merge_ins_wherep)
-	{
-	  qo_rewrite_like_terms (parser, merge_ins_wherep);
-	}
-      if (*merge_del_wherep)
-	{
-	  qo_rewrite_like_terms (parser, merge_del_wherep);
-	}
-
-      /* convert comparison terms to RANGE */
-      if (*wherep)
-	{
-	  qo_convert_to_range (parser, wherep);
-	}
-      if (*havingp)
-	{
-	  qo_convert_to_range (parser, havingp);
-	}
-      if (*startwithp)
-	{
-	  qo_convert_to_range (parser, startwithp);
-	}
-      if (*connectbyp)
-	{
-	  qo_convert_to_range (parser, connectbyp);
-	}
-      if (*aftercbfilterp)
-	{
-	  qo_convert_to_range (parser, aftercbfilterp);
-	}
-      if (*merge_upd_wherep)
-	{
-	  qo_convert_to_range (parser, merge_upd_wherep);
-	}
-      if (*merge_ins_wherep)
-	{
-	  qo_convert_to_range (parser, merge_ins_wherep);
-	}
-      if (*merge_del_wherep)
-	{
-	  qo_convert_to_range (parser, merge_del_wherep);
-	}
-
-      /* narrow search range by applying range intersection */
-      if (*wherep)
-	{
-	  qo_apply_range_intersection (parser, wherep);
-	}
-      if (*havingp)
-	{
-	  qo_apply_range_intersection (parser, havingp);
-	}
-      if (*startwithp)
-	{
-	  qo_apply_range_intersection (parser, startwithp);
-	}
-      if (*connectbyp)
-	{
-	  qo_apply_range_intersection (parser, connectbyp);
-	}
-      if (*aftercbfilterp)
-	{
-	  qo_apply_range_intersection (parser, aftercbfilterp);
-	}
-      if (*merge_upd_wherep)
-	{
-	  qo_apply_range_intersection (parser, merge_upd_wherep);
-	}
-      if (*merge_ins_wherep)
-	{
-	  qo_apply_range_intersection (parser, merge_ins_wherep);
-	}
-      if (*merge_del_wherep)
-	{
-	  qo_apply_range_intersection (parser, merge_del_wherep);
-	}
-
-      /* remove meaningless IS NULL/IS NOT NULL terms */
-      if (*wherep)
-	{
-	  qo_fold_is_and_not_null (parser, wherep);
-	}
-      if (*havingp)
-	{
-	  qo_fold_is_and_not_null (parser, havingp);
-	}
-      if (*startwithp)
-	{
-	  qo_fold_is_and_not_null (parser, startwithp);
-	}
-      if (*connectbyp)
-	{
-	  qo_fold_is_and_not_null (parser, connectbyp);
-	}
-      if (*aftercbfilterp)
-	{
-	  qo_fold_is_and_not_null (parser, aftercbfilterp);
-	}
-      if (*merge_upd_wherep)
-	{
-	  qo_fold_is_and_not_null (parser, merge_upd_wherep);
-	}
-      if (*merge_ins_wherep)
-	{
-	  qo_fold_is_and_not_null (parser, merge_ins_wherep);
-	}
-      if (*merge_del_wherep)
-	{
-	  qo_fold_is_and_not_null (parser, merge_del_wherep);
-	}
-
-      if (node->node_type == PT_SELECT)
+    /* convert terms of the form 'const op attr' to 'attr op const' */
+	PROCESS_CONDITION_P(parser, wherep, qo_converse_sarg_terms);
+	PROCESS_CONDITION_P(parser, havingp, qo_converse_sarg_terms);
+	PROCESS_CONDITION_P(parser, startwithp, qo_converse_sarg_terms);
+	PROCESS_CONDITION_P(parser, connectbyp, qo_converse_sarg_terms);
+	PROCESS_CONDITION_P(parser, aftercbfilterp, qo_converse_sarg_terms);
+	PROCESS_CONDITION_P(parser, merge_upd_wherep, qo_converse_sarg_terms);
+	PROCESS_CONDITION_P(parser, merge_ins_wherep, qo_converse_sarg_terms);
+	PROCESS_CONDITION_P(parser, merge_del_wherep, qo_converse_sarg_terms);
+    /* reduce a pair of comparison terms into one BETWEEN term */
+	PROCESS_CONDITION(parser, wherep, qo_reduce_comp_pair_terms);
+	PROCESS_CONDITION(parser, havingp, qo_reduce_comp_pair_terms);
+	PROCESS_CONDITION(parser, startwithp, qo_reduce_comp_pair_terms);
+	PROCESS_CONDITION(parser, connectbyp, qo_reduce_comp_pair_terms);
+	PROCESS_CONDITION(parser, aftercbfilterp, qo_reduce_comp_pair_terms);
+	PROCESS_CONDITION(parser, merge_upd_wherep, qo_reduce_comp_pair_terms);
+	PROCESS_CONDITION(parser, merge_ins_wherep, qo_reduce_comp_pair_terms);
+	PROCESS_CONDITION(parser, merge_del_wherep, qo_reduce_comp_pair_terms);
+    /* convert a leftmost LIKE term to a BETWEEN (GE_LT) term */
+	PROCESS_CONDITION(parser, wherep, qo_rewrite_like_terms);
+	PROCESS_CONDITION(parser, havingp, qo_rewrite_like_terms);
+	PROCESS_CONDITION(parser, startwithp, qo_rewrite_like_terms);
+	PROCESS_CONDITION(parser, connectbyp, qo_rewrite_like_terms);
+	PROCESS_CONDITION(parser, aftercbfilterp, qo_rewrite_like_terms);
+	PROCESS_CONDITION(parser, merge_upd_wherep, qo_rewrite_like_terms);
+	PROCESS_CONDITION(parser, merge_ins_wherep, qo_rewrite_like_terms);
+	PROCESS_CONDITION(parser, merge_del_wherep, qo_rewrite_like_terms);
+    /* convert comparison terms to RANGE */
+	PROCESS_CONDITION(parser, wherep, qo_convert_to_range);
+	PROCESS_CONDITION(parser, havingp, qo_convert_to_range);
+	PROCESS_CONDITION(parser, startwithp, qo_convert_to_range);
+	PROCESS_CONDITION(parser, connectbyp, qo_convert_to_range);
+	PROCESS_CONDITION(parser, aftercbfilterp, qo_convert_to_range);
+	PROCESS_CONDITION(parser, merge_upd_wherep, qo_convert_to_range);
+	PROCESS_CONDITION(parser, merge_ins_wherep, qo_convert_to_range);
+	PROCESS_CONDITION(parser, merge_del_wherep, qo_convert_to_range);
+    /* narrow search range by applying range intersection */
+  PROCESS_CONDITION(parser, wherep, qo_apply_range_intersection);
+	PROCESS_CONDITION(parser, havingp, qo_apply_range_intersection);
+	PROCESS_CONDITION(parser, startwithp, qo_apply_range_intersection);
+	PROCESS_CONDITION(parser, connectbyp, qo_apply_range_intersection);
+	PROCESS_CONDITION(parser, aftercbfilterp, qo_apply_range_intersection);
+	PROCESS_CONDITION(parser, merge_upd_wherep, qo_apply_range_intersection);
+	PROCESS_CONDITION(parser, merge_ins_wherep, qo_apply_range_intersection);
+	PROCESS_CONDITION(parser, merge_del_wherep, qo_apply_range_intersection);
+    /* remove meaningless IS NULL/IS NOT NULL terms */
+	PROCESS_CONDITION(parser, wherep, qo_fold_is_and_not_null);
+	PROCESS_CONDITION(parser, havingp, qo_fold_is_and_not_null);
+	PROCESS_CONDITION(parser, startwithp, qo_fold_is_and_not_null);
+	PROCESS_CONDITION(parser, connectbyp, qo_fold_is_and_not_null);
+	PROCESS_CONDITION(parser, aftercbfilterp, qo_fold_is_and_not_null);
+	PROCESS_CONDITION(parser, merge_upd_wherep, qo_fold_is_and_not_null);
+	PROCESS_CONDITION(parser, merge_ins_wherep, qo_fold_is_and_not_null);
+	PROCESS_CONDITION(parser, merge_del_wherep, qo_fold_is_and_not_null);
+    
+	  if (node->node_type == PT_SELECT)
 	{
 	  int continue_walk;
 
@@ -9483,49 +9324,29 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
     }
 
   /* auto-parameterize convert value in expression to host variable (input marker) */
-  if (*wherep && (call_auto_parameterize || (*wherep)->flag.force_auto_parameterize))
+  if (call_auto_parameterize || (*wherep)->flag.force_auto_parameterize)
     {
-      qo_do_auto_parameterize (parser, *wherep);
+      PROCESS_CONDITION_P(parser, wherep, qo_do_auto_parameterize);
     }
 
-  if (*havingp && call_auto_parameterize)
+  if (call_auto_parameterize)
     {
-      qo_do_auto_parameterize (parser, *havingp);
+	  PROCESS_CONDITION_P(parser, havingp, qo_do_auto_parameterize);
+	  PROCESS_CONDITION_P(parser, startwithp, qo_do_auto_parameterize);
+	  PROCESS_CONDITION_P(parser, connectbyp, qo_do_auto_parameterize);
+	  PROCESS_CONDITION_P(parser, aftercbfilterp, qo_do_auto_parameterize);
     }
 
-  if (*startwithp && call_auto_parameterize)
+  if (call_auto_parameterize || (*merge_upd_wherep)->flag.force_auto_parameterize)
     {
-      qo_do_auto_parameterize (parser, *startwithp);
+      PROCESS_CONDITION_P(parser, merge_upd_wherep, qo_do_auto_parameterize);
     }
 
-  if (*connectbyp && call_auto_parameterize)
+  if (call_auto_parameterize)
     {
-      qo_do_auto_parameterize (parser, *connectbyp);
-    }
-
-  if (*aftercbfilterp && call_auto_parameterize)
-    {
-      qo_do_auto_parameterize (parser, *aftercbfilterp);
-    }
-
-  if (*merge_upd_wherep && (call_auto_parameterize || (*merge_upd_wherep)->flag.force_auto_parameterize))
-    {
-      qo_do_auto_parameterize (parser, *merge_upd_wherep);
-    }
-
-  if (*merge_ins_wherep && call_auto_parameterize)
-    {
-      qo_do_auto_parameterize (parser, *merge_ins_wherep);
-    }
-
-  if (*merge_del_wherep && call_auto_parameterize)
-    {
-      qo_do_auto_parameterize (parser, *merge_del_wherep);
-    }
-
-  if (*orderby_for_p && call_auto_parameterize)
-    {
-      qo_do_auto_parameterize (parser, *orderby_for_p);
+	  PROCESS_CONDITION_P(parser, merge_ins_wherep, qo_do_auto_parameterize);
+	  PROCESS_CONDITION_P(parser, merge_del_wherep, qo_do_auto_parameterize);
+	  PROCESS_CONDITION_P(parser, orderby_for_p, qo_do_auto_parameterize);
     }
 
   if (node->node_type == PT_UPDATE && call_auto_parameterize)
