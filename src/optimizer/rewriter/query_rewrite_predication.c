@@ -39,6 +39,39 @@
 #include "object_representation.h"
 
 #include "dbtype.h"
+#include "query_rewrite.h"
+#include "query_rewrite_util.h"
+
+static void qo_converse_sarg_terms (PARSER_CONTEXT * parser, PT_NODE * where);
+static void qo_reduce_comp_pair_terms (PARSER_CONTEXT * parser, PT_NODE ** wherep);
+static void qo_rewrite_like_terms (PARSER_CONTEXT * parser, PT_NODE ** wherep);
+static void qo_convert_to_range (PARSER_CONTEXT * parser, PT_NODE ** wherep);
+static void qo_apply_range_intersection (PARSER_CONTEXT * parser, PT_NODE ** wherep);
+static void qo_fold_is_and_not_null (PARSER_CONTEXT * parser, PT_NODE ** wherep);
+
+/*
+ * qo_rewrite_queries () - checks all subqueries for rewrite optimizations
+ *   return: PT_NODE *
+ *   parser(in): parser environment
+ *   node(in): possible query
+ *   arg(in):
+ *   continue_walk(in):
+ *   
+ *   Verify correctness before modifying previous steps
+ */
+void
+qo_rewrite_predications (PARSER_CONTEXT * parser, PT_NODE ** predications)
+{
+  if (predications)
+    {
+      qo_converse_sarg_terms (parser, *predications);
+      qo_reduce_comp_pair_terms (parser, predications);
+      qo_rewrite_like_terms (parser, predications);
+      qo_convert_to_range (parser, predications);
+      qo_apply_range_intersection (parser, predications);
+      qo_fold_is_and_not_null (parser, predications);
+    }
+}
 
 /*
  * qo_collect_name_spec () -
@@ -211,29 +244,6 @@ qo_is_cast_attr (PT_NODE * expr)
 }
 
 /*
- * qo_is_reduceable_const () -
- *   return:
- *   expr(in):
- */
-static int
-qo_is_reduceable_const (PT_NODE * expr)
-{
-  while (expr && expr->node_type == PT_EXPR)
-    {
-      if (expr->info.expr.op == PT_CAST || expr->info.expr.op == PT_TO_ENUMERATION_VALUE)
-	{
-	  expr = expr->info.expr.arg1;
-	}
-      else
-	{
-	  return false;		/* give up */
-	}
-    }
-
-  return PT_IS_CONST_INPUT_HOSTVAR (expr);
-}
-
-/*
  * qo_reduce_equality_terms () -
  *   return:
  *   parser(in):
@@ -245,7 +255,7 @@ qo_is_reduceable_const (PT_NODE * expr)
  *	 PRIOR field = exp1 AND exp1 = exp2
  *    -> PRIOR ? -> replace with ?
  */
-static void
+void
 qo_reduce_equality_terms (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep)
 {
   PT_NODE *from;
@@ -783,7 +793,7 @@ qo_reduce_equality_terms (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wh
  *   arg(in): info of spec and result
  *   continue_walk(in):
  */
-static PT_NODE *
+PT_NODE *
 qo_reduce_equality_terms_post (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
 {
   PT_NODE **wherep;

@@ -17,35 +17,31 @@
  */
 
 /*
- * query_rewrite.h - Query rewrite utils - Do Not Include Except This Folder
+ * query_rewrite_util.c - Query rewrite utils - Do Not Include Except This Folder
  */
 
-#ifndef _QUERY_REWRITER_UTIL_H_
-#define _QUERY_REWRITER_UTIL_H_
+#ident "$Id$"
 
-#define QO_CHECK_AND_REDUCE_EQUALITY_TERMS(parser, node, where) \
-	do                                                            \
-	{                                                             \
-		if (!node->flag.done_reduce_equality_terms)                 \
-		{                                                           \
-			node->flag.done_reduce_equality_terms = true;             \
-			qo_reduce_equality_terms(parser, node, where);            \
-		}                                                           \
-	} while (0)
+#include <assert.h>
+#include "parser.h"
+#include "parser_message.h"
+#include "parse_tree.h"
+#include "optimizer.h"
+#include "xasl_generation.h"
+#include "virtual_object.h"
+#include "system_parameter.h"
+#include "semantic_check.h"
+#include "execute_schema.h"
+#include "view_transform.h"
+#include "parser.h"
+#include "object_primitive.h"
+#include "object_representation.h"
+
+#include "dbtype.h"
+#include "query_rewrite.h"
+#include "query_rewrite_util.h"
 
 
-#define PROCESS_IF_EXISTS(parser, condition, func) \
-	do                                                 \
-	{                                                  \
-		if (*(condition))                                \
-		{                                                \
-			func(parser, *condition);                      \
-		}                                                \
-	} while (0)
-
-#define  IS_CONDITIONAL_JOIN(type) ((type) == PT_JOIN_INNER || \
-                                (type) == PT_JOIN_LEFT_OUTER || \
-                                (type) == PT_JOIN_RIGHT_OUTER)
 
 #define PT_IS_EXPR_NODE_WITH_COMP_OP(n) \
         ( (PT_IS_EXPR_NODE (n)) && \
@@ -58,12 +54,29 @@
            (n)->info.expr.op == PT_LT_INF || \
            (n)->info.expr.op == PT_RANGE ))
 
-PT_NODE *qr_util_get_matching_spec_with_location (PT_NODE **spec_list, short location) {
-      PT_NODE *spec;
-      for (spec = *spec_list; spec && spec->info.spec.location != location; spec = spec->next)
-      ; /* nop */
-      return spec;
+/*
+ * qo_is_reduceable_const () -
+ *   return:
+ *   expr(in):
+ */
+int
+qo_is_reduceable_const (PT_NODE * expr)
+{
+  while (expr && expr->node_type == PT_EXPR)
+    {
+      if (expr->info.expr.op == PT_CAST || expr->info.expr.op == PT_TO_ENUMERATION_VALUE)
+	{
+	  expr = expr->info.expr.arg1;
+	}
+      else
+	{
+	  return false;		/* give up */
+	}
+    }
+
+  return PT_IS_CONST_INPUT_HOSTVAR (expr);
 }
+
 
 /* 
  * qo_get_name_by_spec_id () - looks for a name with a matching id
@@ -82,6 +95,46 @@ qo_get_name_by_spec_id (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int 
     {
       *continue_walk = PT_STOP_WALK;
       info->appears = true;
+    }
+
+  return node;
+}
+
+/*
+ * qo_check_nullable_expr () -
+ *   return:
+ *   parser(in):
+ *   node(in):
+ *   arg(in):
+ *   continue_walk(in):
+ */
+PT_NODE *
+qo_check_nullable_expr (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
+{
+  int *nullable_cntp = (int *) arg;
+
+  if (node->node_type == PT_EXPR)
+    {
+      /* check for nullable term: expr(..., NULL, ...) can be non-NULL */
+      switch (node->info.expr.op)
+	{
+	case PT_IS_NULL:
+	case PT_CASE:
+	case PT_COALESCE:
+	case PT_NVL:
+	case PT_NVL2:
+	case PT_DECODE:
+	case PT_IF:
+	case PT_IFNULL:
+	case PT_ISNULL:
+	case PT_CONCAT_WS:
+	case PT_NULLSAFE_EQ:
+	  /* NEED FUTURE OPTIMIZATION */
+	  (*nullable_cntp)++;
+	  break;
+	default:
+	  break;
+	}
     }
 
   return node;
@@ -175,7 +228,7 @@ qo_replace_spec_name_with_null (PARSER_CONTEXT * parser, PT_NODE * node, void *a
  *   path_spec(in): to test attributes as NULL
  *   query_where(in): clause to evaluate
  */
-static bool
+bool
 qo_check_condition_yields_null (PARSER_CONTEXT * parser, PT_NODE * path_spec, PT_NODE * query_where)
 {
   PT_NODE *where;
@@ -216,7 +269,7 @@ qo_check_condition_yields_null (PARSER_CONTEXT * parser, PT_NODE * path_spec, PT
  *	     the purposes f the oid equality rewrite optimization
  *   node(in):
  */
-static int
+int
 qo_is_oid_const (PT_NODE * node)
 {
   if (node == NULL)
@@ -291,7 +344,7 @@ qo_is_oid_const (PT_NODE * node)
  *       auto-parameterization.
  *
  */
-static void
+void
 qo_move_on_clause_of_explicit_join_to_where_clause (PARSER_CONTEXT * parser, PT_NODE ** fromp, PT_NODE ** wherep)
 {
   PT_NODE *t_node, *spec;
@@ -362,7 +415,7 @@ qo_is_partition_attr (PT_NODE * node)
  *
  * Note: Keep out hidden column from derived select list
  */
-static PT_NODE *
+PT_NODE *
 qo_rewrite_hidden_col_as_derived (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * parent_node)
 {
   PT_NODE *t_node, *next, *derived;
@@ -505,7 +558,7 @@ qo_rewrite_hidden_col_as_derived (PARSER_CONTEXT * parser, PT_NODE * node, PT_NO
  *   node(in): QUERY node
  *   parent_node(in):
  */
-static void
+void
 qo_rewrite_index_hints (PARSER_CONTEXT * parser, PT_NODE * statement)
 {
   PT_NODE *using_index = NULL, *hint_node, *prev_node, *next_node;
@@ -821,7 +874,3 @@ exit:
       break;
     }
 }
-
-
-
-#endif /* _QUERY_REWRITER_UTIL_H_ */

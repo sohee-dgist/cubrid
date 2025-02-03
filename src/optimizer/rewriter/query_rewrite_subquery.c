@@ -22,14 +22,25 @@
  */
 
 #ident "$Id$"
-#include <assert.h>
 
+#include <assert.h>
 #include "parser.h"
 #include "parser_message.h"
 #include "parse_tree.h"
+#include "optimizer.h"
+#include "xasl_generation.h"
+#include "virtual_object.h"
+#include "system_parameter.h"
+#include "semantic_check.h"
+#include "execute_schema.h"
+#include "view_transform.h"
+#include "parser.h"
+#include "object_primitive.h"
+#include "object_representation.h"
 
-#include "query_rewrite_util.h"
+#include "dbtype.h"
 #include "query_rewrite.h"
+#include "query_rewrite_util.h"
 
 /*
  * qo_rewrite_subqueries () - Rewrite uncorrelated subquery to join query
@@ -41,7 +52,7 @@
  *
  * Note: do parser_walk_tree() pre function
  */
-static PT_NODE *
+PT_NODE *
 qo_rewrite_subqueries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
 {
   PT_NODE *cnf_node, *arg1, *arg2, *select_list, *arg2_list;

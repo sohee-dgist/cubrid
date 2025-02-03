@@ -1,5 +1,48 @@
 
 /*
+ * Copyright 2008 Search Solution Corporation
+ * Copyright 2016 CUBRID Corporation
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */
+
+/*
+ * query_rewrite_util.c - Query rewrite utils - Do Not Include Except This Folder
+ */
+
+#ident "$Id$"
+
+#include <assert.h>
+#include "parser.h"
+#include "parser_message.h"
+#include "parse_tree.h"
+#include "optimizer.h"
+#include "xasl_generation.h"
+#include "virtual_object.h"
+#include "system_parameter.h"
+#include "semantic_check.h"
+#include "execute_schema.h"
+#include "view_transform.h"
+#include "parser.h"
+#include "object_primitive.h"
+#include "object_representation.h"
+
+#include "dbtype.h"
+#include "query_rewrite.h"
+#include "query_rewrite_util.h"
+
+/*
  * qo_do_auto_parameterize () - Convert value to host variable (input marker)
  *   return:
  *   parser(in):
@@ -97,7 +140,7 @@ qo_do_auto_parameterize (PARSER_CONTEXT * parser, PT_NODE * where)
     }
 
 }
-static void
+void
 qo_do_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
 {
   PT_NODE *limit_offsetp, *limit_row_countp;
@@ -261,7 +304,7 @@ qo_do_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
     }
 }
 
-static void
+void
 qo_do_auto_parameterize_keylimit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
 {
   PT_NODE *using_index = NULL;

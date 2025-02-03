@@ -248,6 +248,7 @@ set(OPTIMIZER_SOURCES
   ${OPTIMIZER_DIR}/query_graph.c
   ${OPTIMIZER_DIR}/query_planner.c
   ${OPTIMIZER_DIR}/plan_generation.c
+  ${OPTIMIZER_DIR}/rewriter/query_rewrite_util.c
   ${OPTIMIZER_DIR}/rewriter/query_rewrite_auto_parameterize.c
   ${OPTIMIZER_DIR}/rewriter/query_rewrite_subquery.c
   ${OPTIMIZER_DIR}/rewriter/query_rewrite_select.c

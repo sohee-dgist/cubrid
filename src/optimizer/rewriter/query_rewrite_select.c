@@ -37,8 +37,118 @@
 #include "parser.h"
 #include "object_primitive.h"
 #include "object_representation.h"
-
+#include "query_rewrite.h"
+#include "query_rewrite_util.h"
 #include "dbtype.h"
+
+static PT_NODE *qo_reset_location (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
+static PT_NODE *qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
+static PT_NODE *qo_get_name_cnt_by_spec (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
+static PT_NODE *qo_collect_name_with_eq_const (PARSER_CONTEXT * parser, PT_NODE * on_cond, PT_NODE * spec);
+static PT_NODE *qo_reduce_outer_joined_tables (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query);
+static void qo_reduce_joined_tables_referenced_by_foreign_key (PARSER_CONTEXT * parser, PT_NODE * query);
+static bool qo_is_exclude_spec (PT_NODE * exclude_spec_point_list, PT_NODE * spec);
+static bool qo_check_primary_key_referenced_by_foreign_key_in_parent_spec (PARSER_CONTEXT * parser, PT_NODE * query,
+									   QO_REDUCE_REFERENCE_INFO *
+									   reduce_reference_info);
+static bool qo_check_foreign_keys_referencing_primary_key_in_child_spec (PARSER_CONTEXT * parser, PT_NODE * query,
+									 QO_REDUCE_REFERENCE_INFO *
+									 reduce_reference_info);
+static bool qo_check_foreign_key_referencing_primary_key_in_child_spec (PARSER_CONTEXT * parser, PT_NODE * query,
+									QO_REDUCE_REFERENCE_INFO *
+									reduce_reference_info);
+static bool qo_check_reduce_predicate_for_parent_spec (PARSER_CONTEXT * parser, PT_NODE * query,
+						       QO_REDUCE_REFERENCE_INFO * reduce_reference_info);
+static void qo_reduce_predicate_for_parent_spec (PARSER_CONTEXT * parser, PT_NODE * query,
+						 QO_REDUCE_REFERENCE_INFO * reduce_reference_info);
+static int qo_reduce_order_by (PARSER_CONTEXT * parser, PT_NODE * node);
+static PT_NODE *qo_rewrite_oid_equality (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * pred, int *seqno);
+static PT_NODE *qo_rewrite_innerjoin (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
+static PT_NODE *qo_rewrite_outerjoin (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
+static PT_NODE *qo_get_next_oid_pred (PT_NODE * pred);
+
+bool
+qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep, int *seqno)
+{
+  PT_NODE *pred;
+  PT_NODE *spec, *next;
+  PT_NODE *point_list = NULL;
+  PT_NODE *point, *tmp_spec;
+  if (node->node_type == PT_SELECT)
+    {
+      int continue_walk;
+
+      /* rewrite outer join to inner join */
+      qo_rewrite_outerjoin (parser, node, NULL, &continue_walk);
+
+      /* rewrite explicit inner join to implicit inner join */
+      qo_rewrite_innerjoin (parser, node, NULL, &continue_walk);
+
+      pred = qo_get_next_oid_pred (*wherep);
+      if (pred)
+	{
+	  while (pred)
+	    {
+	      next = pred->next;
+	      node = qo_rewrite_oid_equality (parser, node, pred, seqno);
+	      assert_release (node != NULL);
+	      if (node == NULL)
+		{
+		  return NULL;
+		}
+
+	      pred = qo_get_next_oid_pred (next);
+	    }			/* while (pred) */
+
+	  /* re-analyze paths for possible optimizations */
+	  node->info.query.q.select.from =
+	    parser_walk_tree (parser, node->info.query.q.select.from, qo_analyze_path_join_pre, NULL,
+			      qo_analyze_path_join, node->info.query.q.select.where);
+	}			/* if (pred) */
+
+      if (qo_reduce_order_by (parser, node) != NO_ERROR)
+	{
+	  return false;		/* give up */
+	}
+
+      spec = node->info.query.q.select.from;
+      /* predicate push */
+      while (spec)
+	{
+	  if (spec->info.spec.derived_table_type == PT_IS_SUBQUERY
+	      || spec->info.spec.derived_table_type == PT_DERIVED_DBLINK_TABLE)
+	    {
+	      (void) mq_copypush_sargable_terms (parser, node, spec);
+	    }
+	  else
+	    {
+	      point_list = parser_append_previous_node (pt_point (parser, spec), point_list);
+	    }
+	  spec = spec->next;
+	}
+      /* reduce unnecessary tables */
+      point = point_list;
+      while (point)
+	{
+	  tmp_spec = point;
+	  CAST_POINTER_TO_NODE (tmp_spec);
+	  if (mq_is_outer_join_spec (parser, tmp_spec) && !PT_SPEC_IS_CTE (tmp_spec))
+	    {
+	      node = qo_reduce_outer_joined_tables (parser, tmp_spec, node);
+	    }
+	  point = point->next;
+	}
+      if (point_list != NULL)
+	{
+	  parser_free_tree (parser, point_list);
+	}
+
+      qo_reduce_joined_tables_referenced_by_foreign_key (parser, node);
+    }
+
+  return true;
+}
+
 
 /*
  * qo_find_best_path_type () -
@@ -85,7 +195,7 @@ qo_find_best_path_type (PT_NODE * spec)
  *
  * Note : prunes non spec's
  */
-static PT_NODE *
+PT_NODE *
 qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void *arg, int *continue_walk)
 {
   *continue_walk = PT_CONTINUE_WALK;
@@ -123,7 +233,7 @@ qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void *arg, in
  *	PT_PATH_OUTER, with apologies for the silly name.
  *
  */
-static PT_NODE *
+PT_NODE *
 qo_analyze_path_join (PARSER_CONTEXT * parser, PT_NODE * path_spec, void *arg, int *continue_walk)
 {
   PT_NODE *where = (PT_NODE *) arg;
@@ -3057,7 +3167,7 @@ qo_rewrite_innerjoin (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *c
  *       access in START WITH and CONNECT BY predicates) can be performed if
  *       the query does not involve joins or partitioned tables.
  */
-static bool
+bool
 qo_can_generate_single_table_connect_by (PARSER_CONTEXT * parser, PT_NODE * node)
 {
   int level = 0;
