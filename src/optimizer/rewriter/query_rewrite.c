@@ -70,7 +70,7 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
       /* HQ sub-query might be optimized twice in UPDATE statement because UPDATE statement internally creates SELECT
        * statement to get targets to update. We should check whether it was already single-table-optimized. Here is an
        * example: 
-       * CREATE TABLE t(p INT, c INT, x INT);
+       *  CREATE TABLE t(p INT, c INT, x INT);
        *  INSERT INTO t VALUES(1, 11, 0), (1, 12, 0), (2, 21, 0);
        *  UPDATE t SET x=0 WHERE c IN (SELECT c FROM t START WITH p=1 CONNECT BY PRIOR c=p);
        */
@@ -498,7 +498,7 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
 }
 
 /*
- * qo_optimize_queries_post () -
+ * qo_rewrite_queries_post () -
  *   return:
  *   parser(in):
  *   tree(in):
@@ -613,7 +613,7 @@ qo_rewrite_queries_post (PARSER_CONTEXT * parser, PT_NODE * tree, void *arg, int
  * Note: rewrite only if optimization is enabled
  */
 PT_NODE *
-mq_optimize (PARSER_CONTEXT * parser, PT_NODE * statement)
+mq_rewrite (PARSER_CONTEXT * parser, PT_NODE * statement)
 {
   return parser_walk_tree (parser, statement, qo_rewrite_queries, NULL, qo_rewrite_queries_post, NULL);
 }

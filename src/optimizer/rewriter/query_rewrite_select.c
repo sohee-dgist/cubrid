@@ -17,7 +17,7 @@
  */
 
 /*
- * query_rewrite.c - Query rewrite optimization
+ * query_select.c
  */
 
 #ident "$Id$"
@@ -27,14 +27,16 @@
 #include "parser.h"
 #include "parser_message.h"
 #include "parse_tree.h"
+
 #include "optimizer.h"
 #include "xasl_generation.h"
+
 #include "virtual_object.h"
 #include "system_parameter.h"
 #include "semantic_check.h"
 #include "execute_schema.h"
 #include "view_transform.h"
-#include "parser.h"
+
 #include "object_primitive.h"
 #include "object_representation.h"
 #include "query_rewrite.h"

@@ -18,7 +18,7 @@
  */
 
 /*
- * query_rewrite.c - Query rewrite optimization
+ * query_rewrite_predication.c
  */
 
 #ident "$Id$"
@@ -27,20 +27,15 @@
 #include "parser.h"
 #include "parser_message.h"
 #include "parse_tree.h"
-#include "optimizer.h"
-#include "xasl_generation.h"
-#include "virtual_object.h"
-#include "system_parameter.h"
-#include "semantic_check.h"
-#include "execute_schema.h"
-#include "view_transform.h"
-#include "parser.h"
+
 #include "object_primitive.h"
 #include "object_representation.h"
 
 #include "dbtype.h"
+
 #include "query_rewrite.h"
 #include "query_rewrite_util.h"
+
 
 static void qo_converse_sarg_terms (PARSER_CONTEXT * parser, PT_NODE * where);
 static void qo_reduce_comp_pair_terms (PARSER_CONTEXT * parser, PT_NODE ** wherep);
@@ -62,7 +57,7 @@ static void qo_fold_is_and_not_null (PARSER_CONTEXT * parser, PT_NODE ** wherep)
 void
 qo_rewrite_predications (PARSER_CONTEXT * parser, PT_NODE ** predications)
 {
-  if (predications)
+  if (*predications)
     {
       qo_converse_sarg_terms (parser, *predications);
       qo_reduce_comp_pair_terms (parser, predications);

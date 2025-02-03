@@ -7677,7 +7677,7 @@ mq_translate_helper (PARSER_CONTEXT * parser, PT_NODE * node)
 
 	  /* mq_optimize works for queries only. Queries generated for update, insert or delete will go thru this path
 	   * when mq_translate is called, so will still get this optimization step applied. */
-	  node = mq_optimize (parser, node);
+	  node = mq_rewrite (parser, node);
 
 	  /* repeat for constant folding */
 	  if (node)
@@ -7711,7 +7711,7 @@ mq_translate_helper (PARSER_CONTEXT * parser, PT_NODE * node)
 
       if (node)
 	{
-	  node = mq_optimize (parser, node);
+	  node = mq_rewrite (parser, node);
 	  if (node->node_type == PT_MERGE)
 	    {
 	      mq_auto_param_merge_clauses (parser, node);

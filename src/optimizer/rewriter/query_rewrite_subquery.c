@@ -40,7 +40,6 @@
 
 #include "dbtype.h"
 #include "query_rewrite.h"
-#include "query_rewrite_util.h"
 
 /*
  * qo_rewrite_subqueries () - Rewrite uncorrelated subquery to join query

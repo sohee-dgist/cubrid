@@ -17,7 +17,7 @@
  */
 
 /*
- * query_rewrite.h - Query rewrite utils - Do Not Include Except This Folder
+ * query_rewrite_util.h - Query rewrite utils - Do Not Include Except This Folder
  */
 
 #ifndef _QUERY_REWRITER_UTIL_H_

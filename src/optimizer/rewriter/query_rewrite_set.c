@@ -1,3 +1,26 @@
+/*
+ * Copyright 2008 Search Solution Corporation
+ * Copyright 2016 CUBRID Corporation
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ *
+ */
+
+/*
+ * query_set.c
+ */
+
+
 #ident "$Id$"
 
 #include <assert.h>
@@ -17,12 +40,12 @@
 
 #include "dbtype.h"
 #include "query_rewrite.h"
-#include "query_rewrite_util.h"
 
 static bool qo_check_distinct_union (PARSER_CONTEXT * parser, PT_NODE * node);
 static bool qo_check_hint_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_HINT_ENUM hint);
-
 static PT_NODE *qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * limit);
+
+
 /*
  * qo_rewrite_union_with_limit_clause () - qo_rewrite_union_with_limit_clause
  *   return: PT_NODE *

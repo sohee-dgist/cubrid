@@ -18,7 +18,7 @@
  */
 
 /*
- * query_rewrite_util.c - Query rewrite utils - Do Not Include Except This Folder
+ * query_rewrite_auto_parameterize.c
  */
 
 #ident "$Id$"
@@ -28,19 +28,12 @@
 #include "parser_message.h"
 #include "parse_tree.h"
 #include "optimizer.h"
-#include "xasl_generation.h"
-#include "virtual_object.h"
-#include "system_parameter.h"
-#include "semantic_check.h"
-#include "execute_schema.h"
-#include "view_transform.h"
-#include "parser.h"
+
+
 #include "object_primitive.h"
 #include "object_representation.h"
 
 #include "dbtype.h"
-#include "query_rewrite.h"
-#include "query_rewrite_util.h"
 
 /*
  * qo_do_auto_parameterize () - Convert value to host variable (input marker)
@@ -140,6 +133,7 @@ qo_do_auto_parameterize (PARSER_CONTEXT * parser, PT_NODE * where)
     }
 
 }
+
 void
 qo_do_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
 {
