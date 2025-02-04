@@ -114,7 +114,7 @@ typedef enum dnf_merge_range_result DNF_MERGE_RANGE_RESULT;
 PT_NODE *qo_rewrite_subqueries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 
 /* optimize predications */
-void qo_rewrite_predications (PARSER_CONTEXT * parser, PT_NODE ** predications);
+void qo_rewrite_predicates (PARSER_CONTEXT * parser, PT_NODE ** predications);
 void qo_reduce_equality_terms (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep);
 PT_NODE *qo_reduce_equality_terms_post (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 

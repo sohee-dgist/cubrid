@@ -397,14 +397,14 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
 	  QO_CHECK_AND_REDUCE_EQUALITY_TERMS (parser, node, merge_del_wherep);
 	}
 
-      qo_rewrite_predications (parser, wherep);
-      qo_rewrite_predications (parser, havingp);
-      qo_rewrite_predications (parser, startwithp);
-      qo_rewrite_predications (parser, connectbyp);
-      qo_rewrite_predications (parser, aftercbfilterp);
-      qo_rewrite_predications (parser, merge_upd_wherep);
-      qo_rewrite_predications (parser, merge_ins_wherep);
-      qo_rewrite_predications (parser, merge_del_wherep);
+      qo_rewrite_predicates (parser, wherep);
+      qo_rewrite_predicates (parser, havingp);
+      qo_rewrite_predicates (parser, startwithp);
+      qo_rewrite_predicates (parser, connectbyp);
+      qo_rewrite_predicates (parser, aftercbfilterp);
+      qo_rewrite_predicates (parser, merge_upd_wherep);
+      qo_rewrite_predicates (parser, merge_ins_wherep);
+      qo_rewrite_predicates (parser, merge_del_wherep);
 
       /* rewrite select queries */
       if (node->node_type == PT_SELECT)

@@ -17,7 +17,7 @@
  */
 
 /*
- * query_rewrite_predication.c
+ * query_rewrite_predicate.c
  */
 
 #ident "$Id$"
@@ -54,16 +54,16 @@ static void qo_fold_is_and_not_null (PARSER_CONTEXT * parser, PT_NODE ** wherep)
  *   Verify correctness before modifying previous steps
  */
 void
-qo_rewrite_predications (PARSER_CONTEXT * parser, PT_NODE ** predications)
+qo_rewrite_predicates (PARSER_CONTEXT * parser, PT_NODE ** predicates)
 {
-  if (*predications)
+  if (*predicates)
     {
-      qo_converse_sarg_terms (parser, *predications);
-      qo_reduce_comp_pair_terms (parser, predications);
-      qo_rewrite_like_terms (parser, predications);
-      qo_convert_to_range (parser, predications);
-      qo_apply_range_intersection (parser, predications);
-      qo_fold_is_and_not_null (parser, predications);
+      qo_converse_sarg_terms (parser, *predicates);
+      qo_reduce_comp_pair_terms (parser, predicates);
+      qo_rewrite_like_terms (parser, predicates);
+      qo_convert_to_range (parser, predicates);
+      qo_apply_range_intersection (parser, predicates);
+      qo_fold_is_and_not_null (parser, predicates);
     }
 }
 
