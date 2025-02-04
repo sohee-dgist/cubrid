@@ -24,14 +24,13 @@
 #define _QUERY_REWRITER_UTIL_H_
 
 #define QO_CHECK_AND_REDUCE_EQUALITY_TERMS(parser, node, where) \
-	do                                                            \
-	{                                                             \
-		if (!node->flag.done_reduce_equality_terms)                 \
-		{                                                           \
-			node->flag.done_reduce_equality_terms = true;             \
-			qo_reduce_equality_terms(parser, node, where);            \
-		}                                                           \
-	} while (0)
+  do { \
+      if (!node->flag.done_reduce_equality_terms) \
+      { \
+          node->flag.done_reduce_equality_terms = true; \
+          qo_reduce_equality_terms (parser, node, where); \
+      } \
+  } while (0)
 
 
 #define PROCESS_IF_EXISTS(parser, condition, func) \

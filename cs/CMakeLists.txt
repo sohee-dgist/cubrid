@@ -242,7 +242,7 @@ set(OPTIMIZER_SOURCES
   ${OPTIMIZER_DIR}/rewriter/query_rewrite_subquery.c
   ${OPTIMIZER_DIR}/rewriter/query_rewrite_select.c
   ${OPTIMIZER_DIR}/rewriter/query_rewrite_set.c
-  ${OPTIMIZER_DIR}/rewriter/query_rewrite_predication.c
+  ${OPTIMIZER_DIR}/rewriter/query_rewrite_predicate.c
   ${OPTIMIZER_DIR}/rewriter/query_rewrite.c
   )
 

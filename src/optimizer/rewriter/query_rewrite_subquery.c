@@ -40,6 +40,7 @@
 #include "dbtype.h"
 #include "query_rewrite.h"
 
+
 /*
  * qo_rewrite_subqueries () - Rewrite uncorrelated subquery to join query
  *   return: PT_NODE *

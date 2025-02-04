@@ -74,8 +74,6 @@ qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** w
 {
   PT_NODE *pred;
   PT_NODE *spec, *next;
-  PT_NODE *point_list = NULL;
-  PT_NODE *point, *tmp_spec;
   if (node->node_type == PT_SELECT)
     {
       int continue_walk;
@@ -113,6 +111,8 @@ qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** w
 	  return false;		/* give up */
 	}
 
+      PT_NODE *point_list = NULL;
+      PT_NODE *point, *tmp_spec;
       spec = node->info.query.q.select.from;
       /* predicate push */
       while (spec)

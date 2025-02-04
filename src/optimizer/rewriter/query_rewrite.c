@@ -126,10 +126,6 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
 
       qo_rewrite_index_hints (parser, node);
 
-      /* analyze paths for possible optimizations */
-      node->info.query.q.select.from =
-	parser_walk_tree (parser, node->info.query.q.select.from, qo_analyze_path_join_pre, NULL, qo_analyze_path_join,
-			  node->info.query.q.select.where);
 
       break;
 
@@ -235,6 +231,14 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
       return node;
     }
 
+  if (node->node_type == PT_SELECT)
+    {
+      /* analyze paths for possible optimizations */
+      node->info.query.q.select.from =
+	parser_walk_tree (parser, node->info.query.q.select.from, qo_analyze_path_join_pre, NULL, qo_analyze_path_join,
+			  node->info.query.q.select.where);
+    }
+
   qo_get_optimization_param (&level, QO_PARAM_LEVEL);
   /* 2. Optimization */
   if (OPTIMIZATION_ENABLED (level))
@@ -255,24 +259,57 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
       if (!*wherep && !*havingp && !*aftercbfilterp && !*startwithp && !*connectbyp && !*merge_upd_wherep
 	  && !*merge_ins_wherep && !*merge_del_wherep && !*orderby_for_p && !*show_argp)
 	{
-	  /* not select, group_by, order_by then return (do not change condition sequence ) */
-	  if (node->node_type != PT_SELECT
-	      || (node->info.query.q.select.group_by == NULL && node->info.query.order_by == NULL))
+	  if (node->node_type != PT_SELECT)
 	    {
 	      return node;
+	    }
+	  else
+	    {
+	      /* check for group by, order by */
+	      if (node->info.query.q.select.group_by == NULL && node->info.query.order_by == NULL)
+		{
+		  return node;
+		}		/* else - go ahead */
 	    }
 	}
 
       /* convert to CNF and tag taggable terms */
-      PROCESS_IF_EXISTS (parser, wherep, pt_cnf);
-      PROCESS_IF_EXISTS (parser, havingp, pt_cnf);
-      PROCESS_IF_EXISTS (parser, startwithp, pt_cnf);
-      PROCESS_IF_EXISTS (parser, connectbyp, pt_cnf);
-      PROCESS_IF_EXISTS (parser, aftercbfilterp, pt_cnf);
-      PROCESS_IF_EXISTS (parser, merge_upd_wherep, pt_cnf);
-      PROCESS_IF_EXISTS (parser, merge_ins_wherep, pt_cnf);
-      PROCESS_IF_EXISTS (parser, merge_del_wherep, pt_cnf);
-      PROCESS_IF_EXISTS (parser, orderby_for_p, pt_cnf);
+      if (*wherep)
+	{
+	  *wherep = pt_cnf (parser, *wherep);
+	}
+      if (*havingp)
+	{
+	  *havingp = pt_cnf (parser, *havingp);
+	}
+      if (*startwithp)
+	{
+	  *startwithp = pt_cnf (parser, *startwithp);
+	}
+      if (*connectbyp)
+	{
+	  *connectbyp = pt_cnf (parser, *connectbyp);
+	}
+      if (*aftercbfilterp)
+	{
+	  *aftercbfilterp = pt_cnf (parser, *aftercbfilterp);
+	}
+      if (*merge_upd_wherep)
+	{
+	  *merge_upd_wherep = pt_cnf (parser, *merge_upd_wherep);
+	}
+      if (*merge_ins_wherep)
+	{
+	  *merge_ins_wherep = pt_cnf (parser, *merge_ins_wherep);
+	}
+      if (*merge_del_wherep)
+	{
+	  *merge_del_wherep = pt_cnf (parser, *merge_del_wherep);
+	}
+      if (*orderby_for_p)
+	{
+	  *orderby_for_p = pt_cnf (parser, *orderby_for_p);
+	}
 
       /* in HAVING clause with GROUP BY, move non-aggregate terms to WHERE clause */
       if (PT_IS_SELECT (node) && node->info.query.q.select.group_by && *havingp)
@@ -416,8 +453,9 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
 	}
 
       /* auto-parameterization is safe when it is done as the last step of rewrite optimization */
-      if (!prm_get_bool_value (PRM_ID_HOSTVAR_LATE_BINDING) && prm_get_integer_value (PRM_ID_XASL_CACHE_MAX_ENTRIES) > 0
-	  && node->flag.cannot_prepare == 0 && parser->flag.is_parsing_static_sql == 0)
+      if (!prm_get_bool_value (PRM_ID_HOSTVAR_LATE_BINDING)
+	  && prm_get_integer_value (PRM_ID_XASL_CACHE_MAX_ENTRIES) > 0 && node->flag.cannot_prepare == 0
+	  && parser->flag.is_parsing_static_sql == 0)
 	{
 	  call_auto_parameterize = true;
 	}
@@ -508,8 +546,9 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
 static PT_NODE *
 qo_rewrite_queries_post (PARSER_CONTEXT * parser, PT_NODE * tree, void *arg, int *continue_walk)
 {
-  PT_NODE *node, *prev = NULL, *next, *spec;
+  PT_NODE *node, *prev, *next, *spec;
   PT_NODE **fromp, **wherep;
+  short location;
 
   switch (tree->node_type)
     {
@@ -528,76 +567,119 @@ qo_rewrite_queries_post (PARSER_CONTEXT * parser, PT_NODE * tree, void *arg, int
     default:
       fromp = NULL;
       wherep = NULL;
-      return tree;
       break;
     }
 
-  if (wherep == NULL)
+  if (wherep != NULL)
     {
-      return tree;
-    }
-  assert (fromp != NULL);
+      assert (fromp != NULL);
 
-  for (node = *wherep; node != NULL; node = next)
-    {
-      next = node->next;
-      node->next = NULL;
-
-      short location =
-	(node->node_type == PT_EXPR) ? node->info.expr.location : (node->node_type ==
-								   PT_VALUE) ? node->info.value.location : -1;
-
-      if (location > 0)
+      prev = NULL;
+      for (node = *wherep; node != NULL; node = next)
 	{
-	  for (spec = *fromp; spec && spec->info.spec.location != location; spec = spec->next)
-	    ;			/* nop */
+	  next = node->next;
+	  node->next = NULL;
 
-	  if (spec != NULL)
+	  if (node->node_type == PT_EXPR)
 	    {
-	      if (IS_CONDITIONAL_JOIN (spec->info.spec.join_type))
-		{
-		  node->next = spec->info.spec.on_cond;
-		  spec->info.spec.on_cond = node;
+	      location = node->info.expr.location;
+	    }
+	  else if (node->node_type == PT_VALUE)
+	    {
+	      location = node->info.value.location;
+	    }
+	  else
+	    {
+	      location = -1;
+	    }
 
-		  prev != NULL ? (prev->next = next) : (*wherep = next);
+	  if (location > 0)
+	    {
+	      for (spec = *fromp; spec && spec->info.spec.location != location; spec = spec->next)
+		;		/* nop */
+
+	      if (spec != NULL)
+		{
+		  if (spec->info.spec.join_type == PT_JOIN_LEFT_OUTER
+		      || spec->info.spec.join_type == PT_JOIN_RIGHT_OUTER || spec->info.spec.join_type == PT_JOIN_INNER)
+		    {
+		      node->next = spec->info.spec.on_cond;
+		      spec->info.spec.on_cond = node;
+
+		      if (prev != NULL)
+			{
+			  prev->next = next;
+			}
+		      else
+			{
+			  *wherep = next;
+			}
+		    }
+		  else
+		    {		/* already converted to inner join */
+		      /* clear on cond location */
+		      if (node->node_type == PT_EXPR)
+			{
+			  node->info.expr.location = 0;
+			}
+		      else if (node->node_type == PT_VALUE)
+			{
+			  node->info.value.location = 0;
+			}
+
+		      /* Here - at the last stage of query optimize, remove copy-pushed term */
+		      if (node->node_type == PT_EXPR && PT_EXPR_INFO_IS_FLAGED (node, PT_EXPR_INFO_COPYPUSH))
+			{
+			  parser_free_tree (parser, node);
+
+			  if (prev != NULL)
+			    {
+			      prev->next = next;
+			    }
+			  else
+			    {
+			      *wherep = next;
+			    }
+			}
+		      else
+			{
+			  prev = node;
+			  node->next = next;
+			}
+		    }
 		}
 	      else
 		{
-		  /* already converted to inner join */
-		  /* clear on cond location */
-		  if (node->node_type == PT_EXPR)
-		    {
-		      node->info.expr.location = 0;
-		    }
-		  else if (node->node_type == PT_VALUE)
-		    {
-		      node->info.value.location = 0;
-		    }
+		  /* might be impossible might be outer join error */
+		  PT_ERRORf (parser, node, "check outer join syntax at '%s'", pt_short_print (parser, node));
+
+		  prev = node;
+		  node->next = next;
 		}
 	    }
 	  else
 	    {
-	      /* might be impossible might be outer join error */
-	      PT_ERRORf (parser, node, "check outer join syntax at '%s'", pt_short_print (parser, node));
+	      /* Here - at the last stage of query optimize, remove copy-pushed term */
+	      if (node->node_type == PT_EXPR && PT_EXPR_INFO_IS_FLAGED (node, PT_EXPR_INFO_COPYPUSH))
+		{
+		  parser_free_tree (parser, node);
 
-	      prev = node;
-	      node->next = next;
-	      continue;
+		  if (prev != NULL)
+		    {
+		      prev->next = next;
+		    }
+		  else
+		    {
+		      *wherep = next;
+		    }
+		}
+	      else
+		{
+		  prev = node;
+		  node->next = next;
+		}
 	    }
 	}
-
-      /* Here - at the last stage of query optimize, remove copy-pushed term */
-      if (node->node_type == PT_EXPR && PT_EXPR_INFO_IS_FLAGED (node, PT_EXPR_INFO_COPYPUSH))
-	{
-	  parser_free_tree (parser, node);
-	  prev != NULL ? (prev->next = next) : (*wherep = next);
-	}
-      else
-	{
-	  prev = node;
-	  node->next = next;
-	}
-
     }
 
   return tree;
