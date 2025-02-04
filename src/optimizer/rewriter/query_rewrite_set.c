@@ -17,7 +17,7 @@
  */
 
 /*
- * query_set.c
+ * query_rewrite_set.c
  */
 
 

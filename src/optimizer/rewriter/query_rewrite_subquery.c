@@ -1,4 +1,3 @@
-
 /*
  * Copyright 2008 Search Solution Corporation
  * Copyright 2016 CUBRID Corporation
