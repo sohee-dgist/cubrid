@@ -59,25 +59,24 @@ static PT_NODE *qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node,
  *   SELECT * FROM ((SELECT ...) UNION (SELECT ...)) T WHERE INST_NUM() <= 10
  */
 
-void
+PT_NODE *
 qo_rewrite_union_with_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep)
 {
-  PT_NODE *limit_node, *derived, *limit;
+  PT_NODE *limit, *limit_node, *derived;
   bool single_tuple_bak;
 
   limit = pt_limit_to_numbering_expr (parser, node->info.query.limit, PT_INST_NUM, false);
   if (limit == NULL)
     {
-      return;
+      return node;
     }
 
   node->info.query.flag.rewrite_limit = 0;
 
-  /* to move limit clause to derived */
+  /* back up */
   limit_node = node->info.query.limit;
   node->info.query.limit = NULL;
 
-  /* to move single tuple to derived */
   single_tuple_bak = node->info.query.flag.single_tuple;
   node->info.query.flag.single_tuple = false;
 
@@ -94,13 +93,15 @@ qo_rewrite_union_with_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node, PT_
       PT_NODE_MOVE_NUMBER_OUTERLINK (derived, node);
 
       assert (derived->info.query.q.select.where == NULL);
-
       derived->info.query.q.select.where = limit;
-      wherep = &derived->info.query.q.select.where;
       node = derived;
     }
+
+  /* recovery */
   node->info.query.flag.single_tuple = single_tuple_bak;
   node->info.query.limit = limit_node;
+
+  return node;
 }
 
 /*

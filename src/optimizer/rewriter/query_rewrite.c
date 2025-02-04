@@ -176,7 +176,7 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
        * T WHERE INST_NUM() <= 10 */
       if (node->info.query.limit && node->info.query.flag.rewrite_limit)
 	{
-	  qo_rewrite_union_with_limit_clause (parser, node, wherep);
+	  node = qo_rewrite_union_with_limit_clause (parser, node, wherep);
 	}
 
       orderby_for_p = &node->info.query.orderby_for;
@@ -446,7 +446,7 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
       /* rewrite select queries */
       if (node->node_type == PT_SELECT)
 	{
-	  if (!qo_rewrite_select_queries (parser, node, wherep, &seqno))
+	  if (!qo_rewrite_select_queries (parser, &node, wherep, &seqno))
 	    {
 	      return node;	/* if failed give up */
 	    }

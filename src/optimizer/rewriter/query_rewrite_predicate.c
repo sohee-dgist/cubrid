@@ -800,6 +800,7 @@ qo_reduce_equality_terms_post (PARSER_CONTEXT * parser, PT_NODE * node, void *ar
 
   return node;
 }
+
 /*
  * qo_converse_sarg_terms () -
  *   return:

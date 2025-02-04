@@ -119,13 +119,13 @@ void qo_reduce_equality_terms (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE 
 PT_NODE *qo_reduce_equality_terms_post (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 
 /* optimize set */
-void qo_rewrite_union_with_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep);
+PT_NODE *qo_rewrite_union_with_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep);
 
 /* optimize select queries */
 PT_NODE *qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void *arg, int *continue_walk);
 PT_NODE *qo_analyze_path_join (PARSER_CONTEXT * parser, PT_NODE * path_spec, void *arg, int *continue_walk);
 bool qo_can_generate_single_table_connect_by (PARSER_CONTEXT * parser, PT_NODE * node);
-bool qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep, int *seqno);
+bool qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE ** wherep, int *seqno);
 
 /* qo_do_auto_parameterize is defined in parser.h */
 void qo_do_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node);

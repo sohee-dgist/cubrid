@@ -70,19 +70,19 @@ static PT_NODE *qo_rewrite_outerjoin (PARSER_CONTEXT * parser, PT_NODE * node, v
 static PT_NODE *qo_get_next_oid_pred (PT_NODE * pred);
 
 bool
-qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep, int *seqno)
+qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE ** wherep, int *seqno)
 {
   PT_NODE *pred;
   PT_NODE *spec, *next;
-  if (node->node_type == PT_SELECT)
+  if ((*nodep)->node_type == PT_SELECT)
     {
       int continue_walk;
 
       /* rewrite outer join to inner join */
-      qo_rewrite_outerjoin (parser, node, NULL, &continue_walk);
+      qo_rewrite_outerjoin (parser, *nodep, NULL, &continue_walk);
 
       /* rewrite explicit inner join to implicit inner join */
-      qo_rewrite_innerjoin (parser, node, NULL, &continue_walk);
+      qo_rewrite_innerjoin (parser, *nodep, NULL, &continue_walk);
 
       pred = qo_get_next_oid_pred (*wherep);
       if (pred)
@@ -90,37 +90,37 @@ qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** w
 	  while (pred)
 	    {
 	      next = pred->next;
-	      node = qo_rewrite_oid_equality (parser, node, pred, seqno);
-	      assert_release (node != NULL);
-	      if (node == NULL)
+	      *nodep = qo_rewrite_oid_equality (parser, *nodep, pred, seqno);
+	      assert_release ((*nodep) != NULL);
+	      if ((*nodep) == NULL)
 		{
-		  return NULL;
+		  return false;
 		}
 
 	      pred = qo_get_next_oid_pred (next);
 	    }			/* while (pred) */
 
 	  /* re-analyze paths for possible optimizations */
-	  node->info.query.q.select.from =
-	    parser_walk_tree (parser, node->info.query.q.select.from, qo_analyze_path_join_pre, NULL,
-			      qo_analyze_path_join, node->info.query.q.select.where);
+	  (*nodep)->info.query.q.select.from =
+	    parser_walk_tree (parser, (*nodep)->info.query.q.select.from, qo_analyze_path_join_pre, NULL,
+			      qo_analyze_path_join, (*nodep)->info.query.q.select.where);
 	}			/* if (pred) */
 
-      if (qo_reduce_order_by (parser, node) != NO_ERROR)
+      if (qo_reduce_order_by (parser, (*nodep)) != NO_ERROR)
 	{
 	  return false;		/* give up */
 	}
 
       PT_NODE *point_list = NULL;
       PT_NODE *point, *tmp_spec;
-      spec = node->info.query.q.select.from;
+      spec = (*nodep)->info.query.q.select.from;
       /* predicate push */
       while (spec)
 	{
 	  if (spec->info.spec.derived_table_type == PT_IS_SUBQUERY
 	      || spec->info.spec.derived_table_type == PT_DERIVED_DBLINK_TABLE)
 	    {
-	      (void) mq_copypush_sargable_terms (parser, node, spec);
+	      (void) mq_copypush_sargable_terms (parser, (*nodep), spec);
 	    }
 	  else
 	    {
@@ -136,7 +136,7 @@ qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** w
 	  CAST_POINTER_TO_NODE (tmp_spec);
 	  if (mq_is_outer_join_spec (parser, tmp_spec) && !PT_SPEC_IS_CTE (tmp_spec))
 	    {
-	      node = qo_reduce_outer_joined_tables (parser, tmp_spec, node);
+	      (*nodep) = qo_reduce_outer_joined_tables (parser, tmp_spec, (*nodep));
 	    }
 	  point = point->next;
 	}
@@ -145,7 +145,7 @@ qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** w
 	  parser_free_tree (parser, point_list);
 	}
 
-      qo_reduce_joined_tables_referenced_by_foreign_key (parser, node);
+      qo_reduce_joined_tables_referenced_by_foreign_key (parser, (*nodep));
     }
 
   return true;
