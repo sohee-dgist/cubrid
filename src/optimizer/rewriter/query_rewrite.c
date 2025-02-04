@@ -44,7 +44,6 @@
  *   1. Pre-rewrite: Transform subqueries and hidden columns for better structure.
  *   2. Rewrite: Apply rules to simplify conditions and improve performance.
  *   3. Auto-parameterize: Replace constants with parameter markers for query caching.
- *   4. Finalize: Return subquery.
  */
 static PT_NODE *
 qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
