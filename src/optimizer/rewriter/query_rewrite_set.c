@@ -41,68 +41,6 @@
 #include "dbtype.h"
 #include "query_rewrite.h"
 
-static bool qo_check_distinct_union (PARSER_CONTEXT * parser, PT_NODE * node);
-static bool qo_check_hint_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_HINT_ENUM hint);
-static PT_NODE *qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * limit);
-
-
-/*
- * qo_rewrite_union_with_limit_clause () - qo_rewrite_union_with_limit_clause
- *   return: PT_NODE *
- *   parser(in): parser environment
- *   node(in): possible query
- *   If LIMIT clause is specified without ORDER BY clause, we will rewrite the UNION query as derived.
- *   
- *   Example:
- *   (SELECT ...) UNION (SELECT ...) LIMIT 10 
- *   will be rewritten to ->
- *   SELECT * FROM ((SELECT ...) UNION (SELECT ...)) T WHERE INST_NUM() <= 10
- */
-
-PT_NODE *
-qo_rewrite_union_with_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep)
-{
-  PT_NODE *limit, *limit_node, *derived;
-  bool single_tuple_bak;
-
-  limit = pt_limit_to_numbering_expr (parser, node->info.query.limit, PT_INST_NUM, false);
-  if (limit == NULL)
-    {
-      return node;
-    }
-
-  node->info.query.flag.rewrite_limit = 0;
-
-  /* back up */
-  limit_node = node->info.query.limit;
-  node->info.query.limit = NULL;
-
-  single_tuple_bak = node->info.query.flag.single_tuple;
-  node->info.query.flag.single_tuple = false;
-
-  /* push limit to union */
-  if (node->info.query.order_by == NULL && !qo_check_distinct_union (parser, node)
-      && !qo_check_hint_union (parser, node, PT_HINT_NO_PUSH_PRED))
-    {
-      node = qo_push_limit_to_union (parser, node, limit_node);
-    }
-
-  derived = mq_rewrite_query_as_derived (parser, node);
-  if (derived != NULL)
-    {
-      PT_NODE_MOVE_NUMBER_OUTERLINK (derived, node);
-
-      assert (derived->info.query.q.select.where == NULL);
-      derived->info.query.q.select.where = limit;
-      node = derived;
-    }
-
-  /* recovery */
-  node->info.query.flag.single_tuple = single_tuple_bak;
-  node->info.query.limit = limit_node;
-
-  return node;
-}
 
 /*
  * qo_push_limit_to_union () - push limit on union query
@@ -112,7 +50,7 @@ qo_rewrite_union_with_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node, PT_
  *   arg(in):
  *   continue_walk(in):
  */
-static PT_NODE *
+PT_NODE *
 qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * limit)
 {
   PT_NODE *save_next, *add_limit;
@@ -173,7 +111,7 @@ qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * limit
  *   arg(in):
  *   continue_walk(in):
  */
-static bool
+bool
 qo_check_distinct_union (PARSER_CONTEXT * parser, PT_NODE * node)
 {
   bool result = false;
@@ -204,7 +142,7 @@ qo_check_distinct_union (PARSER_CONTEXT * parser, PT_NODE * node)
  *   arg(in):
  *   continue_walk(in):
  */
-static bool
+bool
 qo_check_hint_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_HINT_ENUM hint)
 {
   bool result = false;

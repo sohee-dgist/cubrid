@@ -119,7 +119,9 @@ void qo_reduce_equality_terms (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE 
 PT_NODE *qo_reduce_equality_terms_post (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 
 /* optimize set */
-PT_NODE *qo_rewrite_union_with_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep);
+bool qo_check_distinct_union (PARSER_CONTEXT * parser, PT_NODE * node);
+bool qo_check_hint_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_HINT_ENUM hint);
+PT_NODE *qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * limit);
 
 /* optimize select queries */
 PT_NODE *qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void *arg, int *continue_walk);
