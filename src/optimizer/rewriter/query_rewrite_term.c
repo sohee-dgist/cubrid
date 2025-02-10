@@ -23,15 +23,6 @@
 #ident "$Id$"
 
 #include <assert.h>
-#include "parser.h"
-#include "parser_message.h"
-#include "parse_tree.h"
-
-#include "object_primitive.h"
-#include "object_representation.h"
-
-#include "dbtype.h"
-
 #include "query_rewrite.h"
 #include "query_rewrite_util.h"
 
@@ -44,7 +35,7 @@ static void qo_apply_range_intersection (PARSER_CONTEXT * parser, PT_NODE ** whe
 static void qo_fold_is_and_not_null (PARSER_CONTEXT * parser, PT_NODE ** wherep);
 
 /*
- * qo_rewrite_queries () - checks all subqueries for rewrite optimizations
+ * qo_rewrite_terms () - checks all subqueries for rewrite optimizations
  *   return: PT_NODE *
  *   parser(in): parser environment
  *   node(in): possible query
@@ -54,16 +45,16 @@ static void qo_fold_is_and_not_null (PARSER_CONTEXT * parser, PT_NODE ** wherep)
  *   Verify correctness before modifying previous steps
  */
 void
-qo_rewrite_predicates (PARSER_CONTEXT * parser, PT_NODE ** predicates)
+qo_rewrite_terms (PARSER_CONTEXT * parser, PT_NODE ** terms)
 {
-  if (*predicates)
+  if (*terms)
     {
-      qo_converse_sarg_terms (parser, *predicates);
-      qo_reduce_comp_pair_terms (parser, predicates);
-      qo_rewrite_like_terms (parser, predicates);
-      qo_convert_to_range (parser, predicates);
-      qo_apply_range_intersection (parser, predicates);
-      qo_fold_is_and_not_null (parser, predicates);
+      qo_converse_sarg_terms (parser, *terms);
+      qo_reduce_comp_pair_terms (parser, terms);
+      qo_rewrite_like_terms (parser, terms);
+      qo_convert_to_range (parser, terms);
+      qo_apply_range_intersection (parser, terms);
+      qo_fold_is_and_not_null (parser, terms);
     }
 }
 

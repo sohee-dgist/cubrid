@@ -24,13 +24,8 @@
 
 #include <assert.h>
 
-#include "parser.h"
-#include "parser_message.h"
-#include "parse_tree.h"
-#include "optimizer.h"
-#include "view_transform.h"
-#include "query_rewrite_util.h"
 #include "query_rewrite.h"
+#include "query_rewrite_util.h"
 
 /*
  * qo_rewrite_queries () - checks all subqueries for rewrite optimizations
@@ -474,14 +469,14 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
 	  QO_CHECK_AND_REDUCE_EQUALITY_TERMS (parser, node, merge_del_wherep);
 	}
 
-      qo_rewrite_predicates (parser, wherep);
-      qo_rewrite_predicates (parser, havingp);
-      qo_rewrite_predicates (parser, startwithp);
-      qo_rewrite_predicates (parser, connectbyp);
-      qo_rewrite_predicates (parser, aftercbfilterp);
-      qo_rewrite_predicates (parser, merge_upd_wherep);
-      qo_rewrite_predicates (parser, merge_ins_wherep);
-      qo_rewrite_predicates (parser, merge_del_wherep);
+      qo_rewrite_terms (parser, wherep);
+      qo_rewrite_terms (parser, havingp);
+      qo_rewrite_terms (parser, startwithp);
+      qo_rewrite_terms (parser, connectbyp);
+      qo_rewrite_terms (parser, aftercbfilterp);
+      qo_rewrite_terms (parser, merge_upd_wherep);
+      qo_rewrite_terms (parser, merge_ins_wherep);
+      qo_rewrite_terms (parser, merge_del_wherep);
 
       /* rewrite select queries */
       if (node->node_type == PT_SELECT)

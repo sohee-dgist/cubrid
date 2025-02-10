@@ -25,8 +25,17 @@
 
 #ident "$Id$"
 
+#include "dbtype.h"
+#include "object_primitive.h"
+#include "object_representation.h"
+#include "optimizer.h"
 #include "parser.h"
-
+#include "parser_message.h"
+#include "parse_tree.h"
+#include "semantic_check.h"
+#include "view_transform.h"
+#include "virtual_object.h"
+#include "xasl_generation.h"
 
 #define DB_MAX_LITERAL_PRECISION 255
 
@@ -114,7 +123,7 @@ typedef enum dnf_merge_range_result DNF_MERGE_RANGE_RESULT;
 PT_NODE *qo_rewrite_subqueries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 
 /* optimize predications */
-void qo_rewrite_predicates (PARSER_CONTEXT * parser, PT_NODE ** predications);
+void qo_rewrite_terms (PARSER_CONTEXT * parser, PT_NODE ** predications);
 void qo_reduce_equality_terms (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep);
 PT_NODE *qo_reduce_equality_terms_post (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 

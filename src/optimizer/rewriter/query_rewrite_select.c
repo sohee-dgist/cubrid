@@ -23,25 +23,9 @@
 #ident "$Id$"
 
 #include <assert.h>
-
-#include "parser.h"
-#include "parser_message.h"
-#include "parse_tree.h"
-
-#include "optimizer.h"
-#include "xasl_generation.h"
-
-#include "virtual_object.h"
-#include "system_parameter.h"
-#include "semantic_check.h"
-#include "execute_schema.h"
-#include "view_transform.h"
-
-#include "object_primitive.h"
-#include "object_representation.h"
 #include "query_rewrite.h"
 #include "query_rewrite_util.h"
-#include "dbtype.h"
+
 
 static PT_NODE *qo_reset_location (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 static PT_NODE *qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);

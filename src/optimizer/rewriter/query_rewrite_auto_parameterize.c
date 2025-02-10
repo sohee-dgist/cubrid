@@ -23,16 +23,9 @@
 #ident "$Id$"
 
 #include <assert.h>
-#include "parser.h"
-#include "parser_message.h"
-#include "parse_tree.h"
-#include "optimizer.h"
 
-
-#include "object_primitive.h"
-#include "object_representation.h"
-
-#include "dbtype.h"
+#include "query_rewrite.h"
+#include "query_rewrite_util.h"
 
 /*
  * qo_do_auto_parameterize () - Convert value to host variable (input marker)
