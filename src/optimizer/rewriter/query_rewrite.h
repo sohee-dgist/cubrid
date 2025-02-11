@@ -46,7 +46,6 @@ typedef struct pt_name_spec_info PT_NAME_SPEC_INFO;
 typedef struct qo_reset_location_info RESET_LOCATION_INFO;
 typedef struct qo_reduce_reference_info QO_REDUCE_REFERENCE_INFO;
 
-
 struct spec_id_info
 {
   UINTPTR id;
@@ -122,10 +121,14 @@ typedef enum dnf_merge_range_result DNF_MERGE_RANGE_RESULT;
 /* optimize subqueries */
 PT_NODE *qo_rewrite_subqueries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 
-/* optimize predications */
-void qo_rewrite_terms (PARSER_CONTEXT * parser, PT_NODE ** predications);
+/* optimize terms */
+void qo_rewrite_terms (PARSER_CONTEXT * parser, PT_NODE ** terms);
 void qo_reduce_equality_terms (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE ** wherep);
 PT_NODE *qo_reduce_equality_terms_post (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
+int qo_is_reduceable_const (PT_NODE * expr);
+PT_NODE *qo_get_name_by_spec_id (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
+PT_NODE *qo_check_nullable_expr_with_spec (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
+bool qo_check_condition_yields_null (PARSER_CONTEXT * parser, PT_NODE * path_spec, PT_NODE * query_where);
 
 /* optimize set */
 bool qo_check_distinct_union (PARSER_CONTEXT * parser, PT_NODE * node);
@@ -137,9 +140,35 @@ PT_NODE *qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void
 PT_NODE *qo_analyze_path_join (PARSER_CONTEXT * parser, PT_NODE * path_spec, void *arg, int *continue_walk);
 bool qo_can_generate_single_table_connect_by (PARSER_CONTEXT * parser, PT_NODE * node);
 bool qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE ** wherep, int *seqno);
+void qo_move_on_clause_of_explicit_join_to_where_clause (PARSER_CONTEXT * parser, PT_NODE ** fromp, PT_NODE ** wherep);
 
 /* qo_do_auto_parameterize is defined in parser.h */
 void qo_do_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node);
 void qo_do_auto_parameterize_keylimit_clause (PARSER_CONTEXT * parser, PT_NODE * node);
+
+/* utility */
+int qo_is_oid_const (PT_NODE * node);
+PT_NODE *qo_rewrite_hidden_col_as_derived (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * parent_node);
+void qo_rewrite_index_hints (PARSER_CONTEXT * parser, PT_NODE * statement);
+
+/* macros */
+#define QO_CHECK_AND_REDUCE_EQUALITY_TERMS(parser, node, where) \
+  do { \
+      if (!node->flag.done_reduce_equality_terms) \
+      { \
+          node->flag.done_reduce_equality_terms = true; \
+          qo_reduce_equality_terms (parser, node, where); \
+      } \
+  } while (0)
+
+
+#define PROCESS_IF_EXISTS(parser, condition, func) \
+	do                                                 \
+	{                                                  \
+		if (*(condition))                                \
+		{                                                \
+			func(parser, *condition);                      \
+		}                                                \
+	} while (0)
 
 #endif /* _QUERY_REWRITER_H_ */

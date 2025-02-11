@@ -25,7 +25,6 @@
 #include <assert.h>
 
 #include "query_rewrite.h"
-#include "query_rewrite_util.h"
 
 /*
  * qo_do_auto_parameterize () - Convert value to host variable (input marker)

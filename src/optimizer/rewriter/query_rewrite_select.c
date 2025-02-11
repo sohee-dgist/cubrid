@@ -24,7 +24,6 @@
 
 #include <assert.h>
 #include "query_rewrite.h"
-#include "query_rewrite_util.h"
 
 
 static PT_NODE *qo_reset_location (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
@@ -192,6 +191,52 @@ qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void *arg, in
     }
 
   return spec;
+}
+
+/*
+ * qo_move_on_clause_of_explicit_join_to_where_clause () - move on clause of explicit join to where clause
+ *   return: void
+ *   parser(in): parser environment
+ *   fromp(in/out): &from of SELECT, &spec of UPDATE/DELETE
+ *   wherep(in/out): &where of SELECT/UPDATE/DELETE
+ *
+ * NOTE: It moves on clause of explicit join for SELECT/UPDATE/DELETE to where clase for temporary purpose.
+ *       qo_optimize_queries_post will restore them after several optimizations, for instance, range merge/intersection,
+ *       auto-parameterization.
+ *
+ */
+void
+qo_move_on_clause_of_explicit_join_to_where_clause (PARSER_CONTEXT * parser, PT_NODE ** fromp, PT_NODE ** wherep)
+{
+  PT_NODE *t_node, *spec;
+
+  t_node = *wherep;
+  while (t_node != NULL && t_node->next != NULL)
+    {
+      t_node = t_node->next;
+    }
+
+  for (spec = *fromp; spec != NULL; spec = spec->next)
+    {
+      if (spec->node_type == PT_SPEC && spec->info.spec.on_cond != NULL)
+	{
+	  if (t_node == NULL)
+	    {
+	      t_node = *wherep = spec->info.spec.on_cond;
+	    }
+	  else
+	    {
+	      t_node->next = spec->info.spec.on_cond;
+	    }
+
+	  spec->info.spec.on_cond = NULL;
+
+	  while (t_node->next != NULL)
+	    {
+	      t_node = t_node->next;
+	    }
+	}
+    }
 }
 
 /*

@@ -22,6 +22,32 @@
 
 #if defined(ENABLE_UNUSED_FUNCTION)
 /*
+ * qo_is_partition_attr () -
+ *   return:
+ *   node(in):
+ */
+static int
+qo_is_partition_attr (PT_NODE * node)
+{
+  if (node == NULL)
+    {
+      return 0;
+    }
+
+  node = pt_get_end_path_node (node);
+
+  if (node->node_type == PT_NAME && node->info.name.meta_class == PT_NORMAL && node->info.name.spec_id)
+    {
+      if (node->info.name.partition)
+	{
+	  return 1;
+	}
+    }
+
+  return 0;
+}
+
+/*
  * qo_convert_path_to_name () -
  *   return: PT_NODE *
  *   parser(in): parser environment

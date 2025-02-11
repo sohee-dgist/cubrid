@@ -24,7 +24,6 @@
 
 #include <assert.h>
 #include "query_rewrite.h"
-#include "query_rewrite_util.h"
 
 
 /*

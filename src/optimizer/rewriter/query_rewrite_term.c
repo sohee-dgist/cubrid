@@ -24,8 +24,6 @@
 
 #include <assert.h>
 #include "query_rewrite.h"
-#include "query_rewrite_util.h"
-
 
 static void qo_converse_sarg_terms (PARSER_CONTEXT * parser, PT_NODE * where);
 static void qo_reduce_comp_pair_terms (PARSER_CONTEXT * parser, PT_NODE ** wherep);
@@ -209,6 +207,189 @@ qo_collect_name_spec_post (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, i
   return node;
 }
 
+/* 
+ * qo_get_name_by_spec_id () - looks for a name with a matching id
+ *   return: PT_NODE *
+ *   parser(in): parser environment
+ *   node(in): (name) node to compare id's with
+ *   arg(in): info of spec and result
+ *   continue_walk(in):
+ */
+PT_NODE *
+qo_get_name_by_spec_id (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
+{
+  SPEC_ID_INFO *info = (SPEC_ID_INFO *) arg;
+
+  if (node->node_type == PT_NAME && node->info.name.spec_id == info->id)
+    {
+      *continue_walk = PT_STOP_WALK;
+      info->appears = true;
+    }
+
+  return node;
+}
+
+/*
+ * qo_check_nullable_expr () -
+ *   return:
+ *   parser(in):
+ *   node(in):
+ *   arg(in):
+ *   continue_walk(in):
+ */
+PT_NODE *
+qo_check_nullable_expr (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
+{
+  int *nullable_cntp = (int *) arg;
+
+  if (node->node_type == PT_EXPR)
+    {
+      /* check for nullable term: expr(..., NULL, ...) can be non-NULL */
+      switch (node->info.expr.op)
+	{
+	case PT_IS_NULL:
+	case PT_CASE:
+	case PT_COALESCE:
+	case PT_NVL:
+	case PT_NVL2:
+	case PT_DECODE:
+	case PT_IF:
+	case PT_IFNULL:
+	case PT_ISNULL:
+	case PT_CONCAT_WS:
+	case PT_NULLSAFE_EQ:
+	  /* NEED FUTURE OPTIMIZATION */
+	  (*nullable_cntp)++;
+	  break;
+	default:
+	  break;
+	}
+    }
+
+  return node;
+}
+
+/*
+ * qo_replace_spec_name_with_null () - replace spec names with PT_TYPE_NULL pt_values
+ *   return: PT_NODE *
+ *   parser(in): parser environment
+ *   node(in): (name) node to compare id's with
+ *   arg(in): spec
+ *   continue_walk(in):
+ */
+static PT_NODE *
+qo_replace_spec_name_with_null (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
+{
+  PT_NODE *spec = (PT_NODE *) arg;
+  PT_NODE *name;
+
+  if (node->node_type == PT_NAME && node->info.name.spec_id == spec->info.spec.id)
+    {
+      node->node_type = PT_VALUE;
+      node->type_enum = PT_TYPE_NULL;
+    }
+
+  if (node->node_type == PT_DOT_ && (name = node->info.dot.arg2) && name->info.name.spec_id == spec->info.spec.id)
+    {
+      parser_free_tree (parser, name);
+      parser_free_tree (parser, node->info.expr.arg1);
+      node->node_type = PT_VALUE;
+      node->type_enum = PT_TYPE_NULL;
+      /* By changing this node, we need to null the value container so that we protect parts of the code that ignore
+       * type_enum set to PT_TYPE_NULL.  This is particularly problematic on PCs since they have different alignment
+       * requirements. */
+      node->info.value.data_value.set = NULL;
+    }
+
+  return node;
+}
+
+/*
+ * qo_check_condition_yields_null () -
+ *   return:
+ *   parser(in): parser environment
+ *   path_spec(in): to test attributes as NULL
+ *   query_where(in): clause to evaluate
+ */
+bool
+qo_check_condition_yields_null (PARSER_CONTEXT * parser, PT_NODE * path_spec, PT_NODE * query_where)
+{
+  PT_NODE *where;
+  bool result = false;
+  SEMANTIC_CHK_INFO sc_info = { NULL, NULL, 0, 0, 0, false, false };
+
+  if (query_where == NULL)
+    {
+      return result;
+    }
+
+  where = parser_copy_tree_list (parser, query_where);
+  where = parser_walk_tree (parser, where, qo_replace_spec_name_with_null, path_spec, NULL, NULL);
+
+  sc_info.top_node = where;
+  sc_info.donot_fold = false;
+  where = pt_semantic_type (parser, where, &sc_info);
+  result = pt_false_search_condition (parser, where);
+  parser_free_tree (parser, where);
+
+  /*
+   * Ignore any error returned from semantic type check.
+   * Just wanted to evaluate where clause with nulled spec names.
+   */
+  if (pt_has_error (parser))
+    {
+      parser_free_tree (parser, parser->error_msgs);
+      parser->error_msgs = NULL;
+    }
+
+  return result;
+}
+
+/*
+ * qo_check_nullable_expr_with_spec () -
+ *   return:
+ *   parser(in):
+ *   node(in):
+ *   arg(in):
+ *   continue_walk(in):
+ */
+PT_NODE *
+qo_check_nullable_expr_with_spec (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
+{
+  SPEC_ID_INFO *info = (SPEC_ID_INFO *) arg;
+
+  if (node->node_type == PT_EXPR)
+    {
+      /* check for nullable term: expr(..., NULL, ...) can be non-NULL */
+      switch (node->info.expr.op)
+	{
+	case PT_IS_NULL:
+	case PT_CASE:
+	case PT_COALESCE:
+	case PT_NVL:
+	case PT_NVL2:
+	case PT_DECODE:
+	case PT_IF:
+	case PT_IFNULL:
+	case PT_ISNULL:
+	case PT_CONCAT_WS:
+	  info->appears = false;
+	  parser_walk_tree (parser, node, qo_get_name_by_spec_id, info, NULL, NULL);
+	  if (info->appears)
+	    {
+	      info->nullable = true;
+	      *continue_walk = PT_STOP_WALK;
+	    }
+	  break;
+	default:
+	  break;
+	}
+    }
+
+  return node;
+}
+
+
 /*
  * qo_is_cast_attr () -
  *   return:
@@ -226,6 +407,29 @@ qo_is_cast_attr (PT_NODE * expr)
     }
 
   return pt_is_attr (arg1);
+}
+
+/*
+ * qo_is_reduceable_const () -
+ *   return:
+ *   expr(in):
+ */
+int
+qo_is_reduceable_const (PT_NODE * expr)
+{
+  while (expr && expr->node_type == PT_EXPR)
+    {
+      if (expr->info.expr.op == PT_CAST || expr->info.expr.op == PT_TO_ENUMERATION_VALUE)
+	{
+	  expr = expr->info.expr.arg1;
+	}
+      else
+	{
+	  return false;		/* give up */
+	}
+    }
+
+  return PT_IS_CONST_INPUT_HOSTVAR (expr);
 }
 
 /*
