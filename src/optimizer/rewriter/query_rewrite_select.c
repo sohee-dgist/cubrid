@@ -27,7 +27,6 @@
 
 
 static PT_NODE *qo_reset_location (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
-static PT_NODE *qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 static PT_NODE *qo_get_name_cnt_by_spec (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 static PT_NODE *qo_collect_name_with_eq_const (PARSER_CONTEXT * parser, PT_NODE * on_cond, PT_NODE * spec);
 static PT_NODE *qo_reduce_outer_joined_tables (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query);
@@ -201,7 +200,7 @@ qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void *arg, in
  *   wherep(in/out): &where of SELECT/UPDATE/DELETE
  *
  * NOTE: It moves on clause of explicit join for SELECT/UPDATE/DELETE to where clase for temporary purpose.
- *       qo_optimize_queries_post will restore them after several optimizations, for instance, range merge/intersection,
+ *       qo_rewrite_queries_post will restore them after several optimizations, for instance, range merge/intersection,
  *       auto-parameterization.
  *
  */

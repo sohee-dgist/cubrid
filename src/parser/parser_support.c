@@ -4781,7 +4781,7 @@ pt_dup_key_update_stmt (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * assig
       goto error_exit;
     }
 
-  /* We need the OID PT_VALUE to become a host variable, see qo_optimize_queries () */
+  /* We need the OID PT_VALUE to become a host variable, see qo_rewrite_queries () */
   node->info.update.search_cond->flag.force_auto_parameterize = 1;
 
   /* We don't want constant folding on the WHERE clause because it might result in the host variable being removed from
