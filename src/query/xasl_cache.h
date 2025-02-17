@@ -51,6 +51,7 @@ enum xcache_cleanup_reason
 {
   XCACHE_CLEANUP_NONE,		/* no cleanup is required */
   XCACHE_CLEANUP_FULL,
+  XCACHE_CLEANUP_FULL_MEMORY,
   XCACHE_CLEANUP_TIMEOUT
 };
 typedef enum xcache_cleanup_reason XCACHE_CLEANUP_REASON;

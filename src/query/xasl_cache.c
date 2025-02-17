@@ -55,6 +55,8 @@
 
 #define XCACHE_ENTRY_FIX_COUNT_MASK	    ((INT32) 0x00FFFFFF)
 
+#define UNPACK_SCALE 3 // change stx_init_xasl_unpack_info too
+
 #if defined (SERVER_MODE)
 #define XCACHE_ENTRY_DELETED_BY_ME \
   ((XCACHE_ENTRY_MARK_DELETED | XCACHE_ENTRY_FIX_COUNT_MASK) - logtb_get_current_tran_index ())
@@ -114,7 +116,11 @@ struct xcache
   INT32 cleanup_flag;
   BINARY_HEAP *cleanup_bh;
   XCACHE_CLEANUP_CANDIDATE *cleanup_array;
-
+  int soft_limit;
+  int hard_limit;
+  int max_plan_size;
+  volatile INT32 memory_usage_cache;
+  volatile INT32 memory_usage_clone;
   XCACHE_STATS stats;
 
   // *INDENT-OFF*
@@ -130,6 +136,11 @@ struct xcache
     , cleanup_flag (0)
     , cleanup_bh (NULL)
     , cleanup_array (NULL)
+    , soft_limit (0)
+    , hard_limit (0)
+    , max_plan_size (0)
+    , memory_usage_cache (0)
+    , memory_usage_clone (0)
     , stats XCACHE_STATS_INITIALIZER
   {
   }
@@ -138,9 +149,16 @@ struct xcache
 
 XCACHE xcache_Global;
 
+/* TODO :: add system parameter */
+#define XCACHE_HARD_LIMIT 8// MB
 /* Create macro's for xcache_Global fields to access them as if they were global variables. */
 #define xcache_Enabled xcache_Global.enabled
 #define xcache_Soft_capacity xcache_Global.soft_capacity
+#define xcache_Soft_limit xcache_Global.soft_limit
+#define xcache_Hard_limit xcache_Global.hard_limit
+#define xcache_Max_plan_size xcache_Global.max_plan_size
+#define xcache_Memory_usage_cache xcache_Global.memory_usage_cache
+#define xcache_Memory_usage_clone xcache_Global.memory_usage_clone
 #define xcache_Time_threshold xcache_Global.time_threshold
 #define xcache_Last_cleaned_time xcache_Global.last_cleaned_time
 #define xcache_Hashmap xcache_Global.hashmap
@@ -270,6 +288,7 @@ static BH_CMP_RESULT xcache_compare_cleanup_candidates (const void *left, const 
 static bool xcache_check_recompilation_threshold (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry);
 static void xcache_invalidate_entries (THREAD_ENTRY * thread_p,
 				       bool (*invalidate_check) (XASL_CACHE_ENTRY *, const void *), const void *arg);
+static INT32 xcache_entry_get_entrysize (XASL_CACHE_ENTRY * xcache_entry);
 static bool xcache_entry_is_related_to_oid (XASL_CACHE_ENTRY * xcache_entry, const void *arg);
 static bool xcache_entry_is_related_to_sha1 (XASL_CACHE_ENTRY * xcache_entry, const void *arg);
 static XCACHE_CLEANUP_REASON xcache_need_cleanup (void);
@@ -293,14 +312,25 @@ xcache_initialize (THREAD_ENTRY * thread_p)
   xcache_Soft_capacity = prm_get_integer_value (PRM_ID_XASL_CACHE_MAX_ENTRIES);
   xcache_Time_threshold = prm_get_integer_value (PRM_ID_XASL_CACHE_TIME_THRESHOLD_IN_MINUTES) * 60;
 
+  xcache_Hard_limit = XCACHE_HARD_LIMIT * 1024 * 1024;
+  xcache_Soft_limit = xcache_Hard_limit * 0.8;
+  xcache_Memory_usage_cache = 0;
+  xcache_Memory_usage_clone = 0;
+  xcache_Max_plan_size = xcache_Hard_limit - xcache_Soft_limit;
+
   if (xcache_Soft_capacity <= 0)
     {
       xcache_log ("disabled.\n");
       return NO_ERROR;
     }
 
-  xcache_Max_clones = prm_get_integer_value (PRM_ID_XASL_CACHE_MAX_CLONES);
+  if (xcache_Hard_limit <= 0)
+    {
+      xcache_log ("disabled.\n");
+      return NO_ERROR;
+    }
 
+  xcache_Max_clones = prm_get_integer_value (PRM_ID_XASL_CACHE_MAX_CLONES);
   const int freelist_block_count = 2;
   const int freelist_block_size = std::max (1, xcache_Soft_capacity / freelist_block_count);
   xcache_Hashmap.init (xcache_Ts, THREAD_TS_XCACHE, xcache_Soft_capacity, freelist_block_size, freelist_block_count,
@@ -517,9 +547,11 @@ xcache_entry_uninit (void *entry)
       assert (xcache_entry->n_cache_clones == 0
 	      || (xcache_Max_clones > 0 && xcache_entry->n_cache_clones <= xcache_Max_clones));
       assert (xcache_entry->n_cache_clones == 0 || xcache_entry->cache_clones != NULL);
+      INT32 xasl_clone_size = sizeof (xasl_unpack_info) + sizeof(XASL_NODE) + UNPACK_SCALE * xcache_entry->stream.buffer_size;
       while (xcache_entry->n_cache_clones > 0)
 	{
 	  xcache_clone_decache (thread_p, &xcache_entry->cache_clones[--xcache_entry->n_cache_clones]);
+          ATOMIC_INC_32(&xcache_Memory_usage_clone, -xasl_clone_size);
 	}
       if (xcache_entry->cache_clones != &xcache_entry->one_clone)
 	{
@@ -1062,6 +1094,9 @@ xcache_find_xasl_id_for_execute (THREAD_ENTRY * thread_p, const XASL_ID * xid, X
     }
   assert (xclone->xasl != NULL && xclone->xasl_buf != NULL);
 
+  INT32 xasl_clone_size = sizeof (xasl_unpack_info) + sizeof(XASL_NODE) + UNPACK_SCALE * (* xcache_entry)->stream.buffer_size;
+  ATOMIC_INC_32(&xcache_Memory_usage_clone, xasl_clone_size);
+
   xcache_log ("loaded xasl clone: \n"
 	      XCACHE_LOG_ENTRY_TEXT ("entry")
 	      XCACHE_LOG_XASL_ID_TEXT ("lookup xasl_id")
@@ -1320,8 +1355,13 @@ xcache_entry_set_request_recompile_flag (THREAD_ENTRY * thread_p, XASL_CACHE_ENT
 static XCACHE_CLEANUP_REASON
 xcache_need_cleanup (void)
 {
+  /* TODO :: erase soft capacity */
   struct timeval current_time;
-  if (xcache_Soft_capacity < xcache_Entry_count)
+  if (xcache_Soft_limit < xcache_Memory_usage_cache)
+    {
+      return XCACHE_CLEANUP_FULL_MEMORY;
+    }
+  else if (xcache_Soft_capacity < xcache_Entry_count)
     {
       return XCACHE_CLEANUP_FULL;
     }
@@ -1368,7 +1408,6 @@ xcache_insert (THREAD_ENTRY * thread_p, const compile_context * context, XASL_ST
   struct timeval time_stored;
   size_t sql_hash_text_len = 0, sql_user_text_len = 0, sql_plan_text_len = 0;
   char *strbuf = NULL;
-
   assert (xcache_entry != NULL && *xcache_entry == NULL);
   assert (stream != NULL);
   assert (stream->buffer != NULL || !context->recompile_xasl);
@@ -1483,8 +1522,16 @@ xcache_insert (THREAD_ENTRY * thread_p, const compile_context * context, XASL_ST
       (*xcache_entry)->list_ht_no = -1;
 
       /* Now that new entry is initialized, we can try to insert it. */
+      int entry_size = xcache_entry_get_entrysize (*xcache_entry);
+      if (entry_size < xcache_Global.max_plan_size)
+	{
+	  inserted = xcache_Hashmap.insert_given (thread_p, xid, *xcache_entry);
+	}
+      else
+	{
+	  inserted = false;	/* not found! oom! todo */
+	}
 
-      inserted = xcache_Hashmap.insert_given (thread_p, xid, *xcache_entry);
       assert (*xcache_entry != NULL);
 
       /* We have incremented fix count, we don't need lf_tran anymore. */
@@ -1539,6 +1586,7 @@ xcache_insert (THREAD_ENTRY * thread_p, const compile_context * context, XASL_ST
 	    {
 	      /* new entry added */
 	      ATOMIC_INC_32 (&xcache_Entry_count, 1);
+	      ATOMIC_INC_32 (&xcache_Memory_usage_cache, entry_size);
 	    }
 
 	  xcache_log ("successful find or insert: \n"
@@ -1643,6 +1691,7 @@ xcache_insert (THREAD_ENTRY * thread_p, const compile_context * context, XASL_ST
       if (xcache_need_cleanup () != XCACHE_CLEANUP_NONE && xcache_Cleanup_flag == 0)
 	{
 	  /* Try to clean up some of the oldest entries. */
+	  /* TODO ! */
 	  xcache_cleanup (thread_p);
 	}
 
@@ -1801,9 +1850,11 @@ xcache_invalidate_entries (THREAD_ENTRY * thread_p, bool (*invalidate_check) (XA
 		   * Successfully marked for delete. Save it to delete after the iteration.
 		   * No need to acquire the clone mutex, since I'm the unique user.
 		   */
+                  INT32 xasl_clone_size = sizeof (xasl_unpack_info) + sizeof(XASL_NODE) + UNPACK_SCALE * xcache_entry->stream.buffer_size;
 		  while (xcache_entry->n_cache_clones > 0)
 		    {
 		      xcache_clone_decache (thread_p, &xcache_entry->cache_clones[--xcache_entry->n_cache_clones]);
+                      ATOMIC_INC_32(&xcache_Memory_usage_clone, -xasl_clone_size);
 		    }
 		  delete_xids[n_delete_xids++] = xcache_entry->xasl_id;
 		}
@@ -1833,6 +1884,40 @@ xcache_invalidate_entries (THREAD_ENTRY * thread_p, bool (*invalidate_check) (XA
     }
 
 #undef XCACHE_DELETE_XIDS_SIZE
+}
+
+/*
+ * xcache_entry_get_entrysize () - Get the size of the XASL cache entry.
+ *
+ * return	     : Size of the XASL cache entry.
+ * xcache_entry (in) : XASL cache entry.
+ */
+static INT32
+xcache_entry_get_entrysize (XASL_CACHE_ENTRY * xcache_entry)
+{
+  INT32 entry_size = 0;
+  entry_size += sizeof (XASL_CACHE_ENTRY);
+  entry_size += sizeof (XCACHE_RELATED_OBJECT) * xcache_entry->n_related_objects;
+  /* clone size */
+  entry_size += sizeof (XASL_CLONE) * xcache_entry->n_cache_clones;
+  /* xasl stream size */
+  entry_size += sizeof (XASL_ID);
+  entry_size += sizeof (XASL_NODE_HEADER);
+  entry_size += xcache_entry->stream.buffer_size;
+  /* sql info size */
+  if (xcache_entry->sql_info.sql_hash_text)
+    {
+      entry_size += strlen (xcache_entry->sql_info.sql_hash_text) + 1;
+    }
+  if (xcache_entry->sql_info.sql_user_text)
+    {
+      entry_size += strlen (xcache_entry->sql_info.sql_user_text) + 1;
+    }
+  if (xcache_entry->sql_info.sql_plan_text)
+    {
+      entry_size += strlen (xcache_entry->sql_info.sql_plan_text) + 1;
+    }
+  return entry_size;
 }
 
 /*
@@ -1998,17 +2083,41 @@ xcache_dump (THREAD_ENTRY * thread_p, FILE * fp)
   fprintf (fp, "Deletes at cleanup:	    %lld\n", (long long) XCACHE_STAT_GET (deletes_at_cleanup));
   /* add overflow, RT checks. */
 
+  /* Memory info */
+  fprintf (fp, "\n");
+  fprintf (fp, "XASL Cache Memory Info:\n");
+
+  double max_mem_mb = xcache_Hard_limit / (1024.0 * 1024.0);
+  double curr_mem_kb = xcache_Memory_usage_cache / (1024.0);
+  double curr_mem_clone_kb = xcache_Memory_usage_clone / (1024.0);
+  double max_plan_mb = xcache_Max_plan_size / (1024.0 * 1024.0);
+  double usage_percent = (curr_mem_kb + curr_mem_clone_kb) / max_mem_mb * 100.0 / 1024;
+  fprintf (fp, "  Memory Hard Limit:           %.2f MB\n", max_mem_mb);
+  fprintf (fp, "  Current Memory (cache):      %.2f KB\n", curr_mem_kb);
+  fprintf (fp, "  Current Memory (clone):      %.2f KB\n", curr_mem_clone_kb);
+  fprintf (fp, "  Total Memory:                %.2f KB\n", curr_mem_kb + curr_mem_clone_kb);
+  fprintf (fp, "  Max Plan Size:               %.2f MB\n", max_plan_mb);
+  fprintf (fp, "  Usage Percent:               %.2f%%\n", usage_percent);
+  fprintf (fp, "\n");
+
   xcache_hashmap_iterator iter = { thread_p, xcache_Hashmap };
 
   fprintf (fp, "\nEntries:\n");
   while ((xcache_entry = iter.iterate ()) != NULL)
     {
+      double entry_byte;
+      double entry_percent;
       fprintf (fp, "\n");
+      fprintf (fp, "----------------------------------------\n");
       fprintf (fp, "  XASL_ID = { \n");
       fprintf (fp, "              sha1 = { %08x %08x %08x %08x %08x }, \n", SHA1_AS_ARGS (&xcache_entry->xasl_id.sha1));
       fprintf (fp, "	          time_stored = %d sec, %d usec \n",
 	       xcache_entry->xasl_id.time_stored.sec, xcache_entry->xasl_id.time_stored.usec);
       fprintf (fp, "            } \n");
+      /* TODO :: Memory Usage */
+      entry_byte = xcache_entry_get_entrysize (xcache_entry);
+      entry_percent = (double) entry_byte / xcache_Hard_limit * 100.0 / (1024.0 * 1024.0);
+      fprintf (fp, "  Memory Usage: %.2f Bytes (%.1f%% of total cache)\n", entry_byte, entry_percent);
       fprintf (fp, "  fix_count = %d \n", xcache_entry->xasl_id.cache_flag & XCACHE_ENTRY_FIX_COUNT_MASK);
       fprintf (fp, "  cache flags = %08x \n", xcache_entry->xasl_id.cache_flag & XCACHE_ENTRY_FLAGS_MASK);
       fprintf (fp, "  reference count = %lld \n", (long long) ATOMIC_INC_64 (&xcache_entry->ref_count, 0));
@@ -2040,6 +2149,7 @@ xcache_dump (THREAD_ENTRY * thread_p, FILE * fp)
 		   LOCK_TO_LOCKMODE_STRING (xcache_entry->related_objects[oid_index].lock),
 		   xcache_entry->related_objects[oid_index].tcard);
 	}
+      fprintf (fp, "----------------------------------------\n");
     }
 
   /* TODO: add more */
@@ -2092,7 +2202,7 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 {
   /* Free XASL. Be sure that was already cleared to avoid memory leaks. */
   assert (IS_XASL_INITIAL_STATUS (xclone->xasl->status));
-
+  INT32 xasl_clone_size = sizeof (xasl_unpack_info) + sizeof(XASL_NODE) + UNPACK_SCALE * xcache_entry->stream.buffer_size;
   if (xcache_uses_clones ())
     {
       pthread_mutex_lock (&xcache_entry->cache_clones_mutex);
@@ -2103,11 +2213,13 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 	    {
 	      /* Extend cache clone buffer. */
 	      XASL_CLONE *new_clones = NULL;
+              int old_capacity = xcache_entry->cache_clones_capacity;
 	      int new_capacity = MIN (xcache_Max_clones, xcache_entry->cache_clones_capacity * 2);
 	      if (xcache_entry->cache_clones == &xcache_entry->one_clone)
 		{
 		  assert (xcache_entry->cache_clones_capacity == 1);
 		  new_clones = (XASL_CLONE *) malloc (new_capacity * sizeof (XASL_CLONE));
+                  ATOMIC_INC_32(&xcache_Memory_usage_clone, static_cast<INT32>(new_capacity * sizeof(XASL_CLONE)));
 		  if (new_clones != NULL)
 		    {
 		      new_clones[0].xasl = xcache_entry->cache_clones[0].xasl;
@@ -2117,6 +2229,7 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 	      else
 		{
 		  new_clones = (XASL_CLONE *) realloc (xcache_entry->cache_clones, new_capacity * sizeof (XASL_CLONE));
+                  ATOMIC_INC_32(&xcache_Memory_usage_clone, static_cast<INT32>((new_capacity - old_capacity) * sizeof(XASL_CLONE)));
 		}
 	      if (new_clones == NULL)
 		{
@@ -2128,6 +2241,7 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 
 		  /* Free the clone. */
 		  xcache_clone_decache (thread_p, xclone);
+                  ATOMIC_INC_32(&xcache_Memory_usage_clone, -xasl_clone_size);
 		  return;
 		}
 	      xcache_entry->cache_clones = new_clones;
@@ -2145,6 +2259,7 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 
       /* No more room. */
       xcache_clone_decache (thread_p, xclone);
+      ATOMIC_INC_32(&xcache_Memory_usage_clone, -xasl_clone_size);
       return;
     }
 
@@ -2153,7 +2268,7 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 }
 
 /*
- * xcache_cleanup () - Cleanup xasl cache when soft capacity is exceeded.
+ * xcache_cleanup () - Cleanup xasl cache when soft capacity is exceeded. (and soft limit is exceeded)
  *
  * return	 : Void.
  * thread_p (in) : Thread entry.
@@ -2171,6 +2286,7 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
   int candidate_index;
   int count;
   int cleanup_count;
+  int cleanup_memory;
   BINARY_HEAP *bh = NULL;
   int save_max_capacity = 0;
 
@@ -2261,6 +2377,37 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
 
 	  (void) bh_try_insert (bh, &candidate, NULL);
 	}
+      count = bh->element_count;
+    }
+  else if (need_cleanup == XCACHE_CLEANUP_FULL_MEMORY)
+    {
+      int memory_deleted = 0;
+      /* TODO :: erase soft capacity */
+
+      cleanup_memory =
+	(int) (XCACHE_CLEANUP_RATIO * xcache_Soft_limit) + (xcache_Memory_usage_cache - xcache_Soft_limit);
+      /* Start cleanup. */
+      perfmon_inc_stat (thread_p, PSTAT_PC_NUM_FULL);
+
+      assert (bh->element_count == 0);
+      bh->element_count = 0;
+
+      /* Collect candidates for cleanup. */
+      while ((xcache_entry = iter.iterate ()) != NULL && memory_deleted < cleanup_memory)
+	{
+	  candidate.xid = xcache_entry->xasl_id;
+	  candidate.xcache = xcache_entry;
+	  if (candidate.xid.cache_flag > 0 || (candidate.xid.cache_flag & XCACHE_ENTRY_FLAGS_MASK))
+	    {
+	      /* Either marked for delete or recompile, or already recompiled. Not a valid candidate. */
+	      continue;
+	    }
+
+	  (void) bh_try_insert (bh, &candidate, NULL);
+
+	  memory_deleted += xcache_entry_get_entrysize (xcache_entry);
+
+	}
 
       count = bh->element_count;
     }
@@ -2290,7 +2437,7 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
   /* Remove candidates from cache. */
   for (candidate_index = 0; candidate_index < count; candidate_index++)
     {
-      if (need_cleanup == XCACHE_CLEANUP_FULL)	/* binary heap for candidates */
+      if (need_cleanup == XCACHE_CLEANUP_FULL || need_cleanup == XCACHE_CLEANUP_FULL_MEMORY)	/* binary heap for candidates */
 	{
 	  /* Get candidate at candidate_index. */
 	  bh_element_at (bh, candidate_index, &candidate);
@@ -2320,6 +2467,8 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
 	  XCACHE_STAT_INC (deletes_at_cleanup);
 	  perfmon_inc_stat (thread_p, PSTAT_PC_NUM_DELETE);
 	  ATOMIC_INC_32 (&xcache_Entry_count, -1);
+	  ATOMIC_INC_32 (&xcache_Memory_usage_cache,
+			 -xcache_entry_get_entrysize (candidate.xcache));
 	}
       else
 	{
@@ -2345,8 +2494,8 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
 	}
     }
 
-  xcache_log ("cleanup finished: entries = %d \n"
-	      XCACHE_LOG_TRAN_TEXT, xcache_Entry_count, XCACHE_LOG_TRAN_ARGS (thread_p));
+  xcache_log ("cleanup finished: entries = %d, memory = %d \n"
+	      XCACHE_LOG_TRAN_TEXT, xcache_Entry_count, xcache_Memory_usage_cache, XCACHE_LOG_TRAN_ARGS (thread_p));
 
   XCACHE_STAT_INC (cleanups);
 
