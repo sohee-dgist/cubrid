@@ -280,7 +280,7 @@ static LF_ENTRY_DESCRIPTOR xcache_Entry_descriptor = {
 static bool xcache_entry_mark_deleted (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry);
 static bool xcache_entry_set_request_recompile_flag (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry,
 						     bool set_flag);
-static void xcache_clone_decache (THREAD_ENTRY * thread_p, XASL_CLONE * xclone);
+static void xcache_clone_decache (THREAD_ENTRY * thread_p, XASL_CLONE * xclone, XASL_CACHE_ENTRY * xcache_entry);
 static void xcache_cleanup (THREAD_ENTRY * thread_p);
 static BH_CMP_RESULT xcache_compare_cleanup_candidates (const void *left, const void *right, BH_CMP_ARG ignore_arg);
 static bool xcache_check_recompilation_threshold (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry);
@@ -311,11 +311,11 @@ xcache_initialize (THREAD_ENTRY * thread_p)
   xcache_Soft_capacity = prm_get_integer_value (PRM_ID_XASL_CACHE_MAX_ENTRIES);
   xcache_Time_threshold = prm_get_integer_value (PRM_ID_XASL_CACHE_TIME_THRESHOLD_IN_MINUTES) * 60;
 
-  xcache_Hard_limit = xcache_Soft_capacity * 1024;
+  xcache_Hard_limit = xcache_Soft_capacity * 1; // temporary
   xcache_Soft_limit = xcache_Hard_limit * 0.8;
   xcache_Memory_usage_cache = 0;
   xcache_Memory_usage_clone = 0;
-  xcache_Max_plan_size = (xcache_Hard_limit - xcache_Soft_limit) / UNPACK_SCALE;
+  xcache_Max_plan_size = (xcache_Hard_limit - xcache_Soft_limit) / (UNPACK_SCALE);
 
   if (xcache_Soft_capacity <= 0)
     {
@@ -543,7 +543,7 @@ xcache_entry_uninit (void *entry)
       assert (xcache_entry->n_cache_clones == 0 || xcache_entry->cache_clones != NULL);
       while (xcache_entry->n_cache_clones > 0)
 	{
-	  xcache_clone_decache (thread_p, &xcache_entry->cache_clones[--xcache_entry->n_cache_clones]);
+	  xcache_clone_decache (thread_p, &xcache_entry->cache_clones[--xcache_entry->n_cache_clones], xcache_entry);
 	}
       if (xcache_entry->cache_clones != &xcache_entry->one_clone)
 	{
@@ -1183,7 +1183,7 @@ xcache_unfix (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry)
       /* No need to acquire the clone mutex, since I'm the unique user. */
       while (xcache_entry->n_cache_clones > 0)
 	{
-	  xcache_clone_decache (thread_p, &xcache_entry->cache_clones[--xcache_entry->n_cache_clones]);
+	 xcache_clone_decache  (thread_p, &xcache_entry->cache_clones[--xcache_entry->n_cache_clones], xcache_entry);
 	}
 
       /* need to clear list-cache first */
@@ -1200,6 +1200,7 @@ xcache_unfix (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry)
 	}
     }
 }
+
 
 /*
  * xcache_entry_mark_deleted () - Mark XASL cache entry for delete.
@@ -1260,6 +1261,8 @@ xcache_entry_mark_deleted (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_en
   XCACHE_STAT_INC (deletes);
   perfmon_inc_stat (thread_p, PSTAT_PC_NUM_DELETE);
   ATOMIC_INC_32 (&xcache_Entry_count, -1);
+  ATOMIC_INC_32 (&xcache_Memory_usage_cache, -xcache_entry_get_entrysize (xcache_entry));
+  ATOMIC_INC_32 (&xcache_Memory_usage_clone, -xcache_entry_get_clonesize (xcache_entry));
 
   /* The entry can be deleted if the only fixer is this transaction. */
   return (new_cache_flag == XCACHE_ENTRY_DELETED_BY_ME);
@@ -1353,10 +1356,6 @@ xcache_need_cleanup (void)
   if (xcache_Soft_limit < xcache_Memory_usage_cache + xcache_Memory_usage_clone)
     {
       return XCACHE_CLEANUP_FULL_MEMORY;
-    }
-  else if (xcache_Soft_capacity < xcache_Entry_count)
-    {
-      return XCACHE_CLEANUP_FULL;
     }
   else
     {
@@ -1835,7 +1834,7 @@ xcache_invalidate_entries (THREAD_ENTRY * thread_p, bool (*invalidate_check) (XA
 		   */
 		  while (xcache_entry->n_cache_clones > 0)
 		    {
-		      xcache_clone_decache (thread_p, &xcache_entry->cache_clones[--xcache_entry->n_cache_clones]);
+		      xcache_clone_decache (thread_p, &xcache_entry->cache_clones[--xcache_entry->n_cache_clones], xcache_entry);
 		    }
 		  delete_xids[n_delete_xids++] = xcache_entry->xasl_id;
 		}
@@ -1880,7 +1879,7 @@ xcache_entry_get_entrysize (XASL_CACHE_ENTRY * xcache_entry)
   entry_size += sizeof (XASL_CACHE_ENTRY);
   entry_size += sizeof (XCACHE_RELATED_OBJECT) * xcache_entry->n_related_objects;
   /* clone size */
-  entry_size += sizeof (XASL_CLONE) * xcache_entry->n_cache_clones;
+  entry_size += sizeof (XASL_CLONE) * (xcache_entry->n_cache_clones + 1);
   /* xasl stream size */
   entry_size += sizeof (XASL_ID);
   entry_size += sizeof (XASL_NODE_HEADER);
@@ -2179,11 +2178,11 @@ xcache_can_entry_cache_list (XASL_CACHE_ENTRY * xcache_entry)
  * xclone (in/out) : XASL cache clone.
  */
 static void
-xcache_clone_decache (THREAD_ENTRY * thread_p, XASL_CLONE * xclone)
+xcache_clone_decache (THREAD_ENTRY * thread_p, XASL_CLONE * xclone, XASL_CACHE_ENTRY * xcache_entry)
 {
   HL_HEAPID save_heapid = db_change_private_heap (thread_p, 0);
   XASL_SET_FLAG (xclone->xasl, XASL_DECACHE_CLONE);
-  INT32 xasl_clone_size = sizeof (xasl_unpack_info) + sizeof (XASL_NODE) + xclone->xasl_buf->alloc_size;
+  INT32 xasl_clone_size = sizeof (xasl_unpack_info) + sizeof (XASL_NODE) + UNPACK_SCALE * xcache_entry->stream.buffer_size;
   ATOMIC_INC_32 (&xcache_Memory_usage_clone, -xasl_clone_size);
   qexec_clear_xasl (thread_p, xclone->xasl, true);
   free_xasl_unpack_info (thread_p, xclone->xasl_buf);
@@ -2222,7 +2221,7 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 		{
 		  assert (xcache_entry->cache_clones_capacity == 1);
 		  new_clones = (XASL_CLONE *) malloc (new_capacity * sizeof (XASL_CLONE));
-		  ATOMIC_INC_32 (&xcache_Memory_usage_clone,
+		  ATOMIC_INC_32 (&xcache_Memory_usage_cache,
 				 static_cast < INT32 > (new_capacity * sizeof (XASL_CLONE)));
 		  if (new_clones != NULL)
 		    {
@@ -2233,7 +2232,7 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 	      else
 		{
 		  new_clones = (XASL_CLONE *) realloc (xcache_entry->cache_clones, new_capacity * sizeof (XASL_CLONE));
-		  ATOMIC_INC_32 (&xcache_Memory_usage_clone,
+		  ATOMIC_INC_32 (&xcache_Memory_usage_cache,
 				 static_cast < INT32 > ((new_capacity - old_capacity) * sizeof (XASL_CLONE)));
 		}
 	      if (new_clones == NULL)
@@ -2245,7 +2244,7 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 		  pthread_mutex_unlock (&xcache_entry->cache_clones_mutex);
 
 		  /* Free the clone. */
-		  xcache_clone_decache (thread_p, xclone);
+		  xcache_clone_decache (thread_p, xclone, xcache_entry);
 		  return;
 		}
 	      xcache_entry->cache_clones = new_clones;
@@ -2262,7 +2261,7 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
       pthread_mutex_unlock (&xcache_entry->cache_clones_mutex);
 
       /* No more room. */
-      xcache_clone_decache (thread_p, xclone);
+      xcache_clone_decache (thread_p, xclone, xcache_entry);
       return;
     }
 
@@ -2282,6 +2281,7 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
   assert (xcache_Enabled);
 
   xcache_hashmap_iterator iter = { thread_p, xcache_Hashmap };
+  xcache_hashmap_iterator iter2 = { thread_p, xcache_Hashmap };
   XASL_CACHE_ENTRY *xcache_entry = NULL;
   XCACHE_CLEANUP_CANDIDATE candidate;
   struct timeval current_time;
@@ -2292,6 +2292,7 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
   int cleanup_memory;
   BINARY_HEAP *bh = NULL;
   int save_max_capacity = 0;
+
 
   /* We can allow only one cleanup process at a time. There is no point in duplicating this work. Therefore, anyone
    * trying to do the cleanup should first try to set xcache_Cleanup_flag. */
@@ -2315,13 +2316,35 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
   xcache_log ("cleanup start: entries = %d \n" XCACHE_LOG_TRAN_TEXT,
 	      xcache_Entry_count, XCACHE_LOG_TRAN_ARGS (thread_p));
 
-  if (need_cleanup == XCACHE_CLEANUP_FULL)	/* cleanup because there are too many entries */
+
+  if (need_cleanup == XCACHE_CLEANUP_FULL_MEMORY)
     {
-      cleanup_count = (int) (XCACHE_CLEANUP_RATIO * xcache_Soft_capacity) + (xcache_Entry_count - xcache_Soft_capacity);
+      /* The cleanup is a two-step process:
+       * 1. Iterate through hash and select candidates for cleanup. The least recently used entries are sorted into a binary
+       *    heap.
+       *    NOTE: the binary heap does not story references to hash entries; it stores copies from the candidate keys and
+       *    last used timer of course to sort the candidates.
+       * 2. Remove collected candidates from hash. Entries must be unfix and no flags must be set.
+       */
+
+      int memory_deleted = 0;
+      /* TODO :: erase soft capacity */
+      int cleanup_count = 0;
+      cleanup_memory = (int) (XCACHE_CLEANUP_RATIO * xcache_Soft_limit) + (xcache_Memory_usage_cache + xcache_Memory_usage_clone - xcache_Soft_limit);
+
       /* Start cleanup. */
       perfmon_inc_stat (thread_p, PSTAT_PC_NUM_FULL);
 
-      if (cleanup_count <= 0)
+
+      /* Collect candidates for cleanup. */
+      while ((xcache_entry = iter.iterate ()) != NULL && memory_deleted < cleanup_memory)
+	{
+	  memory_deleted += xcache_entry_get_entrysize (xcache_entry) + xcache_entry_get_clonesize (xcache_entry);
+	  cleanup_count++;
+	}
+     
+      /* Check if there are enough candidates to cleanup. */
+     if (cleanup_count <= 0)
 	{
 	  /* Not enough to cleanup */
 	  if (!ATOMIC_CAS_32 (&xcache_Cleanup_flag, 1, 0))
@@ -2355,20 +2378,12 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
 	      return;
 	    }
 	}
-
-      /* The cleanup is a two-step process:
-       * 1. Iterate through hash and select candidates for cleanup. The least recently used entries are sorted into a binary
-       *    heap.
-       *    NOTE: the binary heap does not story references to hash entries; it stores copies from the candidate keys and
-       *    last used timer of course to sort the candidates.
-       * 2. Remove collected candidates from hash. Entries must be unfix and no flags must be set.
-       */
-
       assert (bh->element_count == 0);
       bh->element_count = 0;
 
+      /* init iterator */
       /* Collect candidates for cleanup. */
-      while ((xcache_entry = iter.iterate ()) != NULL)
+      while ((xcache_entry = iter2.iterate ()) != NULL)
 	{
 	  candidate.xid = xcache_entry->xasl_id;
 	  candidate.xcache = xcache_entry;
@@ -2380,38 +2395,6 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
 
 	  (void) bh_try_insert (bh, &candidate, NULL);
 	}
-      count = bh->element_count;
-    }
-  else if (need_cleanup == XCACHE_CLEANUP_FULL_MEMORY)
-    {
-      int memory_deleted = 0;
-      /* TODO :: erase soft capacity */
-
-      cleanup_memory =
-	(int) (XCACHE_CLEANUP_RATIO * xcache_Soft_limit) + (xcache_Memory_usage_cache + xcache_Memory_usage_clone - xcache_Soft_limit);
-      /* Start cleanup. */
-      perfmon_inc_stat (thread_p, PSTAT_PC_NUM_FULL);
-
-      assert (bh->element_count == 0);
-      bh->element_count = 0;
-
-      /* Collect candidates for cleanup. */
-      while ((xcache_entry = iter.iterate ()) != NULL && memory_deleted < cleanup_memory)
-	{
-	  candidate.xid = xcache_entry->xasl_id;
-	  candidate.xcache = xcache_entry;
-	  if (candidate.xid.cache_flag > 0 || (candidate.xid.cache_flag & XCACHE_ENTRY_FLAGS_MASK))
-	    {
-	      /* Either marked for delete or recompile, or already recompiled. Not a valid candidate. */
-	      continue;
-	    }
-
-	  (void) bh_try_insert (bh, &candidate, NULL);
-
-	  memory_deleted += xcache_entry_get_entrysize (xcache_entry) + xcache_entry_get_clonesize (xcache_entry);
-
-	}
-
       count = bh->element_count;
     }
   else
@@ -2440,7 +2423,7 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
   /* Remove candidates from cache. */
   for (candidate_index = 0; candidate_index < count; candidate_index++)
     {
-      if (need_cleanup == XCACHE_CLEANUP_FULL || need_cleanup == XCACHE_CLEANUP_FULL_MEMORY)	/* binary heap for candidates */
+      if (need_cleanup == XCACHE_CLEANUP_FULL_MEMORY)	/* binary heap for candidates */
 	{
 	  /* Get candidate at candidate_index. */
 	  bh_element_at (bh, candidate_index, &candidate);
@@ -2470,7 +2453,8 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
 	  XCACHE_STAT_INC (deletes_at_cleanup);
 	  perfmon_inc_stat (thread_p, PSTAT_PC_NUM_DELETE);
 	  ATOMIC_INC_32 (&xcache_Entry_count, -1);
-	  ATOMIC_INC_32 (&xcache_Memory_usage_clone, -xcache_entry_get_clonesize (candidate.xcache));
+          ATOMIC_INC_32 (&xcache_Memory_usage_cache, -xcache_entry_get_entrysize (candidate.xcache));
+          ATOMIC_INC_32 (&xcache_Memory_usage_clone, -xcache_entry_get_clonesize (candidate.xcache));
 	}
       else
 	{
@@ -2479,7 +2463,7 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
 		      XCACHE_LOG_XASL_ID_ARGS (&candidate.xid), XCACHE_LOG_TRAN_ARGS (thread_p));
 	}
     }
-  if (need_cleanup == XCACHE_CLEANUP_FULL)
+  if (need_cleanup == XCACHE_CLEANUP_FULL_MEMORY)
     {
       /* Reset binary heap. */
       bh->element_count = 0;
