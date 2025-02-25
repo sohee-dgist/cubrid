@@ -12189,35 +12189,3 @@ pt_make_data_default_expr_node (PARSER_CONTEXT * parser, PT_NODE * expr)
 
   return node;
 }
-
-/*
- * pt_to_null_ordering () - get null ordering from a sort spec
- * return : null ordering
- * sort_spec (in) : sort spec
- */
-SORT_NULLS
-pt_to_null_ordering (PT_NODE * sort_spec)
-{
-  assert_release (sort_spec != NULL);
-  assert_release (sort_spec->node_type == PT_SORT_SPEC);
-
-  switch (sort_spec->info.sort_spec.nulls_first_or_last)
-    {
-    case PT_NULLS_FIRST:
-      return S_NULLS_FIRST;
-
-    case PT_NULLS_LAST:
-      return S_NULLS_LAST;
-
-    case PT_NULLS_DEFAULT:
-    default:
-      break;
-    }
-
-  if (sort_spec->info.sort_spec.asc_or_desc == PT_ASC)
-    {
-      return S_NULLS_FIRST;
-    }
-
-  return S_NULLS_LAST;
-}

@@ -698,8 +698,6 @@ extern "C"
 
   extern void pt_free_dblink_remote_cols (PARSER_CONTEXT * parser);
   extern int pt_check_dblink_column_alias (PARSER_CONTEXT * parser, PT_NODE * dblink);
-
-  extern SORT_NULLS pt_to_null_ordering (PT_NODE * sort_spec);
 #ifdef __cplusplus
 }
 #endif
