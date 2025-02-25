@@ -311,7 +311,7 @@ xcache_initialize (THREAD_ENTRY * thread_p)
   xcache_Soft_capacity = prm_get_integer_value (PRM_ID_XASL_CACHE_MAX_ENTRIES);
   xcache_Time_threshold = prm_get_integer_value (PRM_ID_XASL_CACHE_TIME_THRESHOLD_IN_MINUTES) * 60;
 
-  xcache_Hard_limit = xcache_Soft_capacity * 1; // temporary
+  xcache_Hard_limit = xcache_Soft_capacity * 256; // temporary
   xcache_Soft_limit = xcache_Hard_limit * 0.8;
   xcache_Memory_usage_cache = 0;
   xcache_Memory_usage_clone = 0;
@@ -2281,7 +2281,6 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
   assert (xcache_Enabled);
 
   xcache_hashmap_iterator iter = { thread_p, xcache_Hashmap };
-  xcache_hashmap_iterator iter2 = { thread_p, xcache_Hashmap };
   XASL_CACHE_ENTRY *xcache_entry = NULL;
   XCACHE_CLEANUP_CANDIDATE candidate;
   struct timeval current_time;
@@ -2383,7 +2382,8 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
 
       /* init iterator */
       /* Collect candidates for cleanup. */
-      while ((xcache_entry = iter2.iterate ()) != NULL)
+      iter.restart ();
+      while ((xcache_entry = iter.iterate ()) != NULL)
 	{
 	  candidate.xid = xcache_entry->xasl_id;
 	  candidate.xcache = xcache_entry;
