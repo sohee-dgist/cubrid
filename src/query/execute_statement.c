@@ -9307,7 +9307,7 @@ do_prepare_update (PARSER_CONTEXT * parser, PT_NODE * statement)
 	  contextp->sql_hash_text = (char *) statement->alias_print;
 	  err =
 	    SHA1Compute ((unsigned char *) contextp->sql_hash_text, (unsigned) strlen (contextp->sql_hash_text),
-			 &contextp->sha1);
+			 &contextp->sha1, parser->host_var_count + parser->auto_param_count);
 	  if (err != NO_ERROR)
 	    {
 	      ASSERT_ERROR ();
@@ -10670,7 +10670,7 @@ do_prepare_delete (PARSER_CONTEXT * parser, PT_NODE * statement, PT_NODE * paren
 	  contextp->sql_hash_text = (char *) statement->alias_print;
 	  err =
 	    SHA1Compute ((unsigned char *) contextp->sql_hash_text, (unsigned) strlen (contextp->sql_hash_text),
-			 &contextp->sha1);
+			 &contextp->sha1, parser->host_var_count + parser->auto_param_count);
 	  if (err != NO_ERROR)
 	    {
 	      ASSERT_ERROR ();
@@ -11317,7 +11317,7 @@ do_prepare_insert_internal (PARSER_CONTEXT * parser, PT_NODE * statement)
   contextp->sql_hash_text = (char *) statement->alias_print;
   error =
     SHA1Compute ((unsigned char *) contextp->sql_hash_text, (unsigned) strlen (contextp->sql_hash_text),
-		 &contextp->sha1);
+		 &contextp->sha1, parser->host_var_count + parser->auto_param_count);
   if (error != NO_ERROR)
     {
       ASSERT_ERROR ();
@@ -14535,7 +14535,7 @@ do_prepare_select (PARSER_CONTEXT * parser, PT_NODE * statement)
   contextp->sql_hash_text = (char *) statement->alias_print;
   err =
     SHA1Compute ((unsigned char *) contextp->sql_hash_text, (unsigned) strlen (contextp->sql_hash_text),
-		 &contextp->sha1);
+		 &contextp->sha1, parser->host_var_count + parser->auto_param_count);
   if (err != NO_ERROR)
     {
       ASSERT_ERROR ();
@@ -17536,7 +17536,7 @@ do_prepare_merge (PARSER_CONTEXT * parser, PT_NODE * statement)
       PT_NODE_PRINT_TO_ALIAS (parser, statement, (PT_CONVERT_RANGE | PT_PRINT_QUOTES | PT_PRINT_USER));
       contextp->sql_hash_text = (char *) statement->alias_print;
       err = SHA1Compute ((unsigned char *) contextp->sql_hash_text, (unsigned) strlen (contextp->sql_hash_text),
-			 &contextp->sha1);
+			 &contextp->sha1, parser->host_var_count + parser->auto_param_count);
       if (err != NO_ERROR)
 	{
 	  ASSERT_ERROR ();
