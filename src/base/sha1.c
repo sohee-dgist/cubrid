@@ -379,29 +379,31 @@ SHA1Compute (const unsigned char *message_array, size_t length, SHA1Hash * hash,
   assert (message_array != NULL);
   assert (hash != NULL);
 
-  if (host_var_count != 0) {
-        unsigned char *new_message;
-        size_t new_length = length + sizeof(int); 
+  if (host_var_count != 0)
+    {
+      unsigned char *new_message;
+      size_t new_length = length + sizeof (int);
 
-        new_message = (unsigned char *) malloc(new_length);
-        if (new_message == NULL)
-        {
-          /* TODO: Set an appropriate error message. */
-          er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 0, new_length);
-          return ER_FAILED;
-        }
+      new_message = (unsigned char *) malloc (new_length);
+      if (new_message == NULL)
+	{
+	  /* TODO: Set an appropriate error message. */
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 0, new_length);
+	  return ER_FAILED;
+	}
 
-        memcpy(new_message, message_array, length);
-        memcpy(new_message + length, &host_var_count, sizeof(int));
+      memcpy (new_message, message_array, length);
+      memcpy (new_message + length, &host_var_count, sizeof (int));
 
-        SHA1Reset (&context);
-        SHA1Input (&context, new_message, new_length);
-        free(new_message);
-  }
-  else {
-    SHA1Reset (&context);
-    SHA1Input (&context, message_array, length);
-  }
+      SHA1Reset (&context);
+      SHA1Input (&context, new_message, new_length);
+      free (new_message);
+    }
+  else
+    {
+      SHA1Reset (&context);
+      SHA1Input (&context, message_array, length);
+    }
   if (!SHA1Result (&context))
     {
       assert (false);
