@@ -13836,7 +13836,7 @@ mq_auto_param_merge_clauses (PARSER_CONTEXT * parser, PT_NODE * stmt)
   int i;
 
   /* auto-parameterize update assignments */
-  qo_do_auto_parameterize (parser, stmt->info.merge.update.assignment);
+  qo_auto_parameterize (parser, stmt->info.merge.update.assignment);
 
   /* auto-parameterize insert values clause */
   if (stmt->info.merge.insert.value_clauses)

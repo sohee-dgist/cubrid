@@ -38,7 +38,7 @@
  *
  */
 void
-qo_do_auto_parameterize (PARSER_CONTEXT * parser, PT_NODE * where)
+qo_auto_parameterize (PARSER_CONTEXT * parser, PT_NODE * where)
 {
   PT_NODE *cnf_node, *dnf_node, *between_and, *range;
   PT_NODE *node_prior;

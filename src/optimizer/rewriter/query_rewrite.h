@@ -142,7 +142,7 @@ bool qo_can_generate_single_table_connect_by (PARSER_CONTEXT * parser, PT_NODE *
 bool qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE ** wherep, int *seqno);
 void qo_move_on_clause_of_explicit_join_to_where_clause (PARSER_CONTEXT * parser, PT_NODE ** fromp, PT_NODE ** wherep);
 
-/* qo_do_auto_parameterize is defined in parser.h */
+/* qo_auto_parameterize is defined in parser.h */
 void qo_do_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node);
 void qo_do_auto_parameterize_keylimit_clause (PARSER_CONTEXT * parser, PT_NODE * node);
 

@@ -527,28 +527,28 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
   /* auto-parameterize convert value in expression to host variable (input marker) */
   if (call_auto_parameterize)
     {
-      PROCESS_IF_EXISTS (parser, wherep, qo_do_auto_parameterize);
-      PROCESS_IF_EXISTS (parser, havingp, qo_do_auto_parameterize);
-      PROCESS_IF_EXISTS (parser, startwithp, qo_do_auto_parameterize);
-      PROCESS_IF_EXISTS (parser, connectbyp, qo_do_auto_parameterize);
-      PROCESS_IF_EXISTS (parser, aftercbfilterp, qo_do_auto_parameterize);
-      PROCESS_IF_EXISTS (parser, merge_upd_wherep, qo_do_auto_parameterize);
-      PROCESS_IF_EXISTS (parser, merge_ins_wherep, qo_do_auto_parameterize);
-      PROCESS_IF_EXISTS (parser, merge_del_wherep, qo_do_auto_parameterize);
-      PROCESS_IF_EXISTS (parser, orderby_for_p, qo_do_auto_parameterize);
+      PROCESS_IF_EXISTS (parser, wherep, qo_auto_parameterize);
+      PROCESS_IF_EXISTS (parser, havingp, qo_auto_parameterize);
+      PROCESS_IF_EXISTS (parser, startwithp, qo_auto_parameterize);
+      PROCESS_IF_EXISTS (parser, connectbyp, qo_auto_parameterize);
+      PROCESS_IF_EXISTS (parser, aftercbfilterp, qo_auto_parameterize);
+      PROCESS_IF_EXISTS (parser, merge_upd_wherep, qo_auto_parameterize);
+      PROCESS_IF_EXISTS (parser, merge_ins_wherep, qo_auto_parameterize);
+      PROCESS_IF_EXISTS (parser, merge_del_wherep, qo_auto_parameterize);
+      PROCESS_IF_EXISTS (parser, orderby_for_p, qo_auto_parameterize);
 
     }
   else
     {
       if (*wherep && (*wherep)->flag.force_auto_parameterize)
-	qo_do_auto_parameterize (parser, *wherep);
+	qo_auto_parameterize (parser, *wherep);
       if (*merge_upd_wherep && (*merge_upd_wherep)->flag.force_auto_parameterize)
-	qo_do_auto_parameterize (parser, *merge_upd_wherep);
+	qo_auto_parameterize (parser, *merge_upd_wherep);
     }
 
   if (node->node_type == PT_UPDATE && call_auto_parameterize)
     {
-      qo_do_auto_parameterize (parser, node->info.update.assignment);
+      qo_auto_parameterize (parser, node->info.update.assignment);
     }
 
   if (pt_is_const_not_hostvar (*show_argp))

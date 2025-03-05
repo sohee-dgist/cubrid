@@ -594,7 +594,7 @@ extern "C"
   extern int pt_node_list_to_array (PARSER_CONTEXT * parser, PT_NODE * arg_list, PT_NODE * arg_array[],
 				    const int array_size, int *num_args);
   extern int pt_check_order_by (PARSER_CONTEXT * parser, PT_NODE * query);
-  extern void qo_do_auto_parameterize (PARSER_CONTEXT * parser, PT_NODE * where);
+  extern void qo_auto_parameterize (PARSER_CONTEXT * parser, PT_NODE * where);
 
   extern PT_NODE *pt_make_query_show_table (PARSER_CONTEXT * parser, bool is_full_syntax, int like_where_syntax,
 					    PT_NODE * like_or_where_expr);

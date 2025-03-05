@@ -3844,7 +3844,7 @@ struct parser_node
     unsigned is_hidden_column:1;
     unsigned is_paren:1;
     unsigned with_rollup:1;	/* WITH ROLLUP clause for GROUP BY */
-    unsigned force_auto_parameterize:1;	/* forces a call to qo_do_auto_parameterize (); this is a special flag used for
+    unsigned force_auto_parameterize:1;	/* forces a call to qo_auto_parameterize (); this is a special flag used for
 					 * processing ON DUPLICATE KEY UPDATE */
     unsigned do_not_fold:1;	/* disables constant folding on the node */
     unsigned is_cnf_start:1;
