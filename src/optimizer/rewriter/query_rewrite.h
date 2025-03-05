@@ -28,13 +28,13 @@
 #include "dbtype.h"
 #include "object_primitive.h"
 #include "object_representation.h"
+#include "object_domain.h"
 #include "optimizer.h"
 #include "parser.h"
 #include "parser_message.h"
 #include "parse_tree.h"
 #include "semantic_check.h"
 #include "view_transform.h"
-#include "virtual_object.h"
 
 #define DB_MAX_LITERAL_PRECISION 255
 
