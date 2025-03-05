@@ -573,7 +573,8 @@ extern "C"
   extern void pt_register_orphan_db_value (PARSER_CONTEXT * parser, const DB_VALUE * orphan);
   extern void pt_free_orphans (PARSER_CONTEXT * parser);
 
-extern void pt_free_escape_char (PARSER_CONTEXT * const parser, PT_NODE * const like, PT_NODE * const pattern, PT_NODE * const escape);
+  extern void pt_free_escape_char (PARSER_CONTEXT * const parser, PT_NODE * const like, PT_NODE * const pattern,
+				   PT_NODE * const escape);
 
   extern bool pt_sort_spec_cover (PT_NODE * cur_list, PT_NODE * new_list);
   extern bool pt_sort_spec_cover_groupby (PARSER_CONTEXT * parser, PT_NODE * sort_list, PT_NODE * group_list,
