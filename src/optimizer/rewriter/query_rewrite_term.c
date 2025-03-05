@@ -270,7 +270,7 @@ qo_check_nullable_expr (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int 
 }
 
 /*
- * qo_replace_spec_name_with_null () - replace spec names with PT_TYPE_NULL pt_values
+ * qo_replace_spec_name_null () - replace spec names with PT_TYPE_NULL pt_values
  *   return: PT_NODE *
  *   parser(in): parser environment
  *   node(in): (name) node to compare id's with
@@ -278,7 +278,7 @@ qo_check_nullable_expr (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int 
  *   continue_walk(in):
  */
 static PT_NODE *
-qo_replace_spec_name_with_null (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
+qo_replace_spec_name_null (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
 {
   PT_NODE *spec = (PT_NODE *) arg;
   PT_NODE *name;
@@ -305,14 +305,14 @@ qo_replace_spec_name_with_null (PARSER_CONTEXT * parser, PT_NODE * node, void *a
 }
 
 /*
- * qo_check_condition_yields_null () -
+ * qo_check_condition_null () -
  *   return:
  *   parser(in): parser environment
  *   path_spec(in): to test attributes as NULL
  *   query_where(in): clause to evaluate
  */
 bool
-qo_check_condition_yields_null (PARSER_CONTEXT * parser, PT_NODE * path_spec, PT_NODE * query_where)
+qo_check_condition_null (PARSER_CONTEXT * parser, PT_NODE * path_spec, PT_NODE * query_where)
 {
   PT_NODE *where;
   bool result = false;
@@ -324,7 +324,7 @@ qo_check_condition_yields_null (PARSER_CONTEXT * parser, PT_NODE * path_spec, PT
     }
 
   where = parser_copy_tree_list (parser, query_where);
-  where = parser_walk_tree (parser, where, qo_replace_spec_name_with_null, path_spec, NULL, NULL);
+  where = parser_walk_tree (parser, where, qo_replace_spec_name_null, path_spec, NULL, NULL);
 
   sc_info.top_node = where;
   sc_info.donot_fold = false;
@@ -1840,43 +1840,6 @@ qo_reduce_comp_pair_terms (PARSER_CONTEXT * parser, PT_NODE ** wherep)
 	    }
 	}
     }
-}
-
-/*
- * pt_is_ascii_string_value_node () -
- *   return: whether the node is a non-national string value (CHAR or VARCHAR)
- *   node(in):
- */
-static bool
-pt_is_ascii_string_value_node (const PT_NODE * const node)
-{
-  return (PT_IS_VALUE_NODE (node) && PT_IS_CHAR_STRING_TYPE (node->type_enum)
-	  && !PT_IS_NATIONAL_CHAR_STRING_TYPE (node->type_enum));
-}
-
-/*
- * pt_free_escape_char () - Frees the escape sequence of a PT_LIKE node and
- *                          leaves only the LIKE pattern in the parse tree.
- *   parser(in):
- *   like(in):
- *   pattern(in):
- *   escape(in):
- */
-static void
-pt_free_escape_char (PARSER_CONTEXT * const parser, PT_NODE * const like, PT_NODE * const pattern,
-		     PT_NODE * const escape)
-{
-  PT_NODE *const save_arg2 = like->info.expr.arg2;
-
-  assert (escape != NULL);
-  assert (PT_IS_EXPR_NODE_WITH_OPERATOR (save_arg2, PT_LIKE_ESCAPE));
-  assert (save_arg2->info.expr.arg1 == pattern);
-  assert (save_arg2->info.expr.arg2 == escape);
-
-  save_arg2->info.expr.arg1 = NULL;
-  parser_free_tree (parser, save_arg2);
-
-  like->info.expr.arg2 = pattern;
 }
 
 /*

@@ -35,7 +35,6 @@
 #include "semantic_check.h"
 #include "view_transform.h"
 #include "virtual_object.h"
-#include "xasl_generation.h"
 
 #define DB_MAX_LITERAL_PRECISION 255
 
@@ -129,7 +128,7 @@ PT_NODE *qo_reduce_equality_terms_post (PARSER_CONTEXT * parser, PT_NODE * node,
 int qo_is_reduceable_const (PT_NODE * expr);
 PT_NODE *qo_get_name_by_spec_id (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 PT_NODE *qo_check_nullable_expr_with_spec (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
-bool qo_check_condition_yields_null (PARSER_CONTEXT * parser, PT_NODE * path_spec, PT_NODE * query_where);
+bool qo_check_condition_null (PARSER_CONTEXT * parser, PT_NODE * path_spec, PT_NODE * query_where);
 
 /* optimize set */
 bool qo_check_distinct_union (PARSER_CONTEXT * parser, PT_NODE * node);
@@ -139,9 +138,9 @@ PT_NODE *qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_NOD
 /* optimize select queries */
 PT_NODE *qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void *arg, int *continue_walk);
 PT_NODE *qo_analyze_path_join (PARSER_CONTEXT * parser, PT_NODE * path_spec, void *arg, int *continue_walk);
-bool qo_can_generate_single_table_connect_by (PARSER_CONTEXT * parser, PT_NODE * node);
+bool qo_check_generate_single_tbl_connect_by (PARSER_CONTEXT * parser, PT_NODE * node);
 bool qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE ** wherep, int *seqno);
-void qo_move_on_clause_of_explicit_join_to_where_clause (PARSER_CONTEXT * parser, PT_NODE ** fromp, PT_NODE ** wherep);
+void qo_move_on_of_explicit_join_to_where (PARSER_CONTEXT * parser, PT_NODE ** fromp, PT_NODE ** wherep);
 void qo_rewrite_index_hints (PARSER_CONTEXT * parser, PT_NODE * statement);
 
 /* qo_auto_parameterize is defined in parser.h */

@@ -111,7 +111,7 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
 	  node->info.query.q.select.after_cb_filter = after_connectby_filter_part;
 
 	  /* if we have no joins prepare for using heap scans/index scans for start with list and connect by processing */
-	  if (qo_can_generate_single_table_connect_by (parser, node))
+	  if (qo_check_generate_single_tbl_connect_by (parser, node))
 	    {
 	      node->info.query.q.select.where = node->info.query.q.select.start_with;
 	      node->info.query.q.select.start_with = NULL;
@@ -122,8 +122,7 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
       /* Put all join conditions together with WHERE clause for rewrite optimization. But we can distinguish a join
        * condition from each other and from WHERE clause by location information that were marked at 'pt_bind_names()'.
        * We'll recover the parse tree of join conditions using the location information in shortly. */
-      qo_move_on_clause_of_explicit_join_to_where_clause (parser, &node->info.query.q.select.from,
-							  &node->info.query.q.select.where);
+      qo_move_on_of_explicit_join_to_where (parser, &node->info.query.q.select.from, &node->info.query.q.select.where);
 
       wherep = &node->info.query.q.select.where;
       havingp = &node->info.query.q.select.having;
@@ -153,8 +152,7 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
       break;
 
     case PT_UPDATE:
-      qo_move_on_clause_of_explicit_join_to_where_clause (parser, &node->info.update.spec,
-							  &node->info.update.search_cond);
+      qo_move_on_of_explicit_join_to_where (parser, &node->info.update.spec, &node->info.update.search_cond);
 
       wherep = &node->info.update.search_cond;
       orderby_for_p = &node->info.update.orderby_for;
@@ -162,8 +160,7 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
       break;
 
     case PT_DELETE:
-      qo_move_on_clause_of_explicit_join_to_where_clause (parser, &node->info.delete_.spec,
-							  &node->info.delete_.search_cond);
+      qo_move_on_of_explicit_join_to_where (parser, &node->info.delete_.spec, &node->info.delete_.search_cond);
 
       wherep = &node->info.delete_.search_cond;
       qo_rewrite_index_hints (parser, node);
@@ -603,7 +600,7 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
  *   tree(in):
  *   arg(in):
  *   continue_walk(in):
- * NOTE: see qo_move_on_clause_of_explicit_join_to_where_clause
+ * NOTE: see qo_move_on_of_explicit_join_to_where
  */
 static PT_NODE *
 qo_rewrite_queries_post (PARSER_CONTEXT * parser, PT_NODE * tree, void *arg, int *continue_walk)

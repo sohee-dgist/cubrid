@@ -29,18 +29,15 @@
 static PT_NODE *qo_reset_location (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 static PT_NODE *qo_get_name_cnt_by_spec (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 static PT_NODE *qo_collect_name_with_eq_const (PARSER_CONTEXT * parser, PT_NODE * on_cond, PT_NODE * spec);
-static PT_NODE *qo_reduce_outer_joined_tables (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query);
-static void qo_reduce_joined_tables_referenced_by_foreign_key (PARSER_CONTEXT * parser, PT_NODE * query);
+static PT_NODE *qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query);
+static void qo_reduce_joined_tbls_ref_by_fk (PARSER_CONTEXT * parser, PT_NODE * query);
 static bool qo_is_exclude_spec (PT_NODE * exclude_spec_point_list, PT_NODE * spec);
-static bool qo_check_primary_key_referenced_by_foreign_key_in_parent_spec (PARSER_CONTEXT * parser, PT_NODE * query,
-									   QO_REDUCE_REFERENCE_INFO *
-									   reduce_reference_info);
-static bool qo_check_foreign_keys_referencing_primary_key_in_child_spec (PARSER_CONTEXT * parser, PT_NODE * query,
-									 QO_REDUCE_REFERENCE_INFO *
-									 reduce_reference_info);
-static bool qo_check_foreign_key_referencing_primary_key_in_child_spec (PARSER_CONTEXT * parser, PT_NODE * query,
-									QO_REDUCE_REFERENCE_INFO *
-									reduce_reference_info);
+static bool qo_check_pk_ref_by_fk_in_parent_spec (PARSER_CONTEXT * parser, PT_NODE * query,
+						  QO_REDUCE_REFERENCE_INFO * reduce_reference_info);
+static bool qo_check_fks_ref_pk_in_child_spec (PARSER_CONTEXT * parser, PT_NODE * query,
+					       QO_REDUCE_REFERENCE_INFO * reduce_reference_info);
+static bool qo_check_fk_ref_pk_in_child_spec (PARSER_CONTEXT * parser, PT_NODE * query,
+					      QO_REDUCE_REFERENCE_INFO * reduce_reference_info);
 static bool qo_check_reduce_predicate_for_parent_spec (PARSER_CONTEXT * parser, PT_NODE * query,
 						       QO_REDUCE_REFERENCE_INFO * reduce_reference_info);
 static void qo_reduce_predicate_for_parent_spec (PARSER_CONTEXT * parser, PT_NODE * query,
@@ -126,7 +123,7 @@ qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE **
 	  CAST_POINTER_TO_NODE (tmp_spec);
 	  if (mq_is_outer_join_spec (parser, tmp_spec) && !PT_SPEC_IS_CTE (tmp_spec))
 	    {
-	      (*nodep) = qo_reduce_outer_joined_tables (parser, tmp_spec, (*nodep));
+	      (*nodep) = qo_reduce_outer_joined_tbls (parser, tmp_spec, (*nodep));
 	    }
 	  point = point->next;
 	}
@@ -135,7 +132,7 @@ qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE **
 	  parser_free_tree (parser, point_list);
 	}
 
-      qo_reduce_joined_tables_referenced_by_foreign_key (parser, (*nodep));
+      qo_reduce_joined_tbls_ref_by_fk (parser, (*nodep));
     }
 
   return true;
@@ -525,7 +522,7 @@ qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void *arg, in
 }
 
 /*
- * qo_move_on_clause_of_explicit_join_to_where_clause () - move on clause of explicit join to where clause
+ * qo_move_on_of_explicit_join_to_where () - move on clause of explicit join to where clause
  *   return: void
  *   parser(in): parser environment
  *   fromp(in/out): &from of SELECT, &spec of UPDATE/DELETE
@@ -537,7 +534,7 @@ qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void *arg, in
  *
  */
 void
-qo_move_on_clause_of_explicit_join_to_where_clause (PARSER_CONTEXT * parser, PT_NODE ** fromp, PT_NODE ** wherep)
+qo_move_on_of_explicit_join_to_where (PARSER_CONTEXT * parser, PT_NODE ** fromp, PT_NODE ** wherep)
 {
   PT_NODE *t_node, *spec;
 
@@ -622,7 +619,7 @@ qo_analyze_path_join (PARSER_CONTEXT * parser, PT_NODE * path_spec, void *arg, i
 
 	  if (info.appears)
 	    {
-	      if (qo_check_condition_yields_null (parser, path_spec, where))
+	      if (qo_check_condition_null (parser, path_spec, where))
 		{
 		  path_spec->info.spec.meta_class = PT_PATH_INNER;
 		}
@@ -1252,7 +1249,7 @@ exit_on_error:
 }
 
 /*
- * reduce_order_by () -
+ * qo_reduce_order_by () -
  *   return: NO_ERROR, if successful, otherwise returns error number
  *   parser(in): parser global context info for reentrancy
  *   node(in): query node has ORDER BY
@@ -1649,7 +1646,7 @@ qo_get_name_cnt_by_spec (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int
 }
 
 /*
- * qo_get_name_cnt_by_spec_without_oncond () - looks for a name with a matching id
+ * qo_get_name_cnt_by_spec_no_on () - looks for a name with a matching id
  *   return: PT_NODE *
  *   parser(in): parser environment
  *   spec(in):
@@ -1657,7 +1654,7 @@ qo_get_name_cnt_by_spec (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int
  *   continue_walk(in):
  */
 static PT_NODE *
-qo_get_name_cnt_by_spec_without_oncond (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
+qo_get_name_cnt_by_spec_no_on (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk)
 {
   SPEC_CNT_INFO *info = (SPEC_CNT_INFO *) arg;
   *continue_walk = PT_CONTINUE_WALK;
@@ -1841,7 +1838,7 @@ qo_reset_spec_location (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query
 }
 
 /*
- * qo_reduce_outer_joined_tables () - reduce outer joined tables with unique join predicates
+ * qo_reduce_outer_joined_tbls () - reduce outer joined tables with unique join predicates
  *   return:
  *   parser(in):
  *   spec(in):
@@ -1856,7 +1853,7 @@ qo_reset_spec_location (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query
  *                  from tbl1 a
  */
 static PT_NODE *
-qo_reduce_outer_joined_tables (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query)
+qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query)
 {
   MOP cls;
   SM_CLASS_CONSTRAINT *consp;
@@ -1896,7 +1893,7 @@ qo_reduce_outer_joined_tables (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE 
   info.spec = spec;
   info.my_spec_cnt = 0;
   info.other_spec_cnt = 0;
-  parser_walk_tree (parser, query, qo_get_name_cnt_by_spec_without_oncond, &info, NULL, NULL);
+  parser_walk_tree (parser, query, qo_get_name_cnt_by_spec_no_on, &info, NULL, NULL);
   if (info.my_spec_cnt >= 1)
     {
       /* Except for on_cond, the referenced columns exist. */
@@ -2027,7 +2024,7 @@ end:
 }
 
 /*
- * qo_reduce_joined_tables_referenced_by_foreign_key () - Removes a table with a primary key from a join
+ * qo_reduce_joined_tbls_ref_by_fk () - Removes a table with a primary key from a join
  *                                                        with a table with a foreign key referencing it.
  *   return: void
  *   parser(in): parser context
@@ -2052,7 +2049,7 @@ end:
  *           -> do not change.
  */
 static void
-qo_reduce_joined_tables_referenced_by_foreign_key (PARSER_CONTEXT * parser, PT_NODE * query)
+qo_reduce_joined_tbls_ref_by_fk (PARSER_CONTEXT * parser, PT_NODE * query)
 {
   QO_REDUCE_REFERENCE_INFO reduce_reference_info;
   PT_NODE *curr_pk_spec = NULL, *prev_pk_spec = NULL, *next_pk_spec = NULL;
@@ -2092,7 +2089,7 @@ qo_reduce_joined_tables_referenced_by_foreign_key (PARSER_CONTEXT * parser, PT_N
 
 	  reduce_reference_info.pk_spec = curr_pk_spec;
 
-	  if (!qo_check_primary_key_referenced_by_foreign_key_in_parent_spec (parser, query, &reduce_reference_info))
+	  if (!qo_check_pk_ref_by_fk_in_parent_spec (parser, query, &reduce_reference_info))
 	    {
 	      if (er_has_error ())
 		{
@@ -2116,7 +2113,7 @@ qo_reduce_joined_tables_referenced_by_foreign_key (PARSER_CONTEXT * parser, PT_N
 
 	      reduce_reference_info.fk_spec = curr_fk_spec;
 
-	      if (qo_check_foreign_keys_referencing_primary_key_in_child_spec (parser, query, &reduce_reference_info))
+	      if (qo_check_fks_ref_pk_in_child_spec (parser, query, &reduce_reference_info))
 		{
 		  break;
 		}
@@ -2226,7 +2223,7 @@ exit_on_fail_with_cleanup:
  *   exclude_spec_point_list(in): list of specs to exclude
  *   spec(in): spec to find
  *
- * Note: In the qo_reduce_joined_tables_referenced_by_foreign_key() function,
+ * Note: In the qo_reduce_joined_tbls_ref_by_fk() function,
  *       if the checked spec does not need to be checked again, it is added to the list of specs to exclude.
  */
 static bool
@@ -2250,7 +2247,7 @@ qo_is_exclude_spec (PT_NODE * exclude_spec_point_list, PT_NODE * spec)
 }
 
 /*
- * qo_check_primary_key_referenced_by_foreign_key_in_parent_spec () - Whether the given spec has a primary key
+ * qo_check_pk_ref_by_fk_in_parent_spec () - Whether the given spec has a primary key
  *                                                                    referenced by a foreign key.
  *   return: bool
  *   parser(in): parser context
@@ -2270,8 +2267,8 @@ qo_is_exclude_spec (PT_NODE * exclude_spec_point_list, PT_NODE * spec)
  *         6. Non-join predicates exist.
  */
 static bool
-qo_check_primary_key_referenced_by_foreign_key_in_parent_spec (PARSER_CONTEXT * parser, PT_NODE * query,
-							       QO_REDUCE_REFERENCE_INFO * reduce_reference_info)
+qo_check_pk_ref_by_fk_in_parent_spec (PARSER_CONTEXT * parser, PT_NODE * query,
+				      QO_REDUCE_REFERENCE_INFO * reduce_reference_info)
 {
   PT_NODE *curr_pk_spec = NULL;
   MOP curr_pk_mop = NULL;
@@ -2502,7 +2499,7 @@ qo_check_primary_key_referenced_by_foreign_key_in_parent_spec (PARSER_CONTEXT * 
     PT_NODE *backup_from = NULL;
     PT_NODE *backup_where = NULL;
 
-    /* qo_get_name_cnt_by_spec_without_oncond does not check PT_EXPR in the select_list.
+    /* qo_get_name_cnt_by_spec_no_on does not check PT_EXPR in the select_list.
      * qo_get_name_cnt_by_spec increases my_spec_cnt too much if from exists.
      * So I check both.
      */
@@ -2530,8 +2527,7 @@ qo_check_primary_key_referenced_by_foreign_key_in_parent_spec (PARSER_CONTEXT * 
     memset (&info, 0, sizeof (SPEC_CNT_INFO));
     info.spec = curr_pk_spec;
 
-    parser_walk_tree (parser, query->info.query.q.select.from, qo_get_name_cnt_by_spec_without_oncond, &info, NULL,
-		      NULL);
+    parser_walk_tree (parser, query->info.query.q.select.from, qo_get_name_cnt_by_spec_no_on, &info, NULL, NULL);
 
     if (info.my_spec_cnt >= 1)
       {
@@ -2569,7 +2565,7 @@ exit_on_fail:
 }
 
 /*
- * qo_check_foreign_keys_referencing_primary_key_in_child_spec () - Whether the given spec has a foreign key
+ * qo_check_fks_ref_pk_in_child_spec () - Whether the given spec has a foreign key
  *                                                                  referencing a primary key.
  *   return: bool
  *   parser(in): parser context
@@ -2577,7 +2573,7 @@ exit_on_fail:
  *   reduce_reference_info(in/out): Information needed to check
  *
  * Note: For each foreign key of a given spec, it is checked
- *       in the qo_check_foreign_key_referencing_primary_key_in_child_spec() function.
+ *       in the qo_check_fk_ref_pk_in_child_spec() function.
  * 
  *       In the following cases, add to the exclude_fk_spec_point_list.
  *         1. Access to hierarchical tables.
@@ -2586,8 +2582,8 @@ exit_on_fail:
  *         4. No foreign key.
  */
 static bool
-qo_check_foreign_keys_referencing_primary_key_in_child_spec (PARSER_CONTEXT * parser, PT_NODE * query,
-							     QO_REDUCE_REFERENCE_INFO * reduce_reference_info)
+qo_check_fks_ref_pk_in_child_spec (PARSER_CONTEXT * parser, PT_NODE * query,
+				   QO_REDUCE_REFERENCE_INFO * reduce_reference_info)
 {
   PT_NODE *curr_fk_spec = NULL;
   MOP curr_fk_mop = NULL;
@@ -2657,7 +2653,7 @@ qo_check_foreign_keys_referencing_primary_key_in_child_spec (PARSER_CONTEXT * pa
 
       reduce_reference_info->fk_cons = curr_fk_cons;
 
-      if (!qo_check_foreign_key_referencing_primary_key_in_child_spec (parser, query, reduce_reference_info))
+      if (!qo_check_fk_ref_pk_in_child_spec (parser, query, reduce_reference_info))
 	{
 	  if (er_has_error ())
 	    {
@@ -2706,7 +2702,7 @@ exit_on_fail:
 }
 
 /*
- * qo_check_foreign_key_referencing_primary_key_in_child_spec () - Whether the given spec has a foreign key
+ * qo_check_fk_ref_pk_in_child_spec () - Whether the given spec has a foreign key
  *                                                                 referencing a primary key.
  *   return: bool
  *   parser(in): parser context
@@ -2719,8 +2715,8 @@ exit_on_fail:
  *       add a predicate for IS NOT NULL.
  */
 static bool
-qo_check_foreign_key_referencing_primary_key_in_child_spec (PARSER_CONTEXT * parser, PT_NODE * query,
-							    QO_REDUCE_REFERENCE_INFO * reduce_reference_info)
+qo_check_fk_ref_pk_in_child_spec (PARSER_CONTEXT * parser, PT_NODE * query,
+				  QO_REDUCE_REFERENCE_INFO * reduce_reference_info)
 {
   PT_NODE *curr_pk_spec = NULL, *curr_fk_spec = NULL;
   MOP curr_pk_mop = NULL;
@@ -3586,7 +3582,7 @@ qo_rewrite_innerjoin (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *c
 }
 
 /*
- * qo_can_generate_single_table_connect_by () - checks a SELECT ... CONNECT BY
+ * qo_check_generate_single_tbl_connect_by () - checks a SELECT ... CONNECT BY
  *                                              query for single-table
  *                                              optimizations
  *   return: whether single-table optimization can be performed
@@ -3597,7 +3593,7 @@ qo_rewrite_innerjoin (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *c
  *       the query does not involve joins or partitioned tables.
  */
 bool
-qo_can_generate_single_table_connect_by (PARSER_CONTEXT * parser, PT_NODE * node)
+qo_check_generate_single_tbl_connect_by (PARSER_CONTEXT * parser, PT_NODE * node)
 {
   int level = 0;
   PT_NODE *name = NULL;

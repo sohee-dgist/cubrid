@@ -4109,6 +4109,31 @@ pt_free_orphans (PARSER_CONTEXT * parser)
 }
 
 /*
+ * pt_free_escape_char () - Frees the escape sequence of a PT_LIKE node and
+ *                          leaves only the LIKE pattern in the parse tree.
+ *   parser(in):
+ *   like(in):
+ *   pattern(in):
+ *   escape(in):
+ */
+void
+pt_free_escape_char (PARSER_CONTEXT * const parser, PT_NODE * const like, PT_NODE * const pattern,
+		     PT_NODE * const escape)
+{
+  PT_NODE *const save_arg2 = like->info.expr.arg2;
+
+  assert (escape != NULL);
+  assert (PT_IS_EXPR_NODE_WITH_OPERATOR (save_arg2, PT_LIKE_ESCAPE));
+  assert (save_arg2->info.expr.arg1 == pattern);
+  assert (save_arg2->info.expr.arg2 == escape);
+
+  save_arg2->info.expr.arg1 = NULL;
+  parser_free_tree (parser, save_arg2);
+
+  like->info.expr.arg2 = pattern;
+}
+
+/*
  * pt_sort_spec_cover () -
  *   return:  true or false
  *   cur_list(in): current PT_SORT_SPEC list pointer
