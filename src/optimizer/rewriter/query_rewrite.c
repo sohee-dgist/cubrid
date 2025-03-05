@@ -45,7 +45,7 @@
  */
 
 /*
- * query_rewrite_util.c - Query rewrite utils - Do Not Include Except This Folder
+ * query_rewrite.c - Query rewrite
  */
 
 #ident "$Id$"

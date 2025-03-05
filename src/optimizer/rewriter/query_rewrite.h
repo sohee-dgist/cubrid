@@ -120,6 +120,7 @@ typedef enum dnf_merge_range_result DNF_MERGE_RANGE_RESULT;
 
 /* optimize subqueries */
 PT_NODE *qo_rewrite_subqueries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
+PT_NODE *qo_rewrite_hidden_col_as_derived (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * parent_node);
 
 /* optimize terms */
 void qo_rewrite_terms (PARSER_CONTEXT * parser, PT_NODE ** terms);
@@ -141,15 +142,11 @@ PT_NODE *qo_analyze_path_join (PARSER_CONTEXT * parser, PT_NODE * path_spec, voi
 bool qo_can_generate_single_table_connect_by (PARSER_CONTEXT * parser, PT_NODE * node);
 bool qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE ** wherep, int *seqno);
 void qo_move_on_clause_of_explicit_join_to_where_clause (PARSER_CONTEXT * parser, PT_NODE ** fromp, PT_NODE ** wherep);
+void qo_rewrite_index_hints (PARSER_CONTEXT * parser, PT_NODE * statement);
 
 /* qo_auto_parameterize is defined in parser.h */
 void qo_do_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node);
 void qo_do_auto_parameterize_keylimit_clause (PARSER_CONTEXT * parser, PT_NODE * node);
-
-/* utility */
-int qo_is_oid_const (PT_NODE * node);
-PT_NODE *qo_rewrite_hidden_col_as_derived (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * parent_node);
-void qo_rewrite_index_hints (PARSER_CONTEXT * parser, PT_NODE * statement);
 
 /* macros */
 #define QO_CHECK_AND_REDUCE_EQUALITY_TERMS(parser, node, where) \

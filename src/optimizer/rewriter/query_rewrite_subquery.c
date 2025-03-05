@@ -316,3 +316,149 @@ qo_rewrite_subqueries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *
 
   return node;
 }
+
+/*
+ * qo_rewrite_hidden_col_as_derived () - Rewrite subquery with ORDER BY
+ *				      hidden column as derived one
+ *   return: PT_NODE *
+ *   parser(in):
+ *   node(in): QUERY node
+ *   parent_node(in):
+ *
+ * Note: Keep out hidden column from derived select list
+ */
+PT_NODE *
+qo_rewrite_hidden_col_as_derived (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * parent_node)
+{
+  PT_NODE *t_node, *next, *derived;
+
+  switch (node->node_type)
+    {
+    case PT_SELECT:
+      if (node->info.query.order_by)
+	{
+	  bool remove_order_by = true;	/* guessing */
+
+	  /* check parent context */
+	  if (parent_node)
+	    {
+	      switch (parent_node->node_type)
+		{
+		case PT_FUNCTION:
+		  switch (parent_node->info.function.function_type)
+		    {
+		    case F_TABLE_SEQUENCE:
+		      remove_order_by = false;
+		      break;
+		    default:
+		      break;
+		    }
+		  break;
+		default:
+		  break;
+		}
+	    }
+	  else
+	    {
+	      remove_order_by = false;
+	    }
+
+	  /* check node context */
+	  if (remove_order_by == true)
+	    {
+	      if (node->info.query.orderby_for)
+		{
+		  remove_order_by = false;
+		}
+	    }
+
+	  if (remove_order_by == true)
+	    {
+	      for (t_node = node->info.query.q.select.list; t_node; t_node = t_node->next)
+		{
+		  if (t_node->node_type == PT_EXPR && t_node->info.expr.op == PT_ORDERBY_NUM)
+		    {
+		      remove_order_by = false;
+		      break;
+		    }
+		}
+	    }
+
+	  /* remove unnecessary ORDER BY clause */
+	  if (remove_order_by == true && !node->info.query.q.select.connect_by)
+	    {
+	      parser_free_tree (parser, node->info.query.order_by);
+	      node->info.query.order_by = NULL;
+
+	      for (t_node = node->info.query.q.select.list; t_node && t_node->next; t_node = next)
+		{
+		  next = t_node->next;
+		  if (next->flag.is_hidden_column)
+		    {
+		      parser_free_tree (parser, next);
+		      t_node->next = NULL;
+		      break;
+		    }
+		}
+	    }
+	  else
+	    {
+	      /* Check whether we can rewrite query as derived. */
+	      bool skip_query_rewrite_as_derived = false;
+	      if (node->info.query.is_subquery == PT_IS_SUBQUERY && node->info.query.order_by != NULL)
+		{
+		  /* If all nodes in select list are hidden columns, we do not rewrite the query as derived
+		   * since we want to avoid null select list. This will avoid the crash for queries like:
+		   * set @a = 1; SELECT  (SELECT @a := @a + 1 FROM db_root ORDER BY @a + 1)
+		   */
+		  skip_query_rewrite_as_derived = true;
+		  for (t_node = node->info.query.q.select.list; t_node; t_node = t_node->next)
+		    {
+		      if (!t_node->flag.is_hidden_column)
+			{
+			  skip_query_rewrite_as_derived = false;
+			}
+		    }
+		}
+
+	      if (!skip_query_rewrite_as_derived)
+		{
+		  for (t_node = node->info.query.q.select.list; t_node; t_node = t_node->next)
+		    {
+		      if (t_node->flag.is_hidden_column)
+			{
+			  /* make derived query */
+			  derived = mq_rewrite_query_as_derived (parser, node);
+			  if (derived == NULL)
+			    {
+			      break;
+			    }
+
+			  PT_NODE_MOVE_NUMBER_OUTERLINK (derived, node);
+			  derived->info.query.q.select.flavor = node->info.query.q.select.flavor;
+			  derived->info.query.is_subquery = node->info.query.is_subquery;
+			  derived->type_enum = node->type_enum;
+
+			  /* free old composite query */
+			  parser_free_tree (parser, node);
+			  node = derived;
+			  break;
+			}
+		    }
+		}
+	    }			/* else */
+	}
+      break;
+
+    case PT_UNION:
+    case PT_DIFFERENCE:
+    case PT_INTERSECTION:
+      node->info.query.q.union_.arg1 = qo_rewrite_hidden_col_as_derived (parser, node->info.query.q.union_.arg1, NULL);
+      node->info.query.q.union_.arg2 = qo_rewrite_hidden_col_as_derived (parser, node->info.query.q.union_.arg2, NULL);
+      break;
+    default:
+      return node;
+    }
+
+  return node;
+}

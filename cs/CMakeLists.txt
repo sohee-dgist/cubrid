@@ -240,7 +240,6 @@ set(OPTIMIZER_SOURCES
   )
 
 set(REWRITER_SOURCES
-  ${REWRITER_DIR}/query_rewrite_util.c
   ${REWRITER_DIR}/query_rewrite_auto_parameterize.c
   ${REWRITER_DIR}/query_rewrite_subquery.c
   ${REWRITER_DIR}/query_rewrite_select.c
