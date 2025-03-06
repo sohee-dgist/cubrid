@@ -311,7 +311,7 @@ xcache_initialize (THREAD_ENTRY * thread_p)
   xcache_Soft_capacity = prm_get_integer_value (PRM_ID_XASL_CACHE_MAX_ENTRIES);
   xcache_Time_threshold = prm_get_integer_value (PRM_ID_XASL_CACHE_TIME_THRESHOLD_IN_MINUTES) * 60;
 
-  xcache_Hard_limit = xcache_Soft_capacity * 512;
+  xcache_Hard_limit = xcache_Soft_capacity * 1024 * 1024;
   xcache_Soft_limit = xcache_Hard_limit * 0.8;
 
   xcache_Memory_usage_cache = 0;
