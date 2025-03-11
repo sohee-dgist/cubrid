@@ -288,6 +288,7 @@ static void xcache_invalidate_entries (THREAD_ENTRY * thread_p,
 				       bool (*invalidate_check) (XASL_CACHE_ENTRY *, const void *), const void *arg);
 static INT32 xcache_entry_get_entrysize (XASL_CACHE_ENTRY * xcache_entry);
 static INT32 xcache_entry_get_clonesize (XASL_CACHE_ENTRY * xcache_entry);
+static INT32 xcache_entry_get_one_clonesize (XASL_CACHE_ENTRY * xcache_entry);
 static bool xcache_entry_is_related_to_oid (XASL_CACHE_ENTRY * xcache_entry, const void *arg);
 static bool xcache_entry_is_related_to_sha1 (XASL_CACHE_ENTRY * xcache_entry, const void *arg);
 static XCACHE_CLEANUP_REASON xcache_need_cleanup (void);
@@ -311,7 +312,7 @@ xcache_initialize (THREAD_ENTRY * thread_p)
   xcache_Soft_capacity = prm_get_integer_value (PRM_ID_XASL_CACHE_MAX_ENTRIES);
   xcache_Time_threshold = prm_get_integer_value (PRM_ID_XASL_CACHE_TIME_THRESHOLD_IN_MINUTES) * 60;
 
-  xcache_Hard_limit = xcache_Soft_capacity * 1024 * 1024;
+  xcache_Hard_limit = xcache_Soft_capacity * 1024;
   xcache_Soft_limit = xcache_Hard_limit * 0.8;
 
   xcache_Memory_usage_cache = 0;
@@ -1065,8 +1066,7 @@ xcache_find_xasl_id_for_execute (THREAD_ENTRY * thread_p, const XASL_ID * xid, X
   error_code =
     stx_map_stream_to_xasl (thread_p, &xclone->xasl, use_xasl_clone, (*xcache_entry)->stream.buffer,
 			    (*xcache_entry)->stream.buffer_size, &xclone->xasl_buf);
-  INT32 xasl_clone_size =
-    sizeof (xasl_unpack_info) + sizeof (XASL_NODE) + UNPACK_SCALE * (*xcache_entry)->stream.buffer_size;
+  INT32 xasl_clone_size = xcache_entry_get_one_clonesize (*xcache_entry);
   ATOMIC_INC_32 (&xcache_Memory_usage_clone, xasl_clone_size);
 
   if (save_heapid != 0)
@@ -1406,7 +1406,7 @@ xcache_insert (THREAD_ENTRY * thread_p, const compile_context * context, XASL_ST
       return NO_ERROR;
     }
 
-
+  xcache_check_logging ();
   XASL_ID_SET_NULL (&xid);
   xid.sha1 = context->sha1;
 
@@ -1670,7 +1670,6 @@ xcache_insert (THREAD_ENTRY * thread_p, const compile_context * context, XASL_ST
       if (xcache_need_cleanup () != XCACHE_CLEANUP_NONE && xcache_Cleanup_flag == 0)
 	{
 	  /* Try to clean up some of the oldest entries. */
-	  /* TODO ! */
 	  xcache_cleanup (thread_p);
 	}
 
@@ -1835,8 +1834,8 @@ xcache_invalidate_entries (THREAD_ENTRY * thread_p, bool (*invalidate_check) (XA
 					    xcache_entry);
 		    }
 		  delete_xids[n_delete_xids++] = xcache_entry->xasl_id;
-		  ATOMIC_INC_32 (&xcache_Memory_usage_cache, -xcache_entry_get_entrysize (xcache_entry));
 		}
+	      ATOMIC_INC_32 (&xcache_Memory_usage_cache, -xcache_entry_get_entrysize (xcache_entry));
 	    }
 
 	  if (n_delete_xids == XCACHE_DELETE_XIDS_SIZE)
@@ -1910,6 +1909,19 @@ xcache_entry_get_clonesize (XASL_CACHE_ENTRY * xcache_entry)
 {
   INT32 clone_size = sizeof (xasl_unpack_info) + sizeof (XASL_NODE) + UNPACK_SCALE * xcache_entry->stream.buffer_size;
   clone_size *= xcache_entry->n_cache_clones;
+  return clone_size;
+}
+
+/*
+ * xcache_entry_get_entrysize () - Get the size of the XASL cache entry.
+ *
+ * return	     : Size of the XASL cache entry.
+ * xcache_entry (in) : XASL cache entry.
+ */
+static INT32
+xcache_entry_get_one_clonesize (XASL_CACHE_ENTRY * xcache_entry)
+{
+  INT32 clone_size = sizeof (xasl_unpack_info) + sizeof (XASL_NODE) + UNPACK_SCALE * xcache_entry->stream.buffer_size;
   return clone_size;
 }
 
@@ -2180,8 +2192,7 @@ static void
 xcache_clone_decache (THREAD_ENTRY * thread_p, XASL_CLONE * xclone, XASL_CACHE_ENTRY * xcache_entry)
 {
 
-  INT32 xasl_clone_size =
-    sizeof (xasl_unpack_info) + sizeof (XASL_NODE) + UNPACK_SCALE * xcache_entry->stream.buffer_size;
+  INT32 xasl_clone_size = xcache_entry_get_one_clonesize (xcache_entry);
   ATOMIC_INC_32 (&xcache_Memory_usage_clone, -xasl_clone_size);
 
   HL_HEAPID save_heapid = db_change_private_heap (thread_p, 0);
