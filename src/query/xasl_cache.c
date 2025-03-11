@@ -55,8 +55,6 @@
 
 #define XCACHE_ENTRY_FIX_COUNT_MASK	    ((INT32) 0x00FFFFFF)
 
-#define UNPACK_SCALE 3		// change stx_init_xasl_unpack_info too
-
 #if defined (SERVER_MODE)
 #define XCACHE_ENTRY_DELETED_BY_ME \
   ((XCACHE_ENTRY_MARK_DELETED | XCACHE_ENTRY_FIX_COUNT_MASK) - logtb_get_current_tran_index ())
@@ -1899,7 +1897,7 @@ xcache_entry_get_entrysize (XASL_CACHE_ENTRY * xcache_entry)
 }
 
 /*
- * xcache_entry_get_entrysize () - Get the size of the XASL cache entry.
+ * xcache_entry_get_entrysize () - Get the size of the XASL cache entry. (estimated size)
  *
  * return	     : Size of the XASL cache entry.
  * xcache_entry (in) : XASL cache entry.
@@ -1913,7 +1911,7 @@ xcache_entry_get_clonesize (XASL_CACHE_ENTRY * xcache_entry)
 }
 
 /*
- * xcache_entry_get_entrysize () - Get the size of the XASL cache entry.
+ * xcache_entry_get_one_clonesize () - Get the size of the XASL cache entry. (estimated size)
  *
  * return	     : Size of the XASL cache entry.
  * xcache_entry (in) : XASL cache entry.
@@ -2216,8 +2214,7 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 {
   /* Free XASL. Be sure that was already cleared to avoid memory leaks. */
   assert (IS_XASL_INITIAL_STATUS (xclone->xasl->status));
-  INT32 xasl_clone_size =
-    sizeof (xasl_unpack_info) + sizeof (XASL_NODE) + UNPACK_SCALE * xcache_entry->stream.buffer_size;
+  INT32 xasl_clone_size = xcache_entry_get_one_clonesize (xcache_entry);
   if (xcache_uses_clones ())
     {
       pthread_mutex_lock (&xcache_entry->cache_clones_mutex);

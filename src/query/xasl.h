@@ -55,6 +55,8 @@
 struct binary_heap;
 #endif // SERVER_MODE || SA_MODE
 
+#define UNPACK_SCALE 3		// change stx_init_xasl_unpack_info too
+
 struct xasl_node;
 typedef struct xasl_node XASL_NODE;
 struct xasl_unpack_info;
