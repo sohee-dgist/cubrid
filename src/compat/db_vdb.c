@@ -2595,7 +2595,10 @@ do_process_prepare_statement (DB_SESSION * session, PT_NODE * statement)
 
   info_len = err;
 
-  err = csession_create_prepared_statement (name, prepared_stmt->alias_print, stmt_info, info_len, prepared_session->parser->host_var_count + prepared_session->parser->auto_param_count);
+  err =
+    csession_create_prepared_statement (name, prepared_stmt->alias_print, stmt_info, info_len,
+					prepared_session->parser->host_var_count +
+					prepared_session->parser->auto_param_count);
 
 cleanup:
   if (err < 0 && name != NULL)
