@@ -4979,7 +4979,7 @@ csession_reset_cur_insert_id (void)
  * info_length(in): the size of the serialized buffer
  */
 int
-csession_create_prepared_statement (const char *name, const char *alias_print, char *stmt_info, int info_length, int host_var_count)
+csession_create_prepared_statement (const char *name, const char *alias_print, char *stmt_info, int info_length)
 {
 #if defined (CS_MODE)
   int req_error;
@@ -5022,7 +5022,7 @@ csession_create_prepared_statement (const char *name, const char *alias_print, c
 
   if (alias_print)
     {
-      req_error = SHA1Compute ((const unsigned char *) alias_print, (unsigned) strlen (alias_print), &alias_sha1, host_var_count);
+      req_error = SHA1Compute ((const unsigned char *) alias_print, (unsigned) strlen (alias_print), &alias_sha1);
       if (req_error != NO_ERROR)
 	{
 	  ASSERT_ERROR ();
@@ -5087,7 +5087,7 @@ cleanup:
       memcpy (local_alias_print, alias_print, len);
       local_alias_print[len] = 0;
 
-      result = SHA1Compute ((const unsigned char *) alias_print, (unsigned) strlen (alias_print), &alias_sha1, host_var_count);
+      result = SHA1Compute ((const unsigned char *) alias_print, (unsigned) strlen (alias_print), &alias_sha1);
       if (result != NO_ERROR)
 	{
 	  ASSERT_ERROR ();

@@ -27216,7 +27216,7 @@ btree_fix_root_for_insert (THREAD_ENTRY * thread_p, BTID * btid, BTID_INT * btid
       /* This is postponed here to make sure midxkey domain was initialized. */
       insert_helper->printed_key = pr_valstring (key);
       (void) SHA1Compute ((unsigned char *) insert_helper->printed_key, strlen (insert_helper->printed_key),
-			  &insert_helper->printed_key_sha1, 0);
+			  &insert_helper->printed_key_sha1);
     }
 
   if (insert_helper->purpose == BTREE_OP_INSERT_UNDO_PHYSICAL_DELETE
@@ -30769,7 +30769,7 @@ btree_fix_root_for_delete (THREAD_ENTRY * thread_p, BTID * btid, BTID_INT * btid
       /* Key must be printed. */
       delete_helper->printed_key = pr_valstring (key);
       (void) SHA1Compute ((unsigned char *) delete_helper->printed_key, strlen (delete_helper->printed_key),
-			  &delete_helper->printed_key_sha1, 0);
+			  &delete_helper->printed_key_sha1);
     }
 
   /* Safe guard: key cannot always be NULL. */
