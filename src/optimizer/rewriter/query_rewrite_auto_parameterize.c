@@ -27,7 +27,7 @@
 #include "query_rewrite.h"
 
 /*
- * qo_do_auto_parameterize () - Convert value to host variable (input marker)
+ * qo_auto_parameterize () - Convert value to host variable (input marker)
  *   return:
  *   parser(in):
  *   where(in): pointer to WHERE list
@@ -126,7 +126,7 @@ qo_auto_parameterize (PARSER_CONTEXT * parser, PT_NODE * where)
 }
 
 void
-qo_do_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
+qo_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
 {
   PT_NODE *limit_offsetp, *limit_row_countp;
   PT_NODE *new_limit_offsetp, *new_limit_row_countp;
@@ -290,7 +290,7 @@ qo_do_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
 }
 
 void
-qo_do_auto_parameterize_keylimit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
+qo_auto_parameterize_keylimit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
 {
   PT_NODE *using_index = NULL;
   PT_NODE *key_limit_lower_boundp, *key_limit_upper_boundp;

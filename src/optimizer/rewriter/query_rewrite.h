@@ -144,8 +144,8 @@ void qo_move_on_of_explicit_join_to_where (PARSER_CONTEXT * parser, PT_NODE ** f
 void qo_rewrite_index_hints (PARSER_CONTEXT * parser, PT_NODE * statement);
 
 /* qo_auto_parameterize is defined in parser.h */
-void qo_do_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node);
-void qo_do_auto_parameterize_keylimit_clause (PARSER_CONTEXT * parser, PT_NODE * node);
+void qo_auto_parameterize_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node);
+void qo_auto_parameterize_keylimit_clause (PARSER_CONTEXT * parser, PT_NODE * node);
 
 /* macros */
 #define QO_CHECK_AND_REDUCE_EQUALITY_TERMS(parser, node, where) \

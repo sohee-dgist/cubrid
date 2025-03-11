@@ -499,29 +499,6 @@ qo_find_best_path_type (PT_NODE * spec)
 }
 
 /*
- * qo_analyze_path_join_pre () -
- *   return: PT_NODE *
- *   parser(in): parser environment
- *   spec(in): path entity to test
- *   arg(in): where clause to test
- *   continue_walk(in):
- *
- * Note : prunes non spec's
- */
-PT_NODE *
-qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void *arg, int *continue_walk)
-{
-  *continue_walk = PT_CONTINUE_WALK;
-
-  if (spec->node_type != PT_SPEC)
-    {
-      *continue_walk = PT_STOP_WALK;
-    }
-
-  return spec;
-}
-
-/*
  * qo_move_on_of_explicit_join_to_where () - move on clause of explicit join to where clause
  *   return: void
  *   parser(in): parser environment
@@ -565,6 +542,29 @@ qo_move_on_of_explicit_join_to_where (PARSER_CONTEXT * parser, PT_NODE ** fromp,
 	    }
 	}
     }
+}
+
+/*
+ * qo_analyze_path_join_pre () -
+ *   return: PT_NODE *
+ *   parser(in): parser environment
+ *   spec(in): path entity to test
+ *   arg(in): where clause to test
+ *   continue_walk(in):
+ *
+ * Note : prunes non spec's
+ */
+PT_NODE *
+qo_analyze_path_join_pre (PARSER_CONTEXT * parser, PT_NODE * spec, void *arg, int *continue_walk)
+{
+  *continue_walk = PT_CONTINUE_WALK;
+
+  if (spec->node_type != PT_SPEC)
+    {
+      *continue_walk = PT_STOP_WALK;
+    }
+
+  return spec;
 }
 
 /*

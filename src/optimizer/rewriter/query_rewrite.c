@@ -26,33 +26,6 @@
 
 #include "query_rewrite.h"
 
-/*
- * Copyright 2008 Search Solution Corporation
- * Copyright 2016 CUBRID Corporation
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- *
- */
-
-/*
- * query_rewrite.c - Query rewrite
- */
-
-#ident "$Id$"
-
-#include <assert.h>
-#include "query_rewrite.h"
-
 
 /*
  * qo_rewrite_queries () - checks all subqueries for rewrite optimizations
@@ -570,12 +543,12 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
   /* auto parameterize for limit clause */
   if (PT_IS_QUERY_NODE_TYPE (node->node_type) || node->node_type == PT_UPDATE || node->node_type == PT_DELETE)
     {
-      qo_do_auto_parameterize_limit_clause (parser, node);
+      qo_auto_parameterize_limit_clause (parser, node);
 
       /* auto parameterize for keylimit clause */
       if (node->node_type == PT_SELECT || node->node_type == PT_UPDATE || node->node_type == PT_DELETE)
 	{
-	  qo_do_auto_parameterize_keylimit_clause (parser, node);
+	  qo_auto_parameterize_keylimit_clause (parser, node);
 	}
     }
 
