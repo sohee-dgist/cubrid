@@ -108,7 +108,7 @@ struct xcache
   struct timeval last_cleaned_time;
   int time_threshold;
   xcache_hashmap_type hashmap;
-  volatile INT32 entry_count;
+  INT32 entry_count;
   bool logging_enabled;
   int max_clones;
   INT32 cleanup_flag;
@@ -117,8 +117,8 @@ struct xcache
   int soft_limit;
   int hard_limit;
   int max_plan_size;
-  volatile INT32 memory_usage_cache;
-  volatile INT32 memory_usage_clone;
+  INT32 memory_usage_cache;
+  INT32 memory_usage_clone;
   XCACHE_STATS stats;
 
   // *INDENT-OFF*
