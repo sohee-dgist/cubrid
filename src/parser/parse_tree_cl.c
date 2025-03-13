@@ -2746,7 +2746,7 @@ parser_print_tree (PARSER_CONTEXT * parser, const PT_NODE * node)
 	{
 	  char host_var_count[12];
 	  snprintf (host_var_count, sizeof (host_var_count), "%d", parser->host_var_count + parser->auto_param_count);
-	  string = pt_append_nulstring (parser, string, ";host_var=");
+	  string = pt_append_nulstring (parser, string, ";bind_var_cnt=");
 	  string = pt_append_nulstring (parser, string, host_var_count);
 	}
       return (char *) string->bytes;
