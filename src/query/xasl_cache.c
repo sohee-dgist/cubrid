@@ -2466,13 +2466,13 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
 	  perfmon_inc_stat (thread_p, PSTAT_PC_NUM_DELETE);
 	  ATOMIC_INC_32 (&xcache_Entry_count, -1);
 	  ATOMIC_INC_32 (&xcache_Memory_usage_cache, -xcache_entry_get_entrysize (candidate.xcache));
-          (void) pthread_mutex_lock (&candidate.xcache->cache_clones_mutex);
+	  (void) pthread_mutex_lock (&candidate.xcache->cache_clones_mutex);
 	  while (candidate.xcache->n_cache_clones > 0)
 	    {
 	      xcache_clone_decache (thread_p, &candidate.xcache->cache_clones[--candidate.xcache->n_cache_clones],
 				    candidate.xcache);
 	    }
-          (void) pthread_mutex_unlock (&candidate.xcache->cache_clones_mutex);
+	  (void) pthread_mutex_unlock (&candidate.xcache->cache_clones_mutex);
 	}
       else
 	{
