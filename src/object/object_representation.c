@@ -592,11 +592,6 @@ int
 or_underflow (OR_BUF * buf)
 {
   er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_UNDERFLOW, 0);
-
-  if (buf->error_abort)
-    {
-      _longjmp (buf->env, ER_TF_BUFFER_UNDERFLOW);
-    }
   return ER_TF_BUFFER_UNDERFLOW;
 }
 
