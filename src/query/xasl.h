@@ -55,7 +55,7 @@
 struct binary_heap;
 #endif // SERVER_MODE || SA_MODE
 
-#define UNPACK_SCALE 3		// change stx_init_xasl_unpack_info too
+#define UNPACK_SCALE 3		// Assumed memory ratio when unpacking stream to XASL
 
 struct xasl_node;
 typedef struct xasl_node XASL_NODE;
