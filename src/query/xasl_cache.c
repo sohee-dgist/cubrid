@@ -1198,7 +1198,6 @@ xcache_unfix (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry)
     }
 }
 
-
 /*
  * xcache_entry_mark_deleted () - Mark XASL cache entry for delete.
  *
