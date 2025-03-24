@@ -1259,6 +1259,7 @@ xcache_entry_mark_deleted (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_en
   ATOMIC_INC_32 (&xcache_Entry_count, -1);
 
   /* The entry can be deleted if the only fixer is this transaction. */
+  ATOMIC_INC_32 (&xcache_Memory_usage_cache, -xcache_entry_get_entrysize (xcache_entry));
   return (new_cache_flag == XCACHE_ENTRY_DELETED_BY_ME);
 }
 
@@ -1345,7 +1346,6 @@ xcache_entry_set_request_recompile_flag (THREAD_ENTRY * thread_p, XASL_CACHE_ENT
 static XCACHE_CLEANUP_REASON
 xcache_need_cleanup (void)
 {
-  /* TODO :: erase soft capacity */
   struct timeval current_time;
   if (xcache_Soft_limit < xcache_Memory_usage_cache + xcache_Memory_usage_clone)
     {
@@ -1404,10 +1404,12 @@ xcache_insert (THREAD_ENTRY * thread_p, const compile_context * context, XASL_ST
     }
 
   xcache_check_logging ();
+
   XASL_ID_SET_NULL (&xid);
   xid.sha1 = context->sha1;
 
   XCACHE_STAT_INC (inserts);
+
   /* Allocate XASL cache entry data. */
   if (n_oid > 0)
     {
@@ -1506,9 +1508,9 @@ xcache_insert (THREAD_ENTRY * thread_p, const compile_context * context, XASL_ST
       (*xcache_entry)->list_ht_no = -1;
 
       /* Now that new entry is initialized, we can try to insert it. */
+
       int entry_size = xcache_entry_get_entrysize (*xcache_entry);
       inserted = xcache_Hashmap.insert_given (thread_p, xid, *xcache_entry);
-
       assert (*xcache_entry != NULL);
 
       /* We have incremented fix count, we don't need lf_tran anymore. */
@@ -1832,7 +1834,6 @@ xcache_invalidate_entries (THREAD_ENTRY * thread_p, bool (*invalidate_check) (XA
 		    }
 		  delete_xids[n_delete_xids++] = xcache_entry->xasl_id;
 		}
-	      ATOMIC_INC_32 (&xcache_Memory_usage_cache, -xcache_entry_get_entrysize (xcache_entry));
 	    }
 
 	  if (n_delete_xids == XCACHE_DELETE_XIDS_SIZE)
@@ -2213,11 +2214,11 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 {
   /* Free XASL. Be sure that was already cleared to avoid memory leaks. */
   assert (IS_XASL_INITIAL_STATUS (xclone->xasl->status));
-  INT32 xasl_clone_size = xcache_entry_get_one_clonesize (xcache_entry);
+  INT32 xasl_entry_size = xcache_entry_get_entrysize (xcache_entry);
   if (xcache_uses_clones ())
     {
       pthread_mutex_lock (&xcache_entry->cache_clones_mutex);
-      if (xcache_entry->n_cache_clones < xcache_Max_clones && xasl_clone_size < xcache_Max_plan_size)
+      if (xcache_entry->n_cache_clones < xcache_Max_clones && xasl_entry_size < xcache_Max_plan_size)
 	{
 	  if (xcache_entry->n_cache_clones == xcache_entry->cache_clones_capacity
 	      && xcache_entry->cache_clones_capacity < xcache_Max_clones)
@@ -2230,8 +2231,6 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 		{
 		  assert (xcache_entry->cache_clones_capacity == 1);
 		  new_clones = (XASL_CLONE *) malloc (new_capacity * sizeof (XASL_CLONE));
-		  ATOMIC_INC_32 (&xcache_Memory_usage_cache,
-				 static_cast < INT32 > (new_capacity * sizeof (XASL_CLONE)));
 		  if (new_clones != NULL)
 		    {
 		      new_clones[0].xasl = xcache_entry->cache_clones[0].xasl;
@@ -2241,8 +2240,6 @@ xcache_retire_clone (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_entry, X
 	      else
 		{
 		  new_clones = (XASL_CLONE *) realloc (xcache_entry->cache_clones, new_capacity * sizeof (XASL_CLONE));
-		  ATOMIC_INC_32 (&xcache_Memory_usage_cache,
-				 static_cast < INT32 > ((new_capacity - old_capacity) * sizeof (XASL_CLONE)));
 		}
 	      if (new_clones == NULL)
 		{
