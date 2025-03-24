@@ -3674,7 +3674,7 @@ SYSPRM_PARAM prm_Def[] = {
    &prm_xasl_cache_max_entries_flag,
    (void *) &prm_xasl_cache_max_entries_default,
    (void *) &PRM_XASL_CACHE_MAX_ENTRIES,
-   (void *) &prm_xasl_cache_max_entries_upper, 
+   (void *) &prm_xasl_cache_max_entries_upper,
    (void *) NULL,
    (char *) NULL,
    (DUP_PRM_FUNC) NULL,
