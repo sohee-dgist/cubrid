@@ -1260,7 +1260,8 @@ xcache_entry_mark_deleted (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xcache_en
 
   /* The entry can be deleted if the only fixer is this transaction. */
   ATOMIC_INC_32 (&xcache_Memory_usage_cache, -xcache_entry_get_entrysize (xcache_entry));
-  return (new_cache_flag == XCACHE_ENTRY_DELETED_BY_ME);
+  assert (new_cache_flag == XCACHE_ENTRY_DELETED_BY_ME);
+  return true;
 }
 
 /*
