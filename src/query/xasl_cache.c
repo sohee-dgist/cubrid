@@ -2070,7 +2070,6 @@ xcache_dump (THREAD_ENTRY * thread_p, FILE * fp)
 
   fprintf (fp, "XASL cache\n");
   fprintf (fp, "Stats: \n");
-  fprintf (fp, "Max size:                   %d\n", xcache_Soft_capacity);
   fprintf (fp, "Current entry count:        %d\n", ATOMIC_INC_32 (&xcache_Entry_count, 0));
   fprintf (fp, "Lookups:                    %lld\n", (long long) XCACHE_STAT_GET (lookups));
   fprintf (fp, "Hits:                       %lld\n", (long long) XCACHE_STAT_GET (hits));
