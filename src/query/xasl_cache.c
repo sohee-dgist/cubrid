@@ -2449,9 +2449,7 @@ xcache_cleanup (THREAD_ENTRY * thread_p)
 	  (void) qfile_clear_list_cache (thread_p, candidate.xcache, true);
 	}
 
-      /* Try delete. Would be better to decache the clones here. For simplicity, since is not an usual case,
-       * clone decache is postponed - is decached when retired list will be cleared.
-       */
+      /* Try delete. if successed decache the clones here */
       if (xcache_Hashmap.erase (thread_p, candidate.xid))
 	{
 	  xcache_log ("cleanup: candidate was removed from hash"
