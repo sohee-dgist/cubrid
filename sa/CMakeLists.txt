@@ -235,12 +235,14 @@ set(PARSER_SOURCES
   ${PARSER_DIR}/view_transform.c
   ${PARSER_DIR}/xasl_regu_alloc.cpp
   ${PARSER_DIR}/xasl_generation.c
+  ${PARSER_DIR}/predication/parser_expr_compiler.cpp
   )
 set(PARSER_HEADERS
   ${PARSER_DIR}/func_type.hpp
   ${PARSER_DIR}/parse_type.hpp
   ${PARSER_DIR}/parser_allocator.hpp
   ${PARSER_DIR}/xasl_regu_alloc.hpp
+  ${PARSER_DIR}/predication/parser_expr_compiler.hpp
   )
 
 set(OPTIMIZER_SOURCES
@@ -601,6 +603,7 @@ SET_SOURCE_FILES_PROPERTIES(
   ${PARSER_DIR}/semantic_check.c
   ${PARSER_DIR}/type_checking.c
   ${PARSER_DIR}/xasl_generation.c
+  ${PARSER_DIR}/predication/parser_expr_compiler.cpp
   ${PARSER_DIR}/scanner_support.c
   ${PARSER_DIR}/view_transform.c
   ${OPTIMIZER_SOURCES}
