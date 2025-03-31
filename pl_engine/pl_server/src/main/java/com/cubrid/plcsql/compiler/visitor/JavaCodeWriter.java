@@ -49,7 +49,9 @@ import org.antlr.v4.runtime.ParserRuleContext;
 
 public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
 
-    private InstanceStore iStore;
+    private final InstanceStore iStore;
+    private final Set<SqlUse> sqlUsesReachableFromLoop;
+
     private Set<String> javaTypesUsed = new HashSet<>();
 
     private String getJavaCodeOfType(TypeSpec tySpec) {
@@ -61,8 +63,9 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         return type.javaCode;
     }
 
-    public JavaCodeWriter(InstanceStore iStore) {
+    public JavaCodeWriter(InstanceStore iStore, Set<SqlUse> sqlUsesInRecursiveCalls) {
         this.iStore = iStore;
+        this.sqlUsesReachableFromLoop = sqlUsesInRecursiveCalls;
     }
 
     public List<String> codeLines = new ArrayList<>(); // no LinkedList : frequent access by indexes
@@ -101,7 +104,22 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
     // Unit
     //
     private static final String tmplGetConn =
-            "Connection conn = DriverManager.getConnection(\"jdbc:default:connection::?autonomous_transaction=%s\");";
+            "final Connection conn = DriverManager.getConnection(\"jdbc:default:connection::?autonomous_transaction=%s\");";
+
+    private static final String[] tmplMainUserCode =
+            new String[] {
+                "%'OPT-RETURN'%new Object() {",
+                "  %'RETURN-TYPE'% %'METHOD-NAME'%(",
+                "      %'+PARAMETERS'%",
+                "    ) throws Exception {",
+                "    Long[] sql_rowcount = new Long[] { null };",
+                "    %'+NULLIFY-OUT-PARAMETERS'%",
+                "    %'+DECL-CLASS'%",
+                "    %'+BODY'%",
+                "  }",
+                "}.%'METHOD-NAME'%(%'PARAMETER-NAMES'%);"
+            };
+
     private static final String[] tmplUnit =
             new String[] {
                 "%'+IMPORTS'%",
@@ -112,12 +130,9 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
                 "  public static %'RETURN-TYPE'% %'METHOD-NAME'%(",
                 "      %'+PARAMETERS'%",
                 "    ) throws Exception {",
-                "    %'+NULLIFY-OUT-PARAMETERS'%",
                 "    try {",
-                "      Long[] sql_rowcount = new Long[] { null };",
                 "      %'GET-CONNECTION'%",
-                "      %'+DECL-CLASS'%",
-                "      %'+BODY'%",
+                "      %'+MAIN-USER-CODE'%",
                 // exceptions that escaped from the exception handlers of the body
                 "    } catch (PlcsqlRuntimeError e) {",
                 "      Throwable c = e.getCause();",
@@ -180,7 +195,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
                         : getJavaCodeOfType(node.routine.retTypeSpec);
 
         // parameters
-        Object strParamArr =
+        Object objParamArr =
                 Misc.isEmpty(node.routine.paramList)
                         ? ""
                         : visitNodeList(node.routine.paramList).setDelimiter(",");
@@ -190,6 +205,29 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
 
         // body
         CodeToResolve bodyCode = visit(node.routine.body);
+
+        // main user code
+        CodeToResolve mainUserCode =
+                new CodeTemplate(
+                        "main user code",
+                        Misc.UNKNOWN_LINE_COLUMN,
+                        tmplMainUserCode,
+                        "%'OPT-RETURN'%",
+                        node.routine.retTypeSpec == null ? "" : "return ",
+                        "%'+PARAMETERS'%",
+                        objParamArr,
+                        "%'+NULLIFY-OUT-PARAMETERS'%",
+                        strNullifyOutParam,
+                        "%'+DECL-CLASS'%",
+                        codeDeclClass,
+                        "%'+BODY'%",
+                        bodyCode,
+                        "%'PARAMETER-NAMES'%",
+                        getParameterNames(node.routine.paramList));
+        if (!sqlUsesReachableFromLoop.isEmpty()) {
+            mainUserCode =
+                    wrapWithStmtDeclareAndClose(null, sqlUsesReachableFromLoop, mainUserCode);
+        }
 
         // record definitions
         List<String> recordLines = new LinkedList<>();
@@ -227,10 +265,20 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         }
         importsArray = Arrays.copyOf(importsArray, i);
 
+        // parameters - need to visit again to obtain another object instance though the contents
+        // are the same,
+        //   because two big holes cannot be resolved by a single CodeToResolve object
+        objParamArr =
+                Misc.isEmpty(node.routine.paramList)
+                        ? ""
+                        : visitNodeList(node.routine.paramList).setDelimiter(",");
+
         return new CodeTemplate(
                 "Unit",
                 new int[] {1, 1},
                 tmplUnit,
+                "%'+MAIN-USER-CODE'%",
+                mainUserCode,
                 "%'+IMPORTS'%",
                 importsArray,
                 "%'CLASS-NAME'%",
@@ -240,15 +288,9 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
                 "%'METHOD-NAME'%",
                 node.routine.name,
                 "%'+PARAMETERS'%",
-                strParamArr,
-                "%'+NULLIFY-OUT-PARAMETERS'%",
-                strNullifyOutParam,
+                objParamArr,
                 "%'GET-CONNECTION'%",
                 strGetConn,
-                "%'+DECL-CLASS'%",
-                codeDeclClass,
-                "%'+BODY'%",
-                bodyCode,
                 "%'+RECORD-DEFS'%",
                 recordDefs,
                 "%'+RECORD-ASSIGN-FUNCS'%",
@@ -743,9 +785,9 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
                 new CodeTemplate(
                         "ExprGlobalFuncCall",
                         Misc.getLineColumnOf(node.ctx),
-                        node.containerLoop == null
-                                ? tmplExprGlobalFuncCall_notInLoop
-                                : tmplExprGlobalFuncCall_inLoop,
+                        node.reachableFromLoop
+                                ? tmplExprGlobalFuncCall_inLoop
+                                : tmplExprGlobalFuncCall_notInLoop,
                         "%'FUNC-NAME'%",
                         node.name,
                         "%'DYNAMIC-SQL'%",
@@ -850,9 +892,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         int argsLen = node.args.nodes.size();
         String callStr = getNormalCallStr(node.name, argsLen);
         String pstmtRefStr =
-                node.containerLoop == null
-                        ? "null"
-                        : String.format("pstmtRef_%d", node.sqlSerialNo);
+                node.reachableFromLoop ? String.format("pstmtRef_%d", node.sqlSerialNo) : "null";
 
         if (argsLen == 0) {
 
@@ -925,9 +965,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         }
 
         String pstmtRefStr =
-                node.containerLoop == null
-                        ? "null"
-                        : String.format("pstmtRef_%d", node.sqlSerialNo);
+                node.reachableFromLoop ? String.format("pstmtRef_%d", node.sqlSerialNo) : "null";
 
         CodeTemplate tmpl =
                 new CodeTemplate(
@@ -1170,9 +1208,9 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
                 new CodeTemplate(
                         "ExprSerialVal",
                         Misc.getLineColumnOf(node.ctx),
-                        node.containerLoop == null
-                                ? tmplExprSerialVal_notInLoop
-                                : tmplExprSerialVal_inLoop,
+                        node.reachableFromLoop
+                                ? tmplExprSerialVal_inLoop
+                                : tmplExprSerialVal_notInLoop,
                         "%'SQL-SERIAL-NO'%",
                         Integer.toString(node.sqlSerialNo),
                         "%'SERIAL-NAME'%",
@@ -1381,6 +1419,10 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
     @Override
     public CodeToResolve visitStmtBasicLoop(StmtBasicLoop node) {
 
+        if (node.reachableSqlUses != null) {
+            sqlUsesReachableFromLoop.addAll(node.reachableSqlUses);
+        }
+
         CodeTemplate ret =
                 new CodeTemplate(
                         "StmtBasicLoop",
@@ -1393,7 +1435,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         if (node.loopOptimizables == null || node.loopOptimizables.isEmpty()) {
             return ret;
         } else {
-            return wrapWithStmtDeclareAndClose(node, ret);
+            return wrapWithStmtDeclareAndClose(node.ctx, node.loopOptimizables.sqlUses, ret);
         }
     }
 
@@ -1527,15 +1569,12 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
     private static String[] tmplStmtCursorFetch =
             new String[] {
                 "{ // cursor fetch",
-                "  if (%'CURSOR'% == null || !%'CURSOR'%.isOpen()) {",
-                "    throw new INVALID_CURSOR(\"tried to fetch values with an unopened cursor\");",
+                "  if (%'CURSOR'% == null) {",
+                "    throw new INVALID_CURSOR(\"the cursor is NULL\");",
                 "  }",
                 "  ResultSet rs = %'CURSOR'%.rs;",
-                "  if (rs.next()) {",
-                "    %'CURSOR'%.updateRowCount();",
+                "  if (%'CURSOR'%.fetch()) {",
                 "    %'+SET-INTO-VARIABLES'%",
-                "  } else {",
-                "    ;", // TODO: setting nulls to into-variables?
                 "  }",
                 "}"
             };
@@ -1837,7 +1876,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         }
 
         String[] template =
-                node.containerLoop == null
+                !node.reachableFromLoop
                         ? tmplStmtSql_notInLoop
                         : node.usingRef()
                                 ? tmplStmtSql_inLoop_usingRef
@@ -1883,8 +1922,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
                 "  %'CURSOR'%.open(conn, %'PSTMT-REF'%);",
                 "  ResultSet %'RECORD'%_r%'LEVEL'% = %'CURSOR'%.rs;",
                 "  %'LABEL'%",
-                "  while (%'RECORD'%_r%'LEVEL'%.next()) {",
-                "    %'CURSOR'%.updateRowCount();",
+                "  while (%'CURSOR'%.fetch()) {",
                 "    %'RECORD'%[0].set(",
                 "      %'+RECORD-FIELD-VALUES'%",
                 "    );",
@@ -1906,8 +1944,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
                 "    %'+HOST-EXPRS'%);",
                 "  ResultSet %'RECORD'%_r%'LEVEL'% = %'CURSOR'%.rs;",
                 "  %'LABEL'%",
-                "  while (%'RECORD'%_r%'LEVEL'%.next()) {",
-                "    %'CURSOR'%.updateRowCount();",
+                "  while (%'CURSOR'%.fetch()) {",
                 "    %'RECORD'%[0].set(",
                 "      %'+RECORD-FIELD-VALUES'%",
                 "    );",
@@ -1939,15 +1976,17 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
     @Override
     public CodeToResolve visitStmtForCursorLoop(StmtForCursorLoop node) {
 
+        if (node.reachableSqlUses != null) {
+            sqlUsesReachableFromLoop.addAll(node.reachableSqlUses);
+        }
+
         String[] recordSetArgs =
                 getRecordSetArgs(node.record, node.recordType, node.cursor.scope.level);
 
         DeclCursor decl = (DeclCursor) node.cursor.decl;
 
         String pstmtRefStr =
-                node.containerLoop == null
-                        ? "null"
-                        : String.format("pstmtRef_%d", node.sqlSerialNo);
+                node.reachableFromLoop ? String.format("pstmtRef_%d", node.sqlSerialNo) : "null";
 
         CodeTemplate ret;
         if (decl.paramNumOfHostExpr.length == 0) {
@@ -2013,7 +2052,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         if (node.loopOptimizables == null || node.loopOptimizables.isEmpty()) {
             return ret;
         } else {
-            return wrapWithStmtDeclareAndClose(node, ret);
+            return wrapWithStmtDeclareAndClose(node.ctx, node.loopOptimizables.sqlUses, ret);
         }
     }
 
@@ -2058,6 +2097,10 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
     @Override
     public CodeToResolve visitStmtForIterLoop(StmtForIterLoop node) {
 
+        if (node.reachableSqlUses != null) {
+            sqlUsesReachableFromLoop.addAll(node.reachableSqlUses);
+        }
+
         String labelStr = node.declLabel == null ? "" : node.declLabel.javaCode();
 
         CodeTemplate ret =
@@ -2082,7 +2125,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         if (node.loopOptimizables == null || node.loopOptimizables.isEmpty()) {
             return ret;
         } else {
-            return wrapWithStmtDeclareAndClose(node, ret);
+            return wrapWithStmtDeclareAndClose(node.ctx, node.loopOptimizables.sqlUses, ret);
         }
     }
 
@@ -2185,6 +2228,10 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
     @Override
     public CodeToResolve visitStmtForStaticSqlLoop(StmtForStaticSqlLoop node) {
 
+        if (node.reachableSqlUses != null) {
+            sqlUsesReachableFromLoop.addAll(node.reachableSqlUses);
+        }
+
         Type recTy = node.record.type();
         assert recTy instanceof TypeRecord;
 
@@ -2193,7 +2240,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         Object setUsedExpr = getSetUsedExpr(node.usedExprList);
 
         String[] template =
-                node.containerLoop == null
+                !node.reachableFromLoop
                         ? tmplStmtForStaticSqlLoop_notInLoop
                         : node.usingRef()
                                 ? tmplStmtForStaticSqlLoop_inLoop_usingRef
@@ -2224,7 +2271,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         if (node.loopOptimizables == null || node.loopOptimizables.isEmpty()) {
             return ret;
         } else {
-            return wrapWithStmtDeclareAndClose(node, ret);
+            return wrapWithStmtDeclareAndClose(node.ctx, node.loopOptimizables.sqlUses, ret);
         }
     }
 
@@ -2297,9 +2344,9 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         return new CodeTemplate(
                 "StmtGlobalProcCall",
                 Misc.getLineColumnOf(node.ctx),
-                node.containerLoop == null
-                        ? tmplStmtGlobalProcCall_notInLoop
-                        : tmplStmtGlobalProcCall_inLoop,
+                node.reachableFromLoop
+                        ? tmplStmtGlobalProcCall_inLoop
+                        : tmplStmtGlobalProcCall_notInLoop,
                 "%'PROC-NAME'%",
                 node.name,
                 "%'DYNAMIC-SQL'%",
@@ -2552,6 +2599,10 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
     @Override
     public CodeToResolve visitStmtWhileLoop(StmtWhileLoop node) {
 
+        if (node.reachableSqlUses != null) {
+            sqlUsesReachableFromLoop.addAll(node.reachableSqlUses);
+        }
+
         CodeTemplate ret =
                 new CodeTemplate(
                         "StmtWhileLoop",
@@ -2566,7 +2617,7 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         if (node.loopOptimizables == null || node.loopOptimizables.isEmpty()) {
             return ret;
         } else {
-            return wrapWithStmtDeclareAndClose(node, ret);
+            return wrapWithStmtDeclareAndClose(node.ctx, node.loopOptimizables.sqlUses, ret);
         }
     }
 
@@ -2583,10 +2634,14 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
                 "    throw e;",
                 "  } catch (OutOfMemoryError e) {",
                 "    Server.log(e);",
-                "    throw new STORAGE_ERROR().initCause(e);",
+                "    STORAGE_ERROR ee = new STORAGE_ERROR();",
+                "    ee.initCause(e);",
+                "    throw ee;",
                 "  } catch (Throwable e) {",
                 "    Server.log(e);",
-                "    throw new PROGRAM_ERROR().initCause(e);",
+                "    PROGRAM_ERROR ee = new PROGRAM_ERROR();",
+                "    ee.initCause(e);",
+                "    throw ee;",
                 "  }",
                 "}",
                 "%'+CATCHES'%"
@@ -2887,6 +2942,15 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
         }
 
         return ret.setDelimiter(",");
+    }
+
+    private static String getParameterNames(NodeList<DeclParam> paramList) {
+
+        List<String> ret = new LinkedList<>();
+        for (DeclParam dp : paramList.nodes) {
+            ret.add(dp.name);
+        }
+        return String.join(",", ret.toArray(DUMMY_STRING_ARRAY));
     }
 
     private static String[] getNullifyOutParamCode(NodeList<DeclParam> paramList) {
@@ -3659,13 +3723,13 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
                 "}",
             };
 
-    private CodeToResolve wrapWithStmtDeclareAndClose(StmtLoop node, CodeToResolve loop) {
+    private CodeToResolve wrapWithStmtDeclareAndClose(
+            ParserRuleContext ctx, Iterable<SqlUse> sqlUses, CodeToResolve code) {
 
         CodeTemplateList decls = new CodeTemplateList();
         CodeTemplateList closes = new CodeTemplateList();
 
-        assert !node.loopOptimizables.isEmpty();
-        for (SqlUse u : node.loopOptimizables.sqlUses) {
+        for (SqlUse u : sqlUses) {
 
             String klass = u.ofCallableStmt() ? "CallableStatement" : "PreparedStatement";
 
@@ -3698,12 +3762,12 @@ public class JavaCodeWriter extends AstVisitor<JavaCodeWriter.CodeToResolve> {
 
         return new CodeTemplate(
                 "LoopWithOptimizable",
-                Misc.getLineColumnOf(node.ctx),
+                Misc.getLineColumnOf(ctx),
                 tmplLoopOptimizable,
                 "%'+DECLARE-STATEMENTS'%",
                 decls,
                 "%'+LOOP'%",
-                loop,
+                code,
                 "%'+CLOSE-STATEMENTS'%",
                 closes);
     }
