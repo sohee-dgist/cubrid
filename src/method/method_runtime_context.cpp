@@ -34,7 +34,26 @@ namespace cubmethod
   runtime_context *get_rctx (cubthread::entry *thread_p)
   {
     method_runtime_context *rctx = nullptr;
-    session_get_method_runtime_context (thread_p, rctx);
+
+    if (thread_p == nullptr)
+      {
+	thread_p = thread_get_thread_entry_info ();
+      }
+#if defined (SERVER_MODE)
+    // only worker thread can access session
+    if (thread_p && thread_p->type != TT_WORKER)
+      {
+	return nullptr;
+      }
+#endif
+
+    int error = session_get_method_runtime_context (thread_p, rctx);
+    if (error != NO_ERROR)
+      {
+	// session expired or internal error
+	er_set (ER_NOTIFICATION_SEVERITY, ARG_FILE_LINE, ER_INTERRUPTING, 1, thread_p->tran_index);
+      }
+
     return rctx;
   }
 
@@ -71,16 +90,49 @@ namespace cubmethod
       {
 	m_group_map [group->get_id ()] = group;
       }
+    else
+      {
+	set_interrupt (er_errid ());
+      }
     return group;
   }
 
-  void
+  int
   runtime_context::push_stack (cubthread::entry *thread_p, method_invoke_group *group)
   {
+    if (thread_p == nullptr)
+      {
+	thread_p = thread_get_thread_entry_info ();
+      }
+
     std::unique_lock<std::mutex> ulock (m_mutex);
+
+    if (m_group_stack.size () >= METHOD_MAX_RECURSION_DEPTH)
+      {
+	ulock.unlock ();
+	er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SP_TOO_MANY_NESTED_CALL, 0);
+	set_interrupt (ER_SP_TOO_MANY_NESTED_CALL);
+	return ER_SP_TOO_MANY_NESTED_CALL;
+      }
+
+    if (m_is_running == false && m_group_stack.empty ())
+      {
+	// clear previous interrupt state
+	clear_interrupt ();
+      }
+
+    // check interrupt
+    if (is_interrupted () && !m_group_stack.empty ())
+      {
+	// block creating a new stack
+	set_local_error_for_interrupt ();
+	m_cond_var.notify_all ();
+	return ER_FAILED;
+      }
 
     m_is_running = true;
     m_group_stack.push_back (group->get_id ());
+    return NO_ERROR;
   }
 
   void
@@ -101,7 +153,7 @@ namespace cubmethod
     auto pred = [&] () -> bool
     {
       // condition to check
-      return m_group_stack.back() == claimed->get_id ();
+      return m_group_stack.empty () || m_group_stack.back() == claimed->get_id ();
     };
 
     // Guaranteed to be removed from the topmost element
@@ -109,8 +161,11 @@ namespace cubmethod
 
     if (pred ())
       {
-	destroy_group (m_group_stack.back ());
-	m_group_stack.pop_back ();
+	if (!m_group_stack.empty())
+	  {
+	    destroy_group (m_group_stack.back ());
+	    m_group_stack.pop_back ();
+	  }
       }
 
     // should be freed for all XASL structure
@@ -123,15 +178,22 @@ namespace cubmethod
 
     if (m_group_stack.empty())
       {
-	// reset interrupt state
-	m_is_interrupted = false;
-	m_interrupt_id = NO_ERROR;
 	m_is_running = false;
 
-	// notify m_group_stack becomes empty ();
-	ulock.unlock ();
-	m_cond_var.notify_all ();
+	// reset interrupt state
+	clear_interrupt ();
       }
+
+    // notify m_group_stack becomes empty ();
+    m_cond_var.notify_all ();
+  }
+
+  void
+  runtime_context::clear_interrupt ()
+  {
+    m_is_interrupted = false;
+    m_interrupt_id = NO_ERROR;
+    m_interrupt_msg.clear ();
   }
 
   method_invoke_group *
@@ -156,8 +218,20 @@ namespace cubmethod
   }
 
   void
+  runtime_context::notify_waiting_stacks ()
+  {
+    m_cond_var.notify_all ();
+  }
+
+  void
   runtime_context::set_interrupt (int reason, std::string msg)
   {
+    if (m_is_interrupted)
+      {
+	// do not overwrite interrupt
+	return;
+      }
+
     switch (reason)
       {
       /* no arg */
@@ -182,6 +256,19 @@ namespace cubmethod
       default:
 	/* do nothing */
 	break;
+      }
+
+    if (m_is_interrupted)
+      {
+	std::unique_lock<std::mutex> ulock (m_mutex);
+	for (auto &it : m_group_map)
+	  {
+	    connection *conn = it.second->get_connection ();
+	    if (conn)
+	      {
+		conn->invalidate ();
+	      }
+	  }
       }
   }
 
@@ -215,16 +302,14 @@ namespace cubmethod
     auto pred = [this] () -> bool
     {
       // condition of finish
-      return m_group_stack.empty () && is_running () == false;
+      return m_group_stack.empty () || is_running () == false;
     };
 
-    if (pred ())
-      {
-	return;
-      }
-
     std::unique_lock<std::mutex> ulock (m_mutex);
-    m_cond_var.wait (ulock, pred);
+    while (m_cond_var.wait_for (ulock, std::chrono::milliseconds (100), pred) == false)
+      {
+	m_cond_var.notify_all ();
+      }
   }
 
   bool
@@ -411,10 +496,10 @@ namespace cubmethod
     m_returning_cursors.clear ();
   }
 
-  connection_pool &
+  connection_pool *
   runtime_context::get_connection_pool ()
   {
-    return m_conn_pool;
+    return &m_conn_pool;
   }
 
 } // cubmethod

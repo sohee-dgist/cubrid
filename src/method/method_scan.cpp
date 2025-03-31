@@ -111,9 +111,11 @@ namespace cubscan
 	  m_method_group->reset (true);
 	  m_method_group->end ();
 
-	  cubmethod::runtime_context *rctx = m_method_group->get_runtime_context ();
-	  rctx->pop_stack (m_thread_p, m_method_group);
-
+	  cubmethod::runtime_context *rctx = cubmethod::get_rctx (m_thread_p);
+	  if (rctx)
+	    {
+	      rctx->pop_stack (m_thread_p, m_method_group);
+	    }
 	  m_method_group = nullptr; // will be destroyed by cubmethod::runtime_context
 	}
     }
@@ -125,7 +127,7 @@ namespace cubscan
       error = qfile_open_list_scan (m_list_id, &m_scan_id);
 
       // connect
-      m_method_group->begin ();
+      error = m_method_group->begin ();
       return error;
     }
 
@@ -177,24 +179,31 @@ namespace cubscan
 
 	      db_make_null (dbval_p);
 
-	      DB_VALUE &result = m_method_group->get_return_value (i);
-	      db_value_clone (&result, dbval_p);
+	      if (m_method_group->get_num_methods () > 0)
+		{
+		  DB_VALUE &result = m_method_group->get_return_value (i);
+		  db_value_clone (&result, dbval_p);
+		  db_value_clear (&result);
+		}
 
 	      m_dbval_list[i].val = dbval_p;
-	      db_value_clear (&result);
 	    }
 
 	  m_method_group->reset (false);
 	}
       if (scan_code == S_ERROR)
 	{
-	  cubmethod::runtime_context *rctx = m_method_group->get_runtime_context ();
-	  if (rctx->is_interrupted ())
+	  cubmethod::runtime_context *rctx = cubmethod::get_rctx (m_thread_p);
+	  if (rctx)
 	    {
-	      rctx->set_local_error_for_interrupt ();
+	      if (rctx->is_interrupted ())
+		{
+		  rctx->set_local_error_for_interrupt ();
+		}
 	    }
-	  else if (error !=
-		   ER_SM_INVALID_METHOD_ENV) /* FIXME: error possibly occured in builtin method, It should be handled at CAS */
+
+	  if (error !=
+	      ER_SM_INVALID_METHOD_ENV) /* FIXME: error possibly occured in builtin method, It should be handled at CAS */
 	    {
 	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SP_EXECUTE_ERROR, 1, m_method_group->get_error_msg ().c_str ());
 	    }
