@@ -10137,10 +10137,10 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
 {
   OR_BUF buf;
   PR_TYPE *pr_type;		/* Primitive type array function structure */
-  OR_ATTRIBUTE *volatile attrepr;
+  OR_ATTRIBUTE *attrepr;
   char *disk_data = NULL;
   int disk_bound = false;
-  volatile int disk_length = -1;
+  int disk_length = -1;
   int ret = NO_ERROR;
 
   if (IS_DEDUPLICATE_KEY_ATTR_ID (value->attrid))
@@ -10205,7 +10205,6 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
 	       * Find its location through the variable offset attribute table.
 	       */
 	      disk_data = ((char *) recdes->data + OR_VAR_OFFSET (recdes->data, value->read_attrepr->location));
-
 	      disk_bound = true;
 	      switch (TP_DOMAIN_TYPE (attrepr->domain))
 		{
@@ -10236,7 +10235,6 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
     {
       (void) pr_clear_value (&value->dbvalue);
     }
-
   /*
    * Now make the dbvalue according to the disk data value
    */
@@ -10258,16 +10256,26 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
        */
       or_init (&buf, disk_data, disk_length);
       buf.error_abort = 1;
+
       pr_type = pr_type_from_id (attrepr->type);
       if (pr_type)
-      {
-        pr_type->data_readval (&buf, &value->dbvalue, attrepr->domain, disk_length, false, NULL, 0);
-      }
-      value->state = HEAP_READ_ATTRVALUE;
+	{
+	  if (pr_type->data_readval (&buf, &value->dbvalue, attrepr->domain, disk_length, false, NULL, 0) != NO_ERROR)
+	    {
+	      ret = ER_FAILED;
+	    }
+	  else
+	    {
+	      value->state = HEAP_READ_ATTRVALUE;
+	    }
+	}
+      else
+	{
+	  ret = ER_FAILED;
+	}
     }
 
   return ret;
-
 exit_on_error:
 
   return (ret == NO_ERROR && (ret = er_errid ()) == NO_ERROR) ? ER_FAILED : ret;
