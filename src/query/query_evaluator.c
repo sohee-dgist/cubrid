@@ -2879,10 +2879,14 @@ eval_data_filter (THREAD_ENTRY * thread_p, OID * oid, RECDES * recdesp, HEAP_SCA
 
   /* evaluate the predicates of the data filter */
   ev_res = V_TRUE;
-  if (scan_predp->pr_eval_fnc && scan_predp->pred_expr)
-    {
-      ev_res = (*scan_predp->pr_eval_fnc) (thread_p, scan_predp->pred_expr, filterp->val_descr, oid);
-    }
+  if (scan_predp->compiled_pred_expr) 
+  {
+    ev_res = predication::evaluate_compiled_pred_expr(scan_predp->compiled_pred_expr, scan_predp->ctx);
+  } 
+  else if (scan_predp->pr_eval_fnc && scan_predp->pred_expr)
+  {
+    ev_res = (*scan_predp->pr_eval_fnc) (thread_p, scan_predp->pred_expr, filterp->val_descr, oid);
+  }
 
   if (oid == NULL && recdesp == NULL)
     {

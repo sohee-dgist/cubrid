@@ -68,7 +68,7 @@
 #include "subquery_cache.h"
 #include "pl_signature.hpp"
 #include "sp_catalog.hpp"
-#include "predication/parser_expr_compiler.hpp"
+#include "parser_expr_compiler.hpp"
 
 #if defined(WINDOWS)
 #include "wintcp.h"
@@ -12411,7 +12411,6 @@ pt_to_class_spec_list (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * where_
 	      symbols->reserved_values = db_values_array_p;
 
 	      where = pt_to_pred_expr (parser, where_part);
-	      where = pt_to_pred_expr_with_arg_temp_print (parser, where_part, NULL);
 	      if (scan_type == TARGET_CLASS_ATTR)
 		{
 		  symbols->current_class = class_;

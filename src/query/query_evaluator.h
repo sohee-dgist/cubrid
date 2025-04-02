@@ -96,6 +96,8 @@ struct scan_pred
   regu_variable_list_node *regu_list;	/* regu list for predicates (or filters) */
   PRED_EXPR *pred_expr;		/* predicate expressions */
   PR_EVAL_FNC pr_eval_fnc;	/* predicate evaluation function */
+  predication::CompiledPredExpr *compiled_pred_expr; /* compiled predicate expression */
+  predication::Context *ctx; /* context for compiled predicate expression */
 };
 
 /* attributes information of scan */
