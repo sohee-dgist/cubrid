@@ -10488,7 +10488,6 @@ smethod_invoke_fold_constants (THREAD_ENTRY * thread_p, unsigned int rid, char *
       /* might be interrupted and session is already freed */
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_INTERRUPTED, 0);
       error_code = ER_INTERRUPTED;
-      assert (false);		// oops
     }
 
   packing_packer packer;
@@ -10519,7 +10518,7 @@ smethod_invoke_fold_constants (THREAD_ENTRY * thread_p, unsigned int rid, char *
     }
   else
     {
-      if (rctx->is_interrupted ())
+      if (rctx && rctx->is_interrupted ())
 	{
 	  rctx->set_local_error_for_interrupt ();
 	}
