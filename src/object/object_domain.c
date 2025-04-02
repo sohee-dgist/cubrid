@@ -11097,6 +11097,14 @@ tp_domain_disk_size (TP_DOMAIN * domain)
   return domain->type->get_disk_size_of_mem (NULL, domain);
 }
 
+int
+tp_domain_fixed_disk_size (TP_DOMAIN * domain)
+{
+  assert (domain->precision != TP_FLOATING_PRECISION_VALUE);
+
+  return domain->type->disksize;
+}
+
 
 /*
  * tp_domain_memory_size - Calculates the "instance memory" size required

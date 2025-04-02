@@ -501,6 +501,7 @@ extern "C"
 /* misc info */
 
   extern int tp_domain_disk_size (TP_DOMAIN * domain);
+  extern int tp_domain_fixed_disk_size (TP_DOMAIN * domain);
   extern int tp_domain_memory_size (TP_DOMAIN * domain);
   extern TP_DOMAIN_STATUS tp_check_value_size (TP_DOMAIN * domain, DB_VALUE * value);
 

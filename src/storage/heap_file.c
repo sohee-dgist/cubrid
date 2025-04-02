@@ -10149,12 +10149,6 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
        * Therefore, the read operation is skipped and success is returned. */
       return NO_ERROR;
     }
-
-  /* Initialize disk value information */
-  disk_data = NULL;
-  disk_bound = false;
-  disk_length = -1;
-
   /*
    * Does attribute exist in this disk representation?
    */
@@ -10195,7 +10189,7 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
 		 + OR_FIXED_ATTRIBUTES_OFFSET_BY_OBJ (recdes->data,
 						      attr_info->read_classrepr->n_variable)
 		 + value->read_attrepr->location);
-	      disk_length = tp_domain_disk_size (value->read_attrepr->domain);
+	      disk_length = tp_domain_fixed_disk_size (value->read_attrepr->domain);
 	      disk_bound = true;
 	    }
 	}
@@ -10264,31 +10258,12 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
        */
       or_init (&buf, disk_data, disk_length);
       buf.error_abort = 1;
-
-      switch (_setjmp (buf.env))
-	{
-	case 0:
-	  /* Do not copy the string--just use the pointer.  The pr_ routines for strings and sets have different
-	   * semantics for length. A negative length value for strings means "don't copy the string, just use the
-	   * pointer". For sets, don't translate the set into memory representation at this time.  It will only be
-	   * translated when needed. */
-	  pr_type = pr_type_from_id (attrepr->type);
-	  if (pr_type)
-	    {
-	      pr_type->data_readval (&buf, &value->dbvalue, attrepr->domain, disk_length, false, NULL, 0);
-	    }
-	  value->state = HEAP_READ_ATTRVALUE;
-	  break;
-	default:
-	  /*
-	   * An error was found during the reading of the attribute value
-	   */
-	  (void) db_value_domain_init (&value->dbvalue, attrepr->type, attrepr->domain->precision,
-				       attrepr->domain->scale);
-	  value->state = HEAP_UNINIT_ATTRVALUE;
-	  ret = ER_FAILED;
-	  break;
-	}
+      pr_type = pr_type_from_id (attrepr->type);
+      if (pr_type)
+      {
+        pr_type->data_readval (&buf, &value->dbvalue, attrepr->domain, disk_length, false, NULL, 0);
+      }
+      value->state = HEAP_READ_ATTRVALUE;
     }
 
   return ret;

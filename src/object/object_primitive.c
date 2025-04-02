@@ -2484,11 +2484,8 @@ mr_data_readval_int (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
     }
   else
     {
-      temp_int = or_get_int (buf, &rc);
-      if (rc == NO_ERROR)
-	{
-	  db_make_int (value, temp_int);
-	}
+      temp_int = or_get_int_no_error (buf);
+      db_make_int (value, temp_int);
       value->need_clear = false;
     }
   return rc;
