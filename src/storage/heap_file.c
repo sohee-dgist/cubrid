@@ -10263,19 +10263,9 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
       pr_type = pr_type_from_id (attrepr->type);
       if (pr_type)
 	{
-	  if (pr_type->data_readval (&buf, &value->dbvalue, attrepr->domain, disk_length, false, NULL, 0) != NO_ERROR)
-	    {
-	      ret = ER_FAILED;
-	    }
-	  else
-	    {
-	      value->state = HEAP_READ_ATTRVALUE;
-	    }
+	  pr_type->data_readval (&buf, &value->dbvalue, attrepr->domain, disk_length, false, NULL, 0);
 	}
-      else
-	{
-	  ret = ER_FAILED;
-	}
+      value->state = HEAP_READ_ATTRVALUE;
     }
 
   return ret;
