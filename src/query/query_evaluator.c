@@ -273,7 +273,7 @@ eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval
       else
 	{
 	  /* do ordinal comparison, but NULL's still yield UNKNOWN */
-	  result = tp_value_compare_with_error (dbval1, dbval2, 1, 0, &comparable);
+	  result = tp_value_compare_with_no_error_with_same_type  (dbval1, dbval2, 1, 0, &comparable);
 	}
       break;
     }

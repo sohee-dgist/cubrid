@@ -2552,12 +2552,7 @@ mr_data_cmpdisk_int (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coercion
 static DB_VALUE_COMPARE_RESULT
 mr_cmpval_int (DB_VALUE * value1, DB_VALUE * value2, int do_coercion, int total_order, int *start_colp, int collation)
 {
-  int i1, i2;
-
-  i1 = db_get_int (value1);
-  i2 = db_get_int (value2);
-
-  return MR_CMP (i1, i2);
+  return MR_CMP (value1->data.i, value2->data.i);
 }
 
 /*

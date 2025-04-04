@@ -11037,6 +11037,200 @@ tp_value_compare_with_error (const DB_VALUE * value1, const DB_VALUE * value2, i
   return result;
 }
 
+
+/*
+ * tp_value_compare_with_error - compares two values
+ *    return: zero if equal, <0 if less, >0 if greater
+ *    value1(in): first value
+ *    value2(in): second value
+ *    do_coercion(in): coercion flag
+ *    total_order(in): total order flag
+ *    can_compare(out): set if values are comparable
+ * Note:
+ *    There is some implicit conversion going on here, not sure if this
+ *    is a good idea because it gives the impression that these have
+ *    compatible domains.
+ *
+ *    If the total_order flag is set, it will return one of DB_LT, DB_GT, or
+ *    DB_EQ, it will not return DB_UNK.  For the purposes of the total
+ *    ordering, two NULL values are DB_EQ and if only one value is NULL, that
+ *    value is less than the non-null value.
+ *
+ *    If "can_compare" is not null, in the event of incomparable values an
+ *    error will be logged and the boolean that is pointed by "can_compare"
+ *    will be set to false.
+ */
+DB_VALUE_COMPARE_RESULT
+tp_value_compare_with_no_error_with_same_type (const DB_VALUE * value1, const DB_VALUE * value2, int do_coercion, int total_order,
+			     bool * can_compare)
+{
+  DB_VALUE temp1, temp2, tmp_char_conv;
+  int coercion, char_conv;
+  DB_VALUE *v1, *v2;
+  DB_TYPE vtype1, vtype2;
+#if !defined (SERVER_MODE)
+  DB_OBJECT *mop;
+  DB_IDENTIFIER *oid1, *oid2;
+#endif /* !defined (SERVER_MODE) */
+  bool use_collation_of_v1 = false;
+  bool use_collation_of_v2 = false;
+  DB_VALUE_COMPARE_RESULT result = DB_UNK;
+  TP_DOMAIN_STATUS status = DOMAIN_COMPATIBLE;
+
+  coercion = 0;
+  char_conv = 0;
+
+  if (can_compare != NULL)
+    {
+      *can_compare = true;
+    }
+
+      int common_coll = -1;
+      v1 = (DB_VALUE *) value1;
+      v2 = (DB_VALUE *) value2;
+
+      vtype1 = DB_VALUE_DOMAIN_TYPE (v1);
+      vtype2 = DB_VALUE_DOMAIN_TYPE (v2);
+	
+      if (!ARE_COMPARABLE (vtype1, vtype2))
+	{
+	  /*
+	   * Default result for mismatched types.
+	   * Not correct but will be consistent.
+	   */
+	  if (tp_more_general_type (vtype1, vtype2) > 0)
+	    {
+	      result = DB_GT;
+	    }
+	  else
+	    {
+	      result = DB_LT;
+	    }
+
+	  /* set incompatibility flag */
+	  if (can_compare != NULL)
+	    {
+	      *can_compare = false;
+
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TP_CANT_COERCE, 2, pr_type_name (vtype1),
+		      pr_type_name (vtype2));
+	    }
+	}
+      else
+	{
+	  PR_TYPE *pr_type;
+
+	  pr_type = pr_type_from_id (vtype1);
+	  assert (pr_type != NULL);
+
+	  if (pr_type)
+	    {
+	      /* Either both arguments are enums, or both are not. If one is enum and one is not, it means that
+	       * tp_value_cast_internal failed somewhere */
+	      assert ((vtype1 == DB_TYPE_ENUMERATION && vtype1 == vtype2)
+		      || (vtype1 != DB_TYPE_ENUMERATION && vtype2 != DB_TYPE_ENUMERATION));
+
+	      if (!TP_IS_CHAR_TYPE (vtype1))
+		{
+		  common_coll = 0;
+		}
+	      else if (db_get_string_collation (v1) == db_get_string_collation (v2))
+		{
+		  common_coll = db_get_string_collation (v1);
+		}
+	      else if (TP_IS_CHAR_TYPE (vtype1) && (use_collation_of_v1 || use_collation_of_v2))
+		{
+		  INTL_CODESET codeset;
+		  DB_DATA_STATUS data_status;
+		  int error_status;
+
+		  db_make_null (&tmp_char_conv);
+		  char_conv = 1;
+
+		  if (use_collation_of_v1)
+		    {
+		      assert (!use_collation_of_v2);
+		      common_coll = db_get_string_collation (v1);
+		    }
+		  else
+		    {
+		      assert (use_collation_of_v2 == true);
+		      common_coll = db_get_string_collation (v2);
+		    }
+
+		  codeset = lang_get_collation (common_coll)->codeset;
+
+		  if (db_get_string_codeset (v1) != codeset)
+		    {
+		      db_value_domain_init (&tmp_char_conv, vtype1, DB_VALUE_PRECISION (v1), 0);
+
+		      db_string_put_cs_and_collation (&tmp_char_conv, codeset, common_coll);
+		      error_status = db_char_string_coerce (v1, &tmp_char_conv, &data_status);
+
+		      if (error_status != NO_ERROR)
+			{
+			  pr_clear_value (&tmp_char_conv);
+			  if (coercion)
+			    {
+			      pr_clear_value (&temp1);
+			      pr_clear_value (&temp2);
+			    }
+			  return DB_UNK;
+			}
+
+		      assert (data_status == DATA_STATUS_OK);
+
+		      v1 = &tmp_char_conv;
+		    }
+		  else if (db_get_string_codeset (v2) != codeset)
+		    {
+		      db_value_domain_init (&tmp_char_conv, vtype2, DB_VALUE_PRECISION (v2), 0);
+
+		      db_string_put_cs_and_collation (&tmp_char_conv, codeset, common_coll);
+		      error_status = db_char_string_coerce (v2, &tmp_char_conv, &data_status);
+
+		      if (error_status != NO_ERROR)
+			{
+			  pr_clear_value (&tmp_char_conv);
+			  if (coercion)
+			    {
+			      pr_clear_value (&temp1);
+			      pr_clear_value (&temp2);
+			    }
+			  return DB_UNK;
+			}
+
+		      assert (data_status == DATA_STATUS_OK);
+
+		      v2 = &tmp_char_conv;
+		    }
+		}
+	      else if (TP_IS_CHAR_TYPE (vtype1) && db_get_string_codeset (v1) == db_get_string_codeset (v2))
+		{
+		  LANG_RT_COMMON_COLL (db_get_string_collation (v1), db_get_string_collation (v2), common_coll);
+		}
+
+	      if (common_coll == -1)
+		{
+		  result = DB_UNK;
+		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_QSTR_INCOMPATIBLE_COLLATIONS, 0);
+		  if (can_compare != NULL)
+		    {
+		      *can_compare = false;
+		    }
+		}
+	      else
+		{
+		  result = pr_type->cmpval (v1, v2, do_coercion, total_order, NULL, common_coll);
+		}
+	    }
+	}
+
+
+  return result;
+}
+
+
 /*
  * tp_value_equal - compares the contents of two DB_VALUE structures and
  * determines if they are equal
