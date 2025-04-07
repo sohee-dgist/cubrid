@@ -1036,7 +1036,7 @@ struct or_buf
   char *endptr;
   struct or_fixup *fixups;
   jmp_buf env;
-  int error_abort;
+  bool error_abort;
 };
 
 /* Need to translate types of DB_TYPE_OBJECT into DB_TYPE_OID in server-side */

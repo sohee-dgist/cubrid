@@ -507,7 +507,8 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
       return (1);
     }
 
-  status = setjmp (buf->env);
+  int temp_var = 0;
+  status = temp_var;
   if (status == 0)
     {
       error = 0;
@@ -946,7 +947,7 @@ desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * ob
   or_init (buf, record->data, record->length);
   buf->error_abort = 1;
   obj->classop = classop;
-  status = setjmp (buf->env);
+  status = 0;
   if (status == 0)
     {
       char mvcc_flags;

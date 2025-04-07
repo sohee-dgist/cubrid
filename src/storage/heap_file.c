@@ -2813,7 +2813,8 @@ heap_classrepr_dump (THREAD_ENTRY * thread_p, FILE * fp, const OID * class_oid, 
 	  or_init (&buf, (char *) attrepr->default_value.value, attrepr->default_value.val_length);
 	  buf.error_abort = 1;
 
-	  switch (_setjmp (buf.env))
+	  int temp_var = 0;
+	  switch (temp_var)
 	    {
 	    case 0:
 	      /* Do not copy the string--just use the pointer.  The pr_ routines for strings and sets have different
@@ -11668,7 +11669,8 @@ resize_and_start:
   orep.error_abort = 1;
   buf = &orep;
 
-  switch (_setjmp (buf->env))
+  int temp_var = 0;
+  switch (temp_var)
     {
     case 0:
       status = S_SUCCESS;
