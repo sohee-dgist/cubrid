@@ -10147,6 +10147,8 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
   int disk_length = -1;
   int ret = NO_ERROR;
 
+  bool fixed = false;
+  
   if (IS_DEDUPLICATE_KEY_ATTR_ID (value->attrid))
     {
       /* In the case of deduplicate_key_attr_id, there is no content that actually exists in HEAP.
@@ -10188,6 +10190,7 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
 	      /*
 	       * The fixed attribute is bound. Access its information
 	       */
+              fixed = true;
 	      disk_data =
 		((char *) recdes->data
 		 + OR_FIXED_ATTRIBUTES_OFFSET_BY_OBJ (recdes->data,
@@ -10235,10 +10238,7 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
   /*
    * Clear/decache any old value
    */
-  if (value->state != HEAP_UNINIT_ATTRVALUE)
-    {
-      (void) pr_clear_value (&value->dbvalue);
-    }
+
   /*
    * Now make the dbvalue according to the disk data value
    */
@@ -10246,6 +10246,10 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
   if (disk_data == NULL || disk_bound == false)
     {
       /* Unbound attribute, set it to null value */
+        if (value->state != HEAP_UNINIT_ATTRVALUE)
+    {
+      (void) pr_clear_value (&value->dbvalue);
+    }
       ret = db_value_domain_init (&value->dbvalue, attrepr->type, attrepr->domain->precision, attrepr->domain->scale);
       if (ret != NO_ERROR)
 	{
@@ -10262,6 +10266,12 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
       buf.error_abort = 1;
 
       pr_type = pr_type_from_id (attrepr->type);
+      
+              if (!fixed && value->state != HEAP_UNINIT_ATTRVALUE)
+    {
+      (void) pr_clear_value (&value->dbvalue);
+    }
+
       if (pr_type)
 	{
 	  pr_type->data_readval (&buf, &value->dbvalue, attrepr->domain, disk_length, false, NULL, 0);
