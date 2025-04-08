@@ -2744,10 +2744,24 @@ parser_print_tree (PARSER_CONTEXT * parser, const PT_NODE * node)
 	}
       if ((parser->custom_print & PT_PRINT_HOST_VAR_COUNT) != 0)
 	{
-	  char host_var_count[12];
-	  snprintf (host_var_count, sizeof (host_var_count), "%d", parser->host_var_count + parser->auto_param_count);
-	  string = pt_append_nulstring (parser, string, ";bind_var_cnt=");
-	  string = pt_append_nulstring (parser, string, host_var_count);
+	  if ((node->info.query.is_subquery == PT_IS_SUBQUERY || node->info.query.is_subquery == PT_IS_UNION_QUERY
+	       || node->info.query.is_subquery == PT_IS_UNION_SUBQUERY
+	       || node->info.query.is_subquery == PT_IS_CTE_NON_REC_SUBQUERY) && node->info.query.correlation_level == 0
+	      && (node->info.query.hint & PT_HINT_QUERY_CACHE))
+	    {
+	      char host_var_count[12];
+	      snprintf (host_var_count, sizeof (host_var_count), "%d", parser->host_var_count);
+	      string = pt_append_nulstring (parser, string, ";bind_var_cnt=");
+	      string = pt_append_nulstring (parser, string, host_var_count);
+	    }
+	  else
+	    {
+	      char host_var_count[12];
+	      snprintf (host_var_count, sizeof (host_var_count), "%d",
+			parser->host_var_count + parser->auto_param_count);
+	      string = pt_append_nulstring (parser, string, ";bind_var_cnt=");
+	      string = pt_append_nulstring (parser, string, host_var_count);
+	    }
 	}
       return (char *) string->bytes;
     }
