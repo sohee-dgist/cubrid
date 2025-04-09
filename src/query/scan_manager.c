@@ -641,6 +641,11 @@ scan_init_scan_pred (SCAN_PRED * scan_pred_p, regu_variable_list_node * regu_lis
   scan_pred_p->regu_list = regu_list;
   scan_pred_p->pred_expr = pred_expr;
   scan_pred_p->pr_eval_fnc = pr_eval_fnc;
+  if (scan_pred_p->pred_expr != NULL)
+    {
+      scan_pred_p->pred_expr->lhs_const = NULL;
+      scan_pred_p->pred_expr->rhs_const = NULL;
+    }
 }
 
 /*

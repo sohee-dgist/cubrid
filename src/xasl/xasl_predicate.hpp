@@ -156,6 +156,8 @@ namespace cubxasl
       pred_expr *m_not_term;
     } pe;
     TYPE_PRED_EXPR type;
+    DB_VALUE *lhs_const;
+    DB_VALUE *rhs_const;
 
     void clear_xasl ();
   };

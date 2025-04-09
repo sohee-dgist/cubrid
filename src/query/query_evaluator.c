@@ -51,7 +51,7 @@
 static DB_LOGICAL eval_negative (DB_LOGICAL res);
 static DB_LOGICAL eval_logical_result (DB_LOGICAL res1, DB_LOGICAL res2);
 static DB_LOGICAL eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval2,
-				      REL_OP rel_operator, const COMP_EVAL_TERM * et_comp);
+				      REL_OP rel_operator, COMP_EVAL_TERM * et_comp);
 static DB_LOGICAL eval_some_eval (THREAD_ENTRY * thread_p, DB_VALUE * item, DB_SET * set, REL_OP rel_operator);
 static DB_LOGICAL eval_all_eval (THREAD_ENTRY * thread_p, DB_VALUE * item, DB_SET * set, REL_OP rel_operator);
 static int eval_item_card_set (THREAD_ENTRY * thread_p, DB_VALUE * item, DB_SET * set, REL_OP rel_operator);
@@ -84,7 +84,7 @@ static DB_LOGICAL eval_sort_list_to_multi_set (THREAD_ENTRY * thread_p, QFILE_LI
 					       REL_OP rel_operator);
 static DB_LOGICAL eval_sort_list_to_sort_list (THREAD_ENTRY * thread_p, QFILE_LIST_ID * list_id1,
 					       QFILE_LIST_ID * list_id2, REL_OP rel_operator);
-static DB_LOGICAL eval_set_list_cmp (THREAD_ENTRY * thread_p, const COMP_EVAL_TERM * et_comp, val_descr * vd,
+static DB_LOGICAL eval_set_list_cmp (THREAD_ENTRY * thread_p, COMP_EVAL_TERM * et_comp, val_descr * vd,
 				     DB_VALUE * dbval1, DB_VALUE * dbval2);
 
 /*
@@ -150,7 +150,7 @@ eval_logical_result (DB_LOGICAL res1, DB_LOGICAL res2)
  */
 static DB_LOGICAL
 eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval2, REL_OP rel_operator,
-		    const COMP_EVAL_TERM * et_comp)
+		    COMP_EVAL_TERM * et_comp)
 {
   int result;
   bool comparable = true;
@@ -175,15 +175,15 @@ eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval
       break;
 
     default:
-      /* check for constant values to coerce 1-time, then reduce many-times coerce at tp_value_compare_with_error () */
+      /* check for ant values to coerce 1-time, then reduce many-times coerce at tp_value_compare_with_error () */
       if (et_comp != NULL)
 	{
 	  assert (et_comp->lhs != NULL);
 	  assert (et_comp->rhs != NULL);
 
 #if 0				/* TODO - do not delete me for future */
-	  /* check iff value_1 is constant to coerce */
-	  if (REGU_VARIABLE_IS_FLAGED (et_comp->lhs, REGU_VARIABLE_FETCH_ALL_CONST))
+	  /* check iff value_1 is ant to coerce */
+	  if (REGU_VARIABLE_IS_FLAGED (et_comp->lhs, REGU_VARIABLE_FETCH_ALL_))
 	    {
 	      assert (!REGU_VARIABLE_IS_FLAGED (et_comp->lhs, REGU_VARIABLE_FETCH_NOT_CONST));
 	      vtype1 = DB_VALUE_DOMAIN_TYPE (dbval1);
@@ -273,7 +273,7 @@ eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval
       else
 	{
 	  /* do ordinal comparison, but NULL's still yield UNKNOWN */
-	  result = tp_value_compare_with_no_error_with_same_type  (dbval1, dbval2, 1, 0, &comparable);
+	  result = tp_value_compare_with_no_error_with_same_type (dbval1, dbval2, 1, 0, &comparable);
 	}
       break;
     }
@@ -1539,7 +1539,7 @@ eval_sort_list_to_sort_list (THREAD_ENTRY * thread_p, QFILE_LIST_ID * list_id1, 
  * Note: Perform set/set, set/list, and list/list comparisons.
  */
 static DB_LOGICAL
-eval_set_list_cmp (THREAD_ENTRY * thread_p, const COMP_EVAL_TERM * et_comp, val_descr * vd, DB_VALUE * dbval1,
+eval_set_list_cmp (THREAD_ENTRY * thread_p, COMP_EVAL_TERM * et_comp, val_descr * vd, DB_VALUE * dbval1,
 		   DB_VALUE * dbval2)
 {
   QFILE_LIST_ID *t_list_id;
@@ -1663,15 +1663,15 @@ eval_set_list_cmp (THREAD_ENTRY * thread_p, const COMP_EVAL_TERM * et_comp, val_
  *              necessary error code is set and V_ERROR is returned.
  */
 DB_LOGICAL
-eval_pred (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
+eval_pred (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
 {
-  const COMP_EVAL_TERM *et_comp;
-  const ALSM_EVAL_TERM *et_alsm;
-  const LIKE_EVAL_TERM *et_like;
+  COMP_EVAL_TERM *et_comp;
+  ALSM_EVAL_TERM *et_alsm;
+  LIKE_EVAL_TERM *et_like;
   DB_VALUE *peek_val1, *peek_val2, *peek_val3;
   DB_LOGICAL result = V_UNKNOWN;
   int regexp_res;
-  const PRED_EXPR *t_pr;
+  PRED_EXPR *t_pr;
   QFILE_SORTED_LIST_ID *srlist_id;
   static int max_recursion_sql_depth = prm_get_integer_value (PRM_ID_MAX_RECURSION_SQL_DEPTH);
 
@@ -2112,38 +2112,58 @@ exit:
  * Note: single node regular comparison predicate
  */
 DB_LOGICAL
-eval_pred_comp0 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
+eval_pred_comp0 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
 {
-  const COMP_EVAL_TERM *et_comp;
+  COMP_EVAL_TERM *et_comp;
   DB_VALUE *peek_val1, *peek_val2;
 
   peek_val1 = NULL;
   peek_val2 = NULL;
 
   et_comp = &pr->pe.m_eval_term.et.et_comp;
-
   /*
    * fetch left hand size and right hand size values, if one of
    * values are unbound, return V_UNKNOWN
    */
-  if (fetch_peek_dbval (thread_p, et_comp->lhs, vd, NULL, obj_oid, NULL, &peek_val1) != NO_ERROR)
+  if (pr->lhs_const == nullptr)
     {
-      return V_ERROR;
+      if (fetch_peek_dbval (thread_p, et_comp->lhs, vd, NULL, obj_oid, NULL, &peek_val1) != NO_ERROR)
+	{
+	  return V_ERROR;
+	}
+      else if (db_value_is_null (peek_val1) && et_comp->rel_op != R_NULLSAFE_EQ)
+	{
+	  return V_UNKNOWN;
+	}
     }
-  else if (db_value_is_null (peek_val1) && et_comp->rel_op != R_NULLSAFE_EQ)
+  else
     {
-      return V_UNKNOWN;
+      peek_val1 = pr->lhs_const;
+      if (db_value_is_null (peek_val1) && et_comp->rel_op != R_NULLSAFE_EQ)
+	{
+	  return V_UNKNOWN;
+	}
     }
 
-  if (fetch_peek_dbval (thread_p, et_comp->rhs, vd, NULL, obj_oid, NULL, &peek_val2) != NO_ERROR)
+  if (pr->rhs_const == nullptr)
     {
-      return V_ERROR;
+      if (fetch_peek_dbval (thread_p, et_comp->rhs, vd, NULL, obj_oid, NULL, &peek_val2) != NO_ERROR)
+	{
+	  return V_ERROR;
+	}
+      else if (db_value_is_null (peek_val2) && et_comp->rel_op != R_NULLSAFE_EQ)
+	{
+	  return V_UNKNOWN;
+	}
     }
-  else if (db_value_is_null (peek_val2) && et_comp->rel_op != R_NULLSAFE_EQ)
+  else
     {
-      return V_UNKNOWN;
+      peek_val2 = pr->rhs_const;
+      if (db_value_is_null (peek_val2) && et_comp->rel_op != R_NULLSAFE_EQ)
+	{
+	  return V_UNKNOWN;
+	}
     }
-
   /*
    * general case: compare values, db_value_compare will
    * take care of any coercion necessary.
@@ -2161,9 +2181,9 @@ eval_pred_comp0 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, 
  * Note: single leaf node NULL predicate
  */
 DB_LOGICAL
-eval_pred_comp1 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
+eval_pred_comp1 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
 {
-  const COMP_EVAL_TERM *et_comp;
+  COMP_EVAL_TERM *et_comp;
   DB_VALUE *peek_val1;
 
   peek_val1 = NULL;
@@ -2200,9 +2220,9 @@ eval_pred_comp1 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, 
  * Note: single node EXIST predicate
  */
 DB_LOGICAL
-eval_pred_comp2 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
+eval_pred_comp2 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
 {
-  const COMP_EVAL_TERM *et_comp;
+  COMP_EVAL_TERM *et_comp;
   DB_VALUE *peek_val1;
 
   peek_val1 = NULL;
@@ -2257,9 +2277,9 @@ eval_pred_comp2 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, 
  * Note: single node lhs or rhs list file predicate
  */
 DB_LOGICAL
-eval_pred_comp3 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
+eval_pred_comp3 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
 {
-  const COMP_EVAL_TERM *et_comp;
+  COMP_EVAL_TERM *et_comp;
   DB_VALUE *peek_val1, *peek_val2;
 
   peek_val1 = NULL;
@@ -2315,9 +2335,9 @@ eval_pred_comp3 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, 
  * Note: single node all/some predicate with a set
  */
 DB_LOGICAL
-eval_pred_alsm4 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
+eval_pred_alsm4 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
 {
-  const ALSM_EVAL_TERM *et_alsm;
+  ALSM_EVAL_TERM *et_alsm;
   DB_VALUE *peek_val1, *peek_val2;
 
   peek_val1 = NULL;
@@ -2381,9 +2401,9 @@ eval_pred_alsm4 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, 
  * Note: single node all/some  predicate with a list file
  */
 DB_LOGICAL
-eval_pred_alsm5 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
+eval_pred_alsm5 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
 {
-  const ALSM_EVAL_TERM *et_alsm;
+  ALSM_EVAL_TERM *et_alsm;
   DB_VALUE *peek_val1;
   QFILE_SORTED_LIST_ID *srlist_id;
 
@@ -2439,9 +2459,9 @@ eval_pred_alsm5 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, 
  * Note: single node like predicate
  */
 DB_LOGICAL
-eval_pred_like6 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
+eval_pred_like6 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
 {
-  const LIKE_EVAL_TERM *et_like;
+  LIKE_EVAL_TERM *et_like;
   DB_VALUE *peek_val1, *peek_val2, *peek_val3;
   int regexp_res;
 
@@ -2497,9 +2517,9 @@ eval_pred_like6 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, 
  * Note: single node like predicate
  */
 DB_LOGICAL
-eval_pred_rlike7 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
+eval_pred_rlike7 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * obj_oid)
 {
-  const RLIKE_EVAL_TERM *et_rlike;
+  RLIKE_EVAL_TERM *et_rlike;
   DB_VALUE *peek_val1, *peek_val2, *peek_val3;
   int regexp_res;
 
@@ -2552,12 +2572,12 @@ eval_pred_rlike7 (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, val_descr * vd,
  *   single_node_type(in):
  */
 PR_EVAL_FNC
-eval_fnc (THREAD_ENTRY * thread_p, const PRED_EXPR * pr, DB_TYPE * single_node_type)
+eval_fnc (THREAD_ENTRY * thread_p, PRED_EXPR * pr, DB_TYPE * single_node_type)
 {
   // todo - thread_p is never used
 
-  const COMP_EVAL_TERM *et_comp;
-  const ALSM_EVAL_TERM *et_alsm;
+  COMP_EVAL_TERM *et_comp;
+  ALSM_EVAL_TERM *et_alsm;
 
   *single_node_type = DB_TYPE_NULL;
   if (pr == NULL)
