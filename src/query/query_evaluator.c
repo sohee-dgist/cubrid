@@ -272,17 +272,18 @@ eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval
 	}
       else
 	{
-	  /* do ordinal comparison, but NULL's still yield UNKNOWN */
-	  if (vtype1 == vtype2 && TP_IS_NUMERIC_TYPE (vtype1))
-	    {
-	      PR_TYPE *pr_type;
-	      pr_type = pr_type_from_id (vtype1);
-	      result = pr_type->cmpval (dbval1, dbval2, 1, 0, NULL, 0);
-	    }
-	  else
-	    {
-	      result = tp_value_compare_with_error (dbval1, dbval2, 1, 0, &comparable);
-	    }
+	//   /* do ordinal comparison, but NULL's still yield UNKNOWN */
+	//   if (vtype1 == vtype2 && TP_IS_NUMERIC_TYPE (vtype1))
+	//     {
+	//       PR_TYPE *pr_type;
+	//       pr_type = pr_type_from_id (vtype1);
+	//       result = pr_type->cmpval (dbval1, dbval2, 1, 0, NULL, 0);
+	//     }
+	//   else
+	//     {
+	//       result = tp_value_compare_with_error (dbval1, dbval2, 1, 0, &comparable);
+	//     }
+	    result = tp_value_compare_with_error (dbval1, dbval2, 1, 0, &comparable);
 	}
       break;
     }
