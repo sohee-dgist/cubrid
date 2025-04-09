@@ -158,7 +158,7 @@ namespace cubxasl
     TYPE_PRED_EXPR type;
     DB_VALUE *lhs_const;
     DB_VALUE *rhs_const;
-    bool use_const = false;
+
     void clear_xasl ();
   };
 } // namespace cubxasl

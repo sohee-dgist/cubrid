@@ -2144,7 +2144,7 @@ eval_pred_comp0 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * 
 	{
 	  return V_UNKNOWN;
 	}
-      if (et_comp->lhs->type == TYPE_POS_VALUE || pr->use_const)
+      if (et_comp->lhs->type == TYPE_POS_VALUE)
 	{
 	  pr->lhs_const = peek_val1;
 	}
@@ -2168,7 +2168,7 @@ eval_pred_comp0 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * 
 	{
 	  return V_UNKNOWN;
 	}
-      if (et_comp->rhs->type == TYPE_POS_VALUE || pr->use_const)
+      if (et_comp->rhs->type == TYPE_POS_VALUE)
 	{
 	  pr->rhs_const = peek_val2;
 	}
