@@ -443,19 +443,11 @@ or_mvcc_get_repid_and_flags (OR_BUF * buf, int *error)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
-  if ((buf->ptr + OR_INT_SIZE) > buf->endptr)
-    {
-      *error = or_underflow (buf);
-      return 0;
-    }
-  else
-    {
-      int repid_and_flag_bits = 0;
-      repid_and_flag_bits = OR_GET_INT (buf->ptr);
-      buf->ptr += OR_INT_SIZE;
-      *error = NO_ERROR;
-      return repid_and_flag_bits;
-    }
+  int repid_and_flag_bits = 0;
+  repid_and_flag_bits = OR_GET_INT (buf->ptr);
+  buf->ptr += OR_INT_SIZE;
+  *error = NO_ERROR;
+  return repid_and_flag_bits;
 }
 
 /*
