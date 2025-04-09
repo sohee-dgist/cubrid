@@ -2750,6 +2750,11 @@ parser_print_tree (PARSER_CONTEXT * parser, const PT_NODE * node)
 	       || node->info.query.is_subquery == PT_IS_CTE_NON_REC_SUBQUERY) && node->info.query.correlation_level == 0
 	      && (node->info.query.hint & PT_HINT_QUERY_CACHE))
 	    {
+	      /* 
+	       * This condition is identical to the one used in do_prepare_subquery_pre function to call do_prepare_subquery.
+	       * Both functions must maintain the same condition to ensure consistency.
+	       * Be careful not to modify only one of them.
+	       */
 	      snprintf (host_var_count, sizeof (host_var_count), "%d", parser->host_var_count);
 	    }
 	  else
