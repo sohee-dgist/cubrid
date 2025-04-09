@@ -273,7 +273,20 @@ eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval
       else
 	{
 	  /* do ordinal comparison, but NULL's still yield UNKNOWN */
-	  result = tp_value_compare_with_no_error_with_same_type (dbval1, dbval2, 1, 0, &comparable);
+	  if (vtype1 == vtype2 && TP_IS_NUMERIC_TYPE (vtype1))
+	  {
+	    PR_TYPE *pr_type;
+	    pr_type = pr_type_from_id (vtype1);
+	    result = pr_type->cmpval (dbval1, dbval2, 1, 0, NULL, 0);
+	  }
+	  else if (vtype1 == vtype2)
+	  {
+	    result = tp_value_compare_with_no_error_with_same_type (dbval1, dbval2, 1, 0, &comparable);
+	  }
+	  else
+	    {
+	      result = tp_value_compare_with_error (dbval1, dbval2, 1, 0, &comparable);
+	    }
 	}
       break;
     }
@@ -2135,6 +2148,10 @@ eval_pred_comp0 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * 
 	{
 	  return V_UNKNOWN;
 	}
+	if (et_comp->lhs->type == TYPE_POS_VALUE)
+	{
+	    pr->lhs_const = peek_val1;
+	}
     }
   else
     {
@@ -2154,6 +2171,10 @@ eval_pred_comp0 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * 
       else if (db_value_is_null (peek_val2) && et_comp->rel_op != R_NULLSAFE_EQ)
 	{
 	  return V_UNKNOWN;
+	}
+	if (et_comp->rhs->type == TYPE_POS_VALUE)
+	{
+	    pr->rhs_const = peek_val2;
 	}
     }
   else
