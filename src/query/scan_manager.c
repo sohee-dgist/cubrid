@@ -645,6 +645,7 @@ scan_init_scan_pred (SCAN_PRED * scan_pred_p, regu_variable_list_node * regu_lis
     {
       scan_pred_p->pred_expr->lhs_const = NULL;
       scan_pred_p->pred_expr->rhs_const = NULL;
+      scan_pred_p->pred_expr->use_const = true;
     }
 }
 
