@@ -2144,10 +2144,6 @@ eval_pred_comp0 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * 
 	{
 	  return V_ERROR;
 	}
-      else if (db_value_is_null (peek_val1) && et_comp->rel_op != R_NULLSAFE_EQ)
-	{
-	  return V_UNKNOWN;
-	}
       if (et_comp->lhs->type == TYPE_POS_VALUE)
 	{
 	  pr->lhs_const = peek_val1;
@@ -2156,10 +2152,11 @@ eval_pred_comp0 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * 
   else
     {
       peek_val1 = pr->lhs_const;
-      if (db_value_is_null (peek_val1) && et_comp->rel_op != R_NULLSAFE_EQ)
-	{
-	  return V_UNKNOWN;
-	}
+    }
+
+  if (db_value_is_null (peek_val1) && et_comp->rel_op != R_NULLSAFE_EQ)
+    {
+      return V_UNKNOWN;
     }
 
   if (pr->rhs_const == nullptr)
@@ -2167,10 +2164,6 @@ eval_pred_comp0 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * 
       if (fetch_peek_dbval (thread_p, et_comp->rhs, vd, NULL, obj_oid, NULL, &peek_val2) != NO_ERROR)
 	{
 	  return V_ERROR;
-	}
-      else if (db_value_is_null (peek_val2) && et_comp->rel_op != R_NULLSAFE_EQ)
-	{
-	  return V_UNKNOWN;
 	}
       if (et_comp->rhs->type == TYPE_POS_VALUE)
 	{
@@ -2180,15 +2173,15 @@ eval_pred_comp0 (THREAD_ENTRY * thread_p, PRED_EXPR * pr, val_descr * vd, OID * 
   else
     {
       peek_val2 = pr->rhs_const;
-      if (db_value_is_null (peek_val2) && et_comp->rel_op != R_NULLSAFE_EQ)
-	{
-	  return V_UNKNOWN;
-	}
     }
   /*
    * general case: compare values, db_value_compare will
    * take care of any coercion necessary.
    */
+  if (db_value_is_null (peek_val2) && et_comp->rel_op != R_NULLSAFE_EQ)
+    {
+      return V_UNKNOWN;
+    }
   return eval_value_rel_cmp (thread_p, peek_val1, peek_val2, et_comp->rel_op, et_comp);
 }
 
