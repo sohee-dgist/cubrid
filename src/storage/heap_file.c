@@ -10184,7 +10184,7 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
 		 + OR_FIXED_ATTRIBUTES_OFFSET_BY_OBJ (recdes->data,
 						      attr_info->read_classrepr->n_variable)
 		 + value->read_attrepr->location);
-	      disk_length = tp_domain_fixed_disk_size (value->read_attrepr->domain);
+	      disk_length = tp_domain_disk_size (value->read_attrepr->domain);
 	      disk_bound = true;
 	    }
 	}
@@ -10264,13 +10264,6 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
 	}
       value->state = HEAP_READ_ATTRVALUE;
 
-
-      if (ret == ER_FAILED) {
-        (void) db_value_domain_init (&value->dbvalue, attrepr->type, attrepr->domain->precision,
-                                attrepr->domain->scale);
-        value->state = HEAP_UNINIT_ATTRVALUE;
-        ret = ER_FAILED;
-        }
     }
 
   return ret;
