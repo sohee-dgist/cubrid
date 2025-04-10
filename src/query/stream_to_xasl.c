@@ -750,6 +750,9 @@ stx_restore_pred_expr (THREAD_ENTRY * thread_p, char *ptr)
       return NULL;
     }
 
+  pred_expr->lhs_const = NULL;
+  pred_expr->rhs_const = NULL;
+
   return pred_expr;
 }
 

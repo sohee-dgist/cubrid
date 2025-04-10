@@ -160,6 +160,7 @@ namespace cubxasl
     DB_VALUE *rhs_const;
 
     void clear_xasl ();
+    void init_pred_expr ();
   };
 } // namespace cubxasl
 
