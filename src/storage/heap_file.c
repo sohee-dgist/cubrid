@@ -2813,35 +2813,23 @@ heap_classrepr_dump (THREAD_ENTRY * thread_p, FILE * fp, const OID * class_oid, 
 	  or_init (&buf, (char *) attrepr->default_value.value, attrepr->default_value.val_length);
 	  buf.error_abort = 1;
 
-	  int temp_var = 0;
-	  switch (temp_var)
+	  /* Do not copy the string--just use the pointer.  The pr_ routines for strings and sets have different
+	   * semantics for length. A negative length value for strings means "don't copy the string, just use the
+	   * pointer". */
+
+	  disk_length = attrepr->default_value.val_length;
+	  copy = (pr_is_set_type (attrepr->type)) ? true : false;
+	  pr_type = pr_type_from_id (attrepr->type);
+	  if (pr_type)
 	    {
-	    case 0:
-	      /* Do not copy the string--just use the pointer.  The pr_ routines for strings and sets have different
-	       * semantics for length. A negative length value for strings means "don't copy the string, just use the
-	       * pointer". */
+	      pr_type->data_readval (&buf, &def_dbvalue, attrepr->domain, disk_length, copy, NULL, 0);
 
-	      disk_length = attrepr->default_value.val_length;
-	      copy = (pr_is_set_type (attrepr->type)) ? true : false;
-	      pr_type = pr_type_from_id (attrepr->type);
-	      if (pr_type)
-		{
-		  pr_type->data_readval (&buf, &def_dbvalue, attrepr->domain, disk_length, copy, NULL, 0);
-
-		  db_fprint_value (fp, &def_dbvalue);
-		  (void) pr_clear_value (&def_dbvalue);
-		}
-	      else
-		{
-		  fprintf (fp, "PR_TYPE is NULL");
-		}
-	      break;
-	    default:
-	      /*
-	       * An error was found during the reading of the attribute value
-	       */
-	      fprintf (fp, "Error transforming the default value\n");
-	      break;
+	      db_fprint_value (fp, &def_dbvalue);
+	      (void) pr_clear_value (&def_dbvalue);
+	    }
+	  else
+	    {
+	      fprintf (fp, "PR_TYPE is NULL");
 	    }
 	}
       fprintf (fp, "\n");
@@ -10148,7 +10136,7 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
   int ret = NO_ERROR;
 
   bool fixed = false;
-  
+
   if (IS_DEDUPLICATE_KEY_ATTR_ID (value->attrid))
     {
       /* In the case of deduplicate_key_attr_id, there is no content that actually exists in HEAP.
@@ -10190,7 +10178,7 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
 	      /*
 	       * The fixed attribute is bound. Access its information
 	       */
-              fixed = true;
+	      fixed = true;
 	      disk_data =
 		((char *) recdes->data
 		 + OR_FIXED_ATTRIBUTES_OFFSET_BY_OBJ (recdes->data,
@@ -10238,18 +10226,16 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
   /*
    * Clear/decache any old value
    */
-
+  if (value->state != HEAP_UNINIT_ATTRVALUE)
+    {
+      (void) pr_clear_value (&value->dbvalue);
+    }
   /*
    * Now make the dbvalue according to the disk data value
    */
 
   if (disk_data == NULL || disk_bound == false)
     {
-      /* Unbound attribute, set it to null value */
-        if (value->state != HEAP_UNINIT_ATTRVALUE)
-    {
-      (void) pr_clear_value (&value->dbvalue);
-    }
       ret = db_value_domain_init (&value->dbvalue, attrepr->type, attrepr->domain->precision, attrepr->domain->scale);
       if (ret != NO_ERROR)
 	{
@@ -10266,17 +10252,25 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
       buf.error_abort = 1;
 
       pr_type = pr_type_from_id (attrepr->type);
-      
-              if (!fixed && value->state != HEAP_UNINIT_ATTRVALUE)
-    {
-      (void) pr_clear_value (&value->dbvalue);
-    }
+
+      if (!fixed && value->state != HEAP_UNINIT_ATTRVALUE)
+	{
+	  (void) pr_clear_value (&value->dbvalue);
+	}
 
       if (pr_type)
 	{
-	  pr_type->data_readval (&buf, &value->dbvalue, attrepr->domain, disk_length, false, NULL, 0);
+	  ret = pr_type->data_readval (&buf, &value->dbvalue, attrepr->domain, disk_length, false, NULL, 0);
 	}
       value->state = HEAP_READ_ATTRVALUE;
+
+
+      if (ret == ER_FAILED) {
+        (void) db_value_domain_init (&value->dbvalue, attrepr->type, attrepr->domain->precision,
+                                attrepr->domain->scale);
+        value->state = HEAP_UNINIT_ATTRVALUE;
+        ret = ER_FAILED;
+        }
     }
 
   return ret;
@@ -11679,8 +11673,7 @@ resize_and_start:
   orep.error_abort = 1;
   buf = &orep;
 
-  int temp_var = 0;
-  switch (temp_var)
+  switch (_setjmp (buf->env))
     {
     case 0:
       status = S_SUCCESS;

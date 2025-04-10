@@ -182,8 +182,8 @@ eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval
 	  assert (et_comp->rhs != NULL);
 
 #if 0				/* TODO - do not delete me for future */
-	  /* check iff value_1 is ant to coerce */
-	  if (REGU_VARIABLE_IS_FLAGED (et_comp->lhs, REGU_VARIABLE_FETCH_ALL_))
+	  /* check iff value_1 is constant to coerce */
+	  if (REGU_VARIABLE_IS_FLAGED (et_comp->lhs, REGU_VARIABLE_FETCH_ALL_CONST))
 	    {
 	      assert (!REGU_VARIABLE_IS_FLAGED (et_comp->lhs, REGU_VARIABLE_FETCH_NOT_CONST));
 	      vtype1 = DB_VALUE_DOMAIN_TYPE (dbval1);
@@ -272,18 +272,21 @@ eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval
 	}
       else
 	{
-	//   /* do ordinal comparison, but NULL's still yield UNKNOWN */
-	//   if (vtype1 == vtype2 && TP_IS_NUMERIC_TYPE (vtype1))
-	//     {
-	//       PR_TYPE *pr_type;
-	//       pr_type = pr_type_from_id (vtype1);
-	//       result = pr_type->cmpval (dbval1, dbval2, 1, 0, NULL, 0);
-	//     }
-	//   else
-	//     {
-	//       result = tp_value_compare_with_error (dbval1, dbval2, 1, 0, &comparable);
-	//     }
-	    result = tp_value_compare_with_error (dbval1, dbval2, 1, 0, &comparable);
+	  /* do ordinal comparison, but NULL's still yield UNKNOWN */
+	  if (vtype1 == vtype2 && TP_IS_NUMERIC_TYPE (vtype1))
+	    {
+	      PR_TYPE *pr_type;
+	      pr_type = pr_type_from_id (vtype1);
+	      result = pr_type->cmpval (dbval1, dbval2, 1, 0, NULL, 0);
+	    }
+	  else if (vtype1 == vtype2)
+	    {
+	      result = tp_value_compare_with_error (dbval1, dbval2, 1, 0, &comparable);
+	    }
+	  else
+	    {
+	      result = tp_value_compare_with_error (dbval1, dbval2, 1, 0, &comparable);
+	    }
 	}
       break;
     }

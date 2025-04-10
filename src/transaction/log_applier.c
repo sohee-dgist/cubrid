@@ -3754,8 +3754,7 @@ la_disk_to_obj (MOBJ classobj, RECDES * record, DB_OTMPL * def, DB_VALUE * key)
   or_init (buf, record->data, record->length);
   buf->error_abort = 1;
 
-  int temp_var = 0;
-  status = temp_var;
+  status = setjmp (buf->env);
   if (status == 0)
     {
       sm_class = (SM_CLASS *) classobj;
