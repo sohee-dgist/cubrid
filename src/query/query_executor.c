@@ -1791,6 +1791,9 @@ qexec_clear_pred (THREAD_ENTRY * thread_p, XASL_NODE * xasl_p, PRED_EXPR * pr, b
       return pg_cnt;
     }
 
+  pr->rhs_const = NULL;
+  pr->lhs_const = NULL;
+
   switch (pr->type)
     {
     case T_PRED:
