@@ -11612,8 +11612,8 @@ heap_attrinfo_transform_to_disk_internal (THREAD_ENTRY * thread_p, HEAP_CACHE_AT
   DB_VALUE *dbvalue = NULL;
   size_t expected_size;
   int tmp;
-  volatile int offset_size;
-  volatile int mvcc_wasted_space = 0;
+  int offset_size;
+  int mvcc_wasted_space = 0;
   int header_size;
   bool is_mvcc_class;
   // *INDENT-OFF*
@@ -11663,56 +11663,75 @@ resize_and_start:
   orep.error_abort = 1;
   buf = &orep;
 
-  switch (_setjmp (buf->env))
+  status = S_SUCCESS;
+
+  /*
+   * Store the representation of the class along with bound bit
+   * flag information
+   */
+
+  repid_bits = attr_info->last_classrepr->id;
+  /*
+   * Do we have fixed value attributes ?
+   */
+  if ((attr_info->last_classrepr->n_attributes - attr_info->last_classrepr->n_variable) != 0)
     {
-    case 0:
-      status = S_SUCCESS;
+      repid_bits |= OR_BOUND_BIT_FLAG;
+    }
 
-      /*
-       * Store the representation of the class along with bound bit
-       * flag information
-       */
+  /* offset size */
+  OR_SET_VAR_OFFSET_SIZE (repid_bits, offset_size);
 
-      repid_bits = attr_info->last_classrepr->id;
-      /*
-       * Do we have fixed value attributes ?
-       */
-      if ((attr_info->last_classrepr->n_attributes - attr_info->last_classrepr->n_variable) != 0)
+  /*
+   * We must increase the current value by one so that clients
+   * can detect the change in object. That is, clients will need to
+   * refetch the object.
+   */
+  attr_info->inst_chn++;
+  if (is_mvcc_class)
+    {
+      if (old_recdes == NULL)
 	{
-	  repid_bits |= OR_BOUND_BIT_FLAG;
-	}
-
-      /* offset size */
-      OR_SET_VAR_OFFSET_SIZE (repid_bits, offset_size);
-
-      /*
-       * We must increase the current value by one so that clients
-       * can detect the change in object. That is, clients will need to
-       * refetch the object.
-       */
-      attr_info->inst_chn++;
-      if (is_mvcc_class)
-	{
-	  if (old_recdes == NULL)
+	  repid_bits |= (OR_MVCC_FLAG_VALID_INSID << OR_MVCC_FLAG_SHIFT_BITS);
+	  if ((buf->ptr + OR_MVCC_INSERT_HEADER_SIZE) > buf->endptr)
 	    {
-	      repid_bits |= (OR_MVCC_FLAG_VALID_INSID << OR_MVCC_FLAG_SHIFT_BITS);
+	      expected_size += DB_PAGESIZE;
+	      goto resize_and_start;
+	    }
+	  else
+	    {
 	      or_put_int (buf, repid_bits);
 	      or_put_int (buf, 0);	/* CHN */
 	      or_put_bigint (buf, 0);	/* MVCC insert id */
 	      header_size = OR_MVCC_INSERT_HEADER_SIZE;
 	    }
+	}
+      else
+	{
+	  LOG_LSA null_lsa = LSA_INITIALIZER;
+	  repid_bits |= ((OR_MVCC_FLAG_VALID_INSID | OR_MVCC_FLAG_VALID_PREV_VERSION) << OR_MVCC_FLAG_SHIFT_BITS);
+	  if ((buf->ptr + OR_MVCC_INSERT_HEADER_SIZE + OR_MVCC_PREV_VERSION_LSA_SIZE) > buf->endptr)
+	    {
+	      expected_size += DB_PAGESIZE;
+	      goto resize_and_start;
+	    }
 	  else
 	    {
-	      LOG_LSA null_lsa = LSA_INITIALIZER;
-	      repid_bits |= ((OR_MVCC_FLAG_VALID_INSID | OR_MVCC_FLAG_VALID_PREV_VERSION) << OR_MVCC_FLAG_SHIFT_BITS);
 	      or_put_int (buf, repid_bits);
 	      or_put_int (buf, 0);	/* CHN */
 	      or_put_bigint (buf, 0);	/* MVCC insert id */
-
 	      assert ((buf->ptr + OR_MVCC_PREV_VERSION_LSA_SIZE) <= buf->endptr);
 	      or_put_data (buf, (char *) &null_lsa, OR_MVCC_PREV_VERSION_LSA_SIZE);	/* prev version lsa */
 	      header_size = OR_MVCC_INSERT_HEADER_SIZE + OR_MVCC_PREV_VERSION_LSA_SIZE;
 	    }
+	}
+    }
+  else
+    {
+      if ((buf->ptr + OR_NON_MVCC_HEADER_SIZE) > buf->endptr)
+	{
+	  expected_size += DB_PAGESIZE;
+	  goto resize_and_start;
 	}
       else
 	{
@@ -11720,223 +11739,233 @@ resize_and_start:
 	  or_put_int (buf, attr_info->inst_chn);
 	  header_size = OR_NON_MVCC_HEADER_SIZE;
 	}
+    }
 
-      /*
-       * Calculate the pointer address to variable offset attribute table,
-       * fixed attributes, and variable attributes
-       */
+  /*
+   * Calculate the pointer address to variable offset attribute table,
+   * fixed attributes, and variable attributes
+   */
 
-      ptr_bound = OR_GET_BOUND_BITS (buf->buffer, attr_info->last_classrepr->n_variable,
-				     attr_info->last_classrepr->fixed_length);
+  ptr_bound = OR_GET_BOUND_BITS (buf->buffer, attr_info->last_classrepr->n_variable,
+				 attr_info->last_classrepr->fixed_length);
 
-      /*
-       * Variable offset table is relative to the beginning of the buffer
-       */
+  /*
+   * Variable offset table is relative to the beginning of the buffer
+   */
 
-      ptr_varvals = (ptr_bound
-		     + OR_BOUND_BIT_BYTES (attr_info->last_classrepr->n_attributes
-					   - attr_info->last_classrepr->n_variable));
+  ptr_varvals = (ptr_bound
+		 + OR_BOUND_BIT_BYTES (attr_info->last_classrepr->n_attributes
+				       - attr_info->last_classrepr->n_variable));
 
-      /* Need to make sure that the bound array is not past the allocated buffer because OR_ENABLE_BOUND_BIT() will
-       * just slam the bound bit without checking the length. */
+  /* Need to make sure that the bound array is not past the allocated buffer because OR_ENABLE_BOUND_BIT() will
+   * just slam the bound bit without checking the length. */
 
-      if (ptr_varvals + mvcc_wasted_space > buf->endptr)
+  if (ptr_varvals + mvcc_wasted_space > buf->endptr)
+    {
+      // is it possible?
+      expected_size += DB_PAGESIZE;
+      goto resize_and_start;
+    }
+
+  for (i = 0; i < attr_info->num_values; i++)
+    {
+      value = &attr_info->values[i];
+      dbvalue = &value->dbvalue;
+      pr_type = value->last_attrepr->domain->type;
+      if (pr_type == NULL)
 	{
-	  // is it possible?
-	  expected_size += DB_PAGESIZE;
-	  goto resize_and_start;
+	  return S_ERROR;
 	}
 
-      for (i = 0; i < attr_info->num_values; i++)
+      /*
+       * Is this a fixed or variable attribute ?
+       */
+      if (value->last_attrepr->is_fixed != 0)
 	{
-	  value = &attr_info->values[i];
-	  dbvalue = &value->dbvalue;
-	  pr_type = value->last_attrepr->domain->type;
-	  if (pr_type == NULL)
+	  /*
+	   * Fixed attribute
+	   * Write the fixed attributes values, if unbound, does not matter
+	   * what value is stored. We need to set the appropriate bit in the
+	   * bound bit array for fixed attributes. For variable attributes,
+	   */
+	  buf->ptr = (buf->buffer
+		      + OR_FIXED_ATTRIBUTES_OFFSET_BY_OBJ (buf->buffer, attr_info->last_classrepr->n_variable)
+		      + value->last_attrepr->location);
+
+	  if (value->do_increment && (incremented_attrids.find (i) == incremented_attrids.end ()))
 	    {
-	      return S_ERROR;
+	      if (qdata_increment_dbval (dbvalue, dbvalue, value->do_increment) != NO_ERROR)
+		{
+		  goto exit_on_error;
+		}
+	      incremented_attrids.insert (i);
 	    }
 
-	  /*
-	   * Is this a fixed or variable attribute ?
-	   */
-	  if (value->last_attrepr->is_fixed != 0)
+	  if (dbvalue == NULL || db_value_is_null (dbvalue) == true)
 	    {
 	      /*
-	       * Fixed attribute
-	       * Write the fixed attributes values, if unbound, does not matter
-	       * what value is stored. We need to set the appropriate bit in the
-	       * bound bit array for fixed attributes. For variable attributes,
+	       * This is an unbound value.
+	       *  1) Set any value in the fixed array value table, so we can
+	       *     advance to next attribute.
+	       *  2) and set the bound bit as unbound
 	       */
-	      buf->ptr = (buf->buffer
-			  + OR_FIXED_ATTRIBUTES_OFFSET_BY_OBJ (buf->buffer, attr_info->last_classrepr->n_variable)
-			  + value->last_attrepr->location);
+	      db_value_domain_init (&temp_dbvalue, value->last_attrepr->type,
+				    value->last_attrepr->domain->precision, value->last_attrepr->domain->scale);
+	      dbvalue = &temp_dbvalue;
+	      OR_CLEAR_BOUND_BIT (ptr_bound, value->last_attrepr->position);
 
-	      if (value->do_increment && (incremented_attrids.find (i) == incremented_attrids.end ()))
+	      /*
+	       * pad the appropriate amount, writeval needs to be modified
+	       * to accept a domain so it can perform this padding.
+	       */
+	      if ((buf->ptr + tp_domain_disk_size (value->last_attrepr->domain)) > buf->endptr)
 		{
-		  if (qdata_increment_dbval (dbvalue, dbvalue, value->do_increment) != NO_ERROR)
-		    {
-		      status = S_ERROR;
-		      break;
-		    }
-		  incremented_attrids.insert (i);
-		}
-
-	      if (dbvalue == NULL || db_value_is_null (dbvalue) == true)
-		{
-		  /*
-		   * This is an unbound value.
-		   *  1) Set any value in the fixed array value table, so we can
-		   *     advance to next attribute.
-		   *  2) and set the bound bit as unbound
-		   */
-		  db_value_domain_init (&temp_dbvalue, value->last_attrepr->type,
-					value->last_attrepr->domain->precision, value->last_attrepr->domain->scale);
-		  dbvalue = &temp_dbvalue;
-		  OR_CLEAR_BOUND_BIT (ptr_bound, value->last_attrepr->position);
-
-		  /*
-		   * pad the appropriate amount, writeval needs to be modified
-		   * to accept a domain so it can perform this padding.
-		   */
-		  or_pad (buf, tp_domain_disk_size (value->last_attrepr->domain));
-
+		  expected_size += DB_PAGESIZE;
+		  goto resize_and_start;
 		}
 	      else
 		{
-		  /*
-		   * Write the value.
-		   */
-		  OR_ENABLE_BOUND_BIT (ptr_bound, value->last_attrepr->position);
-		  pr_type->data_writeval (buf, dbvalue);
+		  or_pad (buf, tp_domain_disk_size (value->last_attrepr->domain));
 		}
+
 	    }
 	  else
 	    {
 	      /*
-	       * Variable attribute
-	       *  1) Set the offset to this value in the variable offset table
-	       *  2) Set the value in the variable value portion of the disk
-	       *     object (Only if the value is bound)
+	       * Write the value.
 	       */
-
-	      /*
-	       * Write the offset onto the variable offset table and remember
-	       * the current pointer to the variable offset table
-	       */
-
-	      if (value->do_increment != 0)
-		{
-		  status = S_ERROR;
-		  break;
-		}
-
-	      buf->ptr = (char *) (OR_VAR_ELEMENT_PTR (buf->buffer, value->last_attrepr->location));
-	      /* compute the variable offsets relative to the end of the header (beginning of variable table) */
-	      or_put_offset_internal (buf, CAST_BUFLEN (ptr_varvals - buf->buffer - header_size), offset_size);
-
-	      if (dbvalue != NULL && db_value_is_null (dbvalue) != true)
-		{
-		  /*
-		   * Now write the value and remember the current pointer
-		   * to variable value array for the next element.
-		   */
-		  buf->ptr = ptr_varvals;
-
-		  if (lob_create_flag == LOB_FLAG_INCLUDE_LOB && value->state == HEAP_WRITTEN_ATTRVALUE
-		      && (pr_type->id == DB_TYPE_BLOB || pr_type->id == DB_TYPE_CLOB))
-		    {
-		      DB_ELO dest_elo, *elo_p;
-		      char *save_meta_data, *new_meta_data;
-		      int error;
-
-		      assert (db_value_type (dbvalue) == DB_TYPE_BLOB || db_value_type (dbvalue) == DB_TYPE_CLOB);
-
-		      elo_p = db_get_elo (dbvalue);
-
-		      if (elo_p == NULL)
-			{
-			  continue;
-			}
-
-		      if (heap_get_class_name (thread_p, &(attr_info->class_oid), &new_meta_data) != NO_ERROR
-			  || new_meta_data == NULL)
-			{
-			  status = S_ERROR;
-			  break;
-			}
-		      save_meta_data = elo_p->meta_data;
-		      elo_p->meta_data = new_meta_data;
-		      error = db_elo_copy (db_get_elo (dbvalue), &dest_elo);
-
-		      free_and_init (elo_p->meta_data);
-		      elo_p->meta_data = save_meta_data;
-
-		      /* The purpose of HEAP_WRITTEN_LOB_ATTRVALUE is to avoid reenter this branch. In the first pass,
-		       * this branch is entered and elo is copied. When BUFFER_OVERFLOW happens, we need avoid to copy
-		       * elo again. Otherwize it will generate 2 copies. */
-		      value->state = HEAP_WRITTEN_LOB_ATTRVALUE;
-
-		      error = (error >= 0 ? NO_ERROR : error);
-		      if (error == NO_ERROR)
-			{
-			  pr_clear_value (dbvalue);
-			  db_make_elo (dbvalue, pr_type->id, &dest_elo);
-			  dbvalue->need_clear = true;
-			}
-		      else
-			{
-			  status = S_ERROR;
-			  break;
-			}
-		    }
-
-		  pr_type->data_writeval (buf, dbvalue);
-		  ptr_varvals = buf->ptr;
-		}
+	      OR_ENABLE_BOUND_BIT (ptr_bound, value->last_attrepr->position);
+	      pr_type->data_writeval (buf, dbvalue);
 	    }
 	}
-
-      if (attr_info->last_classrepr->n_variable > 0)
+      else
 	{
 	  /*
-	   * The last element of the variable offset table points to the end of
-	   * the object. The variable offset array starts with zero, so we can
-	   * just access n_variable...
+	   * Variable attribute
+	   *  1) Set the offset to this value in the variable offset table
+	   *  2) Set the value in the variable value portion of the disk
+	   *     object (Only if the value is bound)
 	   */
 
-	  /* Write the offset to the end of the variable attributes table */
-	  buf->ptr = ((char *) (OR_VAR_ELEMENT_PTR (buf->buffer, attr_info->last_classrepr->n_variable)));
-	  or_put_offset_internal (buf, CAST_BUFLEN (ptr_varvals - buf->buffer - header_size), offset_size);
-	  buf->ptr = PTR_ALIGN (buf->ptr, INT_ALIGNMENT);
+	  /*
+	   * Write the offset onto the variable offset table and remember
+	   * the current pointer to the variable offset table
+	   */
+
+	  if (value->do_increment != 0)
+	    {
+	      goto exit_on_error;
+	    }
+
+	  buf->ptr = (char *) (OR_VAR_ELEMENT_PTR (buf->buffer, value->last_attrepr->location));
+	  /* compute the variable offsets relative to the end of the header (beginning of variable table) */
+	  if ((buf->ptr + offset_size) > buf->endptr)
+	    {
+	      expected_size += DB_PAGESIZE;
+	      goto resize_and_start;
+	    }
+	  else
+	    {
+	      or_put_offset_internal (buf, CAST_BUFLEN (ptr_varvals - buf->buffer - header_size), offset_size);
+	    }
+	  if (dbvalue != NULL && db_value_is_null (dbvalue) != true)
+	    {
+	      /*
+	       * Now write the value and remember the current pointer
+	       * to variable value array for the next element.
+	       */
+	      buf->ptr = ptr_varvals;
+
+	      if (lob_create_flag == LOB_FLAG_INCLUDE_LOB && value->state == HEAP_WRITTEN_ATTRVALUE
+		  && (pr_type->id == DB_TYPE_BLOB || pr_type->id == DB_TYPE_CLOB))
+		{
+		  DB_ELO dest_elo, *elo_p;
+		  char *save_meta_data, *new_meta_data;
+		  int error;
+
+		  assert (db_value_type (dbvalue) == DB_TYPE_BLOB || db_value_type (dbvalue) == DB_TYPE_CLOB);
+
+		  elo_p = db_get_elo (dbvalue);
+
+		  if (elo_p == NULL)
+		    {
+		      continue;
+		    }
+
+		  if (heap_get_class_name (thread_p, &(attr_info->class_oid), &new_meta_data) != NO_ERROR
+		      || new_meta_data == NULL)
+		    {
+		      status = S_ERROR;
+		      break;
+		    }
+		  save_meta_data = elo_p->meta_data;
+		  elo_p->meta_data = new_meta_data;
+		  error = db_elo_copy (db_get_elo (dbvalue), &dest_elo);
+
+		  free_and_init (elo_p->meta_data);
+		  elo_p->meta_data = save_meta_data;
+
+		  /* The purpose of HEAP_WRITTEN_LOB_ATTRVALUE is to avoid reenter this branch. In the first pass,
+		   * this branch is entered and elo is copied. When BUFFER_OVERFLOW happens, we need avoid to copy
+		   * elo again. Otherwize it will generate 2 copies. */
+		  value->state = HEAP_WRITTEN_LOB_ATTRVALUE;
+
+		  error = (error >= 0 ? NO_ERROR : error);
+		  if (error == NO_ERROR)
+		    {
+		      pr_clear_value (dbvalue);
+		      db_make_elo (dbvalue, pr_type->id, &dest_elo);
+		      dbvalue->need_clear = true;
+		    }
+		  else
+		    {
+		      goto exit_on_error;
+		    }
+		}
+
+	      pr_type->data_writeval (buf, dbvalue);
+	      ptr_varvals = buf->ptr;
+	    }
 	}
+    }
 
-      /* Record the length of the object */
-      new_recdes->set_record_length (ptr_varvals - buf->buffer);
-
-      /* if not enough MVCC wasted space need to reallocate */
-      if (ptr_varvals + mvcc_wasted_space <= buf->endptr)
-	{
-	  break;
-	}
-
+  if (attr_info->last_classrepr->n_variable > 0)
+    {
       /*
-       * if the longjmp status was anything other than ER_TF_BUFFER_OVERFLOW,
-       * it represents an error condition and er_set will have been called
+       * The last element of the variable offset table points to the end of
+       * the object. The variable offset array starts with zero, so we can
+       * just access n_variable...
        */
-      /* FALLTHRU */
-    case ER_TF_BUFFER_OVERFLOW:
-      expected_size += DB_PAGESIZE;
-      goto resize_and_start;
 
-    default:
-      status = S_ERROR;
-      break;
+      /* Write the offset to the end of the variable attributes table */
+      buf->ptr = ((char *) (OR_VAR_ELEMENT_PTR (buf->buffer, attr_info->last_classrepr->n_variable)));
+      if ((buf->ptr + offset_size) > buf->endptr)
+	{
+	  expected_size += DB_PAGESIZE;
+	  goto resize_and_start;
+	}
+      else
+	{
+	  or_put_offset_internal (buf, CAST_BUFLEN (ptr_varvals - buf->buffer - header_size), offset_size);
+	}
+      buf->ptr = PTR_ALIGN (buf->ptr, INT_ALIGNMENT);
+    }
+
+  /* Record the length of the object */
+  new_recdes->set_record_length (ptr_varvals - buf->buffer);
+
+  /* if not enough MVCC wasted space need to reallocate */
+  if (ptr_varvals + mvcc_wasted_space > buf->endptr)
+    {
+        expected_size += DB_PAGESIZE;
+        goto resize_and_start;
     }
 
   return status;
+exit_on_error:
+  status = S_ERROR;
+  return status;
 }
-
 /*
  * heap_attrinfo_start_refoids () - Initialize an attribute information structure
  * with attributes that may reference other objects
