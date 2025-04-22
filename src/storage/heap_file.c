@@ -10246,7 +10246,7 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
 
       pr_type = pr_type_from_id (attrepr->type);
 
-      if (!fixed && value->state != HEAP_UNINIT_ATTRVALUE)
+      if (value->state != HEAP_UNINIT_ATTRVALUE)
 	{
 	  (void) pr_clear_value (&value->dbvalue);
 	}
