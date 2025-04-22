@@ -175,7 +175,7 @@ eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval
       break;
 
     default:
-      /* check for ant values to coerce 1-time, then reduce many-times coerce at tp_value_compare_with_error () */
+      /* check for constant values to coerce 1-time, then reduce many-times coerce at tp_value_compare_with_error () */
       if (et_comp != NULL)
 	{
 	  assert (et_comp->lhs != NULL);
@@ -275,9 +275,16 @@ eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval
 	  /* do ordinal comparison, but NULL's still yield UNKNOWN */
 	  if (vtype1 == vtype2 && TP_IS_NUMERIC_TYPE (vtype1))
 	    {
-	      PR_TYPE *pr_type;
-	      pr_type = pr_type_from_id (vtype1);
-	      result = pr_type->cmpval (dbval1, dbval2, 1, 0, NULL, 0);
+	      if (DB_IS_NULL (dbval1) || DB_IS_NULL (dbval2))
+		{
+		  result = DB_UNK;
+		}
+	      else
+		{
+		  PR_TYPE *pr_type;
+	        pr_type = pr_type_from_id (vtype1);
+		  result = pr_type->cmpval (dbval1, dbval2, 1, 0, NULL, 0);
+		}
 	    }
 	  else if (vtype1 == vtype2)
 	    {
