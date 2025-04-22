@@ -3752,7 +3752,6 @@ la_disk_to_obj (MOBJ classobj, RECDES * record, DB_OTMPL * def, DB_VALUE * key)
   /* Kludge, make sure we don't upgrade objects to OID'd during the reading */
   buf = &orep;
   or_init (buf, record->data, record->length);
-  buf->error_abort = 1;
 
   status = setjmp (buf->env);
   if (status == 0)

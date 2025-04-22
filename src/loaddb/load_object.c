@@ -498,7 +498,7 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
   int offset_size;
   buf = &orep;
   or_init (buf, record->data, record->area_size);
-  buf->error_abort = 1;
+  //buf->error_abort = 1;
   expected_disk_size = object_disk_size (obj, &offset_size);
   if (record->area_size < (expected_disk_size + (OR_MVCC_MAX_HEADER_SIZE - OR_MVCC_INSERT_HEADER_SIZE)))
     {
@@ -945,7 +945,7 @@ desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * ob
   pr_Inhibit_oid_promotion = 1;
   buf = &orep;
   or_init (buf, record->data, record->length);
-  buf->error_abort = 1;
+  //buf->error_abort = 1;
   obj->classop = classop;
   status = 0;
   if (status == 0)
