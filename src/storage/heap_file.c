@@ -2811,7 +2811,6 @@ heap_classrepr_dump (THREAD_ENTRY * thread_p, FILE * fp, const OID * class_oid, 
       else
 	{
 	  or_init (&buf, (char *) attrepr->default_value.value, attrepr->default_value.val_length);
-	  buf.error_abort = 1;
 
 	  /* Do not copy the string--just use the pointer.  The pr_ routines for strings and sets have different
 	   * semantics for length. A negative length value for strings means "don't copy the string, just use the
@@ -10132,7 +10131,6 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
   int disk_length = -1;
   int ret = NO_ERROR;
 
-  bool fixed = false;
 
   if (IS_DEDUPLICATE_KEY_ATTR_ID (value->attrid))
     {
@@ -10175,7 +10173,6 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
 	      /*
 	       * The fixed attribute is bound. Access its information
 	       */
-	      fixed = true;
 	      disk_data =
 		((char *) recdes->data
 		 + OR_FIXED_ATTRIBUTES_OFFSET_BY_OBJ (recdes->data,
@@ -10246,7 +10243,6 @@ heap_attrvalue_read (RECDES * recdes, HEAP_ATTRVALUE * value, HEAP_CACHE_ATTRINF
        * Read the value according to disk information that was found
        */
       or_init (&buf, disk_data, disk_length);
-      buf.error_abort = 1;
 
       pr_type = pr_type_from_id (attrepr->type);
 
@@ -11660,7 +11656,6 @@ resize_and_start:
 
   new_recdes->resize_buffer (expected_size);
   or_init (&orep, new_recdes->get_data_for_modify (), (int) expected_size);
-  orep.error_abort = 1;
   buf = &orep;
 
   status = S_SUCCESS;
