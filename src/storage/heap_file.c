@@ -11917,7 +11917,10 @@ resize_and_start:
 		    }
 		}
 
-	      pr_type->data_writeval (buf, dbvalue);
+	      if (pr_type->data_writeval (buf, dbvalue) == ER_TF_BUFFER_OVERFLOW) {
+                expected_size += DB_PAGESIZE;
+                goto resize_and_start;
+              }
 	      ptr_varvals = buf->ptr;
 	    }
 	}
