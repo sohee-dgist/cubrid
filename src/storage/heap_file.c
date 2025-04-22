@@ -2811,7 +2811,7 @@ heap_classrepr_dump (THREAD_ENTRY * thread_p, FILE * fp, const OID * class_oid, 
       else
 	{
 	  or_init (&buf, (char *) attrepr->default_value.value, attrepr->default_value.val_length);
-
+          buf.error_abort = 1;
 	  /* Do not copy the string--just use the pointer.  The pr_ routines for strings and sets have different
 	   * semantics for length. A negative length value for strings means "don't copy the string, just use the
 	   * pointer". */
@@ -11659,7 +11659,6 @@ resize_and_start:
   buf = &orep;
 
   status = S_SUCCESS;
-
   /*
    * Store the representation of the class along with bound bit
    * flag information
@@ -11955,7 +11954,7 @@ resize_and_start:
         expected_size += DB_PAGESIZE;
         goto resize_and_start;
     }
-
+  buf->error_abort = 1;
   return status;
 exit_on_error:
   status = S_ERROR;
