@@ -1176,16 +1176,16 @@ or_get_var_table_internal (OR_BUF * buf, int nvars, char *(*allocator) (int), in
   length = DB_ALIGN (offset_size * (nvars + 1), INT_ALIGNMENT);
   assert (buf->ptr + length <= buf->endptr);
 
-      vars = (OR_VARINFO *) (*allocator) (sizeof (OR_VARINFO) * nvars);
-      if (vars == NULL && nvars)
-	{
-	  assert (false);
-	}
-      else
-	{
-	  (void) or_unpack_var_table_internal (buf->ptr, nvars, vars, offset_size);
-	}
-      buf->ptr += length;
+  vars = (OR_VARINFO *) (*allocator) (sizeof (OR_VARINFO) * nvars);
+  if (vars == NULL && nvars)
+    {
+      assert (false);
+    }
+  else
+    {
+      (void) or_unpack_var_table_internal (buf->ptr, nvars, vars, offset_size);
+    }
+  buf->ptr += length;
   return vars;
 }
 

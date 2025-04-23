@@ -7083,9 +7083,9 @@ mr_data_writeval_set (OR_BUF * buf, DB_VALUE * value)
       if (ref->disk_set)
 	{
 	  /* check for overflow */
-          assert(((ptrdiff_t) (buf->endptr - buf->ptr)) >= (ptrdiff_t) ref->disk_size);
+	  assert (((ptrdiff_t) (buf->endptr - buf->ptr)) >= (ptrdiff_t) ref->disk_size);
 	  memcpy (buf->ptr, ref->disk_set, ref->disk_size);
-          rc = or_advance (buf, ref->disk_size);
+	  rc = or_advance (buf, ref->disk_size);
 	}
       else if (set_get_setobj (ref, &set, 0) == NO_ERROR)
 	{

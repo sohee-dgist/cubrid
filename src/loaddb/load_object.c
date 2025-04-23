@@ -784,7 +784,7 @@ get_desc_old (OR_BUF * buf, SM_CLASS * class_, int repid, DESC_OBJ * obj, int bo
       bytes = OR_BOUND_BIT_BYTES (oldrep->fixed_count);
       if ((buf->ptr + bytes) > buf->endptr)
 	{
-	   goto abort_on_error;
+	  goto abort_on_error;
 	}
 
       rat = oldrep->attributes;

@@ -282,7 +282,7 @@ eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval
 	      else
 		{
 		  PR_TYPE *pr_type;
-	        pr_type = pr_type_from_id (vtype1);
+		  pr_type = pr_type_from_id (vtype1);
 		  result = pr_type->cmpval (dbval1, dbval2, 1, 0, NULL, 0);
 		}
 	    }

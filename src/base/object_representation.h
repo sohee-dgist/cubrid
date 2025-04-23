@@ -1628,9 +1628,9 @@ or_get_byte (OR_BUF * buf, int *error)
   int value = 0;
 
   assert (buf->ptr + OR_BYTE_SIZE <= buf->endptr);
-value = OR_GET_BYTE (buf->ptr);
-buf->ptr += OR_BYTE_SIZE;
-*error = NO_ERROR;
+  value = OR_GET_BYTE (buf->ptr);
+  buf->ptr += OR_BYTE_SIZE;
+  *error = NO_ERROR;
 
   return value;
 }
@@ -1666,8 +1666,8 @@ or_get_short (OR_BUF * buf, int *error)
   ASSERT_ALIGN (buf->ptr, SHORT_ALIGNMENT);
 
   assert (buf->ptr + OR_SHORT_SIZE <= buf->endptr);
-      value = OR_GET_SHORT (buf->ptr);
-      buf->ptr += OR_SHORT_SIZE;
+  value = OR_GET_SHORT (buf->ptr);
+  buf->ptr += OR_SHORT_SIZE;
   *error = NO_ERROR;
   return value;
 }
@@ -1702,9 +1702,9 @@ or_get_int (OR_BUF * buf, int *error)
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
   assert (buf->ptr + OR_INT_SIZE <= buf->endptr);
-      value = OR_GET_INT (buf->ptr);
-      buf->ptr += OR_INT_SIZE;
-      *error = NO_ERROR;
+  value = OR_GET_INT (buf->ptr);
+  buf->ptr += OR_INT_SIZE;
+  *error = NO_ERROR;
   return value;
 }
 
@@ -1758,9 +1758,9 @@ or_get_bigint (OR_BUF * buf, int *error)
 
   assert (buf->ptr + OR_BIGINT_SIZE <= buf->endptr);
 
-      OR_GET_BIGINT (buf->ptr, &value);
-      buf->ptr += OR_BIGINT_SIZE;
-      *error = NO_ERROR;
+  OR_GET_BIGINT (buf->ptr, &value);
+  buf->ptr += OR_BIGINT_SIZE;
+  *error = NO_ERROR;
   return value;
 }
 
@@ -1796,9 +1796,9 @@ or_get_float (OR_BUF * buf, int *error)
 
   assert (buf->ptr + OR_FLOAT_SIZE <= buf->endptr);
 
-      OR_GET_FLOAT (buf->ptr, &value);
-      buf->ptr += OR_FLOAT_SIZE;
-      *error = NO_ERROR;
+  OR_GET_FLOAT (buf->ptr, &value);
+  buf->ptr += OR_FLOAT_SIZE;
+  *error = NO_ERROR;
   return value;
 }
 
@@ -1833,9 +1833,9 @@ or_get_double (OR_BUF * buf, int *error)
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
   assert (buf->ptr + OR_DOUBLE_SIZE <= buf->endptr);
 
-      OR_GET_DOUBLE (buf->ptr, &value);
-      buf->ptr += OR_DOUBLE_SIZE;
-      *error = NO_ERROR;
+  OR_GET_DOUBLE (buf->ptr, &value);
+  buf->ptr += OR_DOUBLE_SIZE;
+  *error = NO_ERROR;
   return value;
 }
 
@@ -1873,8 +1873,8 @@ or_get_time (OR_BUF * buf, DB_TIME * timeval)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
   assert (buf->ptr + OR_TIME_SIZE <= buf->endptr);
-      OR_GET_TIME (buf->ptr, timeval);
-      buf->ptr += OR_TIME_SIZE;
+  OR_GET_TIME (buf->ptr, timeval);
+  buf->ptr += OR_TIME_SIZE;
   return NO_ERROR;
 }
 
@@ -1907,8 +1907,8 @@ or_get_utime (OR_BUF * buf, DB_UTIME * timeval)
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
   assert (buf->ptr + OR_UTIME_SIZE <= buf->endptr);
 
-      OR_GET_UTIME (buf->ptr, timeval);
-      buf->ptr += OR_UTIME_SIZE;
+  OR_GET_UTIME (buf->ptr, timeval);
+  buf->ptr += OR_UTIME_SIZE;
   return NO_ERROR;
 }
 
@@ -1941,8 +1941,8 @@ or_get_timestamptz (OR_BUF * buf, DB_TIMESTAMPTZ * ts_tz)
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
   assert (buf->ptr + OR_TIMESTAMPTZ_SIZE <= buf->endptr);
-      OR_GET_TIMESTAMPTZ (buf->ptr, ts_tz);
-      buf->ptr += OR_TIMESTAMPTZ_SIZE;
+  OR_GET_TIMESTAMPTZ (buf->ptr, ts_tz);
+  buf->ptr += OR_TIMESTAMPTZ_SIZE;
   return NO_ERROR;
 }
 
@@ -1975,8 +1975,8 @@ or_get_date (OR_BUF * buf, DB_DATE * date)
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
   assert (buf->ptr + OR_DATE_SIZE <= buf->endptr);
-      OR_GET_DATE (buf->ptr, date);
-      buf->ptr += OR_DATE_SIZE;
+  OR_GET_DATE (buf->ptr, date);
+  buf->ptr += OR_DATE_SIZE;
   return NO_ERROR;
 }
 
@@ -2044,7 +2044,7 @@ or_get_datetimetz (OR_BUF * buf, DB_DATETIMETZ * datetimetz)
 
   assert (buf->ptr + OR_DATETIMETZ_SIZE <= buf->endptr);
   OR_GET_DATETIMETZ (buf->ptr, datetimetz);
-      buf->ptr += OR_DATETIMETZ_SIZE;
+  buf->ptr += OR_DATETIMETZ_SIZE;
   return NO_ERROR;
 }
 
@@ -2475,9 +2475,9 @@ or_put_oid (OR_BUF * buf, const OID * oid)
       /* Cannot allow any temp oid's to be written */
       if (OID_ISTEMP (oid))
 	{
-          er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
-          assert(false);
-        }
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	  assert (false);
+	}
       OR_PUT_OID (buf->ptr, oid);
     }
   buf->ptr += OR_OID_SIZE;

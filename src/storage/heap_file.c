@@ -11916,13 +11916,16 @@ resize_and_start:
 		    }
 		}
 
-	      if (buf->ptr + pr_type->get_disk_size_of_value(dbvalue) > buf->endptr) {
-                expected_size += DB_PAGESIZE;
-                goto resize_and_start;
-              } else {
-                pr_type->data_writeval (buf, dbvalue);
-                ptr_varvals = buf->ptr;
-              }
+	      if (buf->ptr + pr_type->get_disk_size_of_value (dbvalue) > buf->endptr)
+		{
+		  expected_size += DB_PAGESIZE;
+		  goto resize_and_start;
+		}
+	      else
+		{
+		  pr_type->data_writeval (buf, dbvalue);
+		  ptr_varvals = buf->ptr;
+		}
 	    }
 	}
     }
@@ -11955,14 +11958,15 @@ resize_and_start:
   /* if not enough MVCC wasted space need to reallocate */
   if (ptr_varvals + mvcc_wasted_space > buf->endptr)
     {
-        expected_size += DB_PAGESIZE;
-        goto resize_and_start;
+      expected_size += DB_PAGESIZE;
+      goto resize_and_start;
     }
   return status;
 exit_on_error:
   status = S_ERROR;
   return status;
 }
+
 /*
  * heap_attrinfo_start_refoids () - Initialize an attribute information structure
  * with attributes that may reference other objects
