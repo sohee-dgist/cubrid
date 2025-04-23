@@ -535,40 +535,7 @@ or_put_bound_bit (char *bound_bits, int element, int bound)
 #endif /* ENABLE_UNUSED_FUNCTION */
 #endif /* !SERVER_MODE */
 
-/*
- * or_underflow - This is called by the or_get_ functions when there is
- * not enough data in the buffer to extract a particular value.
- *    return: ER_TF_BUFFER_UNDERFLOW or long jump to buf->env
- *    buf(in): translation state structure
- *
- * Note:
- * Unlike or_overflow this is NOT a common ocurrence and indicates a serious
- * memory or disk corruption problem.
- */
-int
-or_underflow (OR_BUF * buf)
-{
-  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_UNDERFLOW, 0);
-  return ER_TF_BUFFER_UNDERFLOW;
-}
 
-/*
- * or_abort - This is called if there was some fundemtal error
- *    return: void
- *    buf(in): translation state structure
- *
- * Note:
- *    An appropriate error message should have already been set.
- */
-void
-or_abort (OR_BUF * buf)
-{
-  /* assume an appropriate error has already been set */
-  if (buf->error_abort)
-    {
-      _longjmp (buf->env, er_errid ());
-    }
-}
 
 /*
  * or_put_monetary - write a DB_MONETARY value to or buffer
@@ -641,15 +608,9 @@ or_get_monetary (OR_BUF * buf, DB_MONETARY * monetary)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
-  if ((buf->ptr + OR_MONETARY_SIZE) > buf->endptr)
-    {
-      return or_underflow (buf);
-    }
-  else
-    {
-      OR_GET_MONETARY (buf->ptr, monetary);
-      buf->ptr += OR_MONETARY_SIZE;
-    }
+  assert (buf->ptr + OR_MONETARY_SIZE <= buf->endptr);
+  OR_GET_MONETARY (buf->ptr, monetary);
+  buf->ptr += OR_MONETARY_SIZE;
   return NO_ERROR;
 }
 
@@ -735,7 +696,6 @@ or_get_varbit (OR_BUF * buf, int *length_ptr)
 
   if (new_ == NULL)
     {
-      or_abort (buf);
       return NULL;
     }
   rc = or_get_data (buf, new_, charlen);
@@ -803,7 +763,6 @@ or_get_varchar (OR_BUF * buf, int *length_ptr)
 
   if (new_ == NULL)
     {
-      or_abort (buf);
       return NULL;
     }
   rc = or_get_data (buf, new_, charlen + 1);
@@ -872,11 +831,6 @@ or_put_varchar_internal (OR_BUF * buf, char *string, int charlen, int align)
   int rc = NO_ERROR;
   bool compressable = false;
   int compressed_length = 0;
-  int error_abort = 0;
-
-  error_abort = buf->error_abort;
-
-  buf->error_abort = 0;
 
   /* store the size prefix */
   if (charlen < OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION)
@@ -1002,7 +956,6 @@ cleanup:
       free_and_init (compressed_string);
     }
 
-  buf->error_abort = error_abort;
 
   if (rc == ER_TF_BUFFER_OVERFLOW)
     {
@@ -1221,24 +1174,18 @@ or_get_var_table_internal (OR_BUF * buf, int nvars, char *(*allocator) (int), in
     }
 
   length = DB_ALIGN (offset_size * (nvars + 1), INT_ALIGNMENT);
+  assert (buf->ptr + length <= buf->endptr);
 
-  if ((buf->ptr + length) > buf->endptr)
-    {
-      or_underflow (buf);
-    }
-  else
-    {
       vars = (OR_VARINFO *) (*allocator) (sizeof (OR_VARINFO) * nvars);
       if (vars == NULL && nvars)
 	{
-	  or_abort (buf);
+	  assert (false);
 	}
       else
 	{
 	  (void) or_unpack_var_table_internal (buf->ptr, nvars, vars, offset_size);
 	}
       buf->ptr += length;
-    }
   return vars;
 }
 
@@ -4463,7 +4410,7 @@ or_get_set (OR_BUF * buf, TP_DOMAIN * domain)
   set = setobj_create (set_type, size);
   if (set == NULL)
     {
-      or_abort (buf);
+      assert (false);
       return NULL;
     }
 
@@ -5037,7 +4984,7 @@ or_get_value (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int expected, 
     {
       /* problems decoding the domain */
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
-      or_abort (buf);
+      assert (false);
       return ER_FAILED;
     }
   else

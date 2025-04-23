@@ -525,7 +525,7 @@ tf_need_permanent_oid (or_buf * buf, DB_OBJECT * obj)
 
       if (tf_add_fixup (buf->fixups, obj, buf->ptr) != NO_ERROR)
 	{
-	  or_abort (buf);
+	  assert (false);
 	}
       else
 	{
@@ -547,7 +547,7 @@ tf_need_permanent_oid (or_buf * buf, DB_OBJECT * obj)
 	    }
 
 	  /* this is serious */
-	  or_abort (buf);
+	  assert (false);
 	}
       else
 	{
@@ -728,7 +728,7 @@ put_attributes (OR_BUF * buf, char *obj, SM_CLASS * class_)
   else if (pad > class_->fixed_size)
     {				/* mismatched fixed block calculations */
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-      or_abort (buf);
+      assert (false);
     }
 
   /* write the bound bits */
@@ -777,7 +777,6 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
 
   buf = &orep;
   or_init (buf, record->data, record->area_size);
-  buf->error_abort = 0;
   if (tf_Allow_fixups)
     {
       buf->fixups = tf_make_fixup ();
@@ -900,7 +899,6 @@ exit:
 
   *index_flag = has_index;
 
-  buf->error_abort = 0;
   return (status);
 }
 
@@ -930,7 +928,7 @@ get_current (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int bound_bit_flag
       vars = (int *) db_ws_alloc (sizeof (int) * class_->variable_count);
       if (vars == NULL)
 	{
-	  or_abort (buf);
+	  assert (false);
 	}
       else
 	{
@@ -959,7 +957,7 @@ get_current (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int bound_bit_flag
 	{
 	  db_ws_free (vars);
 	}
-      or_abort (buf);
+      assert (false);
     }
   else
     {
@@ -1121,7 +1119,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 
       if (obj == NULL)
 	{
-	  or_abort (buf);
+	  assert (false);
 	}
       else
 	{
@@ -1135,7 +1133,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 	      vars = (int *) db_ws_alloc (sizeof (int) * oldrep->variable_count);
 	      if (vars == NULL)
 		{
-		  or_abort (buf);
+		  assert (false);
 		  return NULL;
 		}
 	      else
@@ -1164,7 +1162,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 		    {
 		      db_ws_free (vars);
 		    }
-		  or_abort (buf);
+		  assert (false);
 		  return NULL;
 		}
 	      else
@@ -1193,7 +1191,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 		      db_ws_free (vars);
 		    }
 
-		  or_abort (buf);
+		  assert (false);
 		  return NULL;
 		}
 
@@ -1253,7 +1251,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 		      db_ws_free (attmap);
 		      db_ws_free (vars);
 
-		      or_abort (buf);
+		      assert (false);
 		      return NULL;
 		    }
 
@@ -1711,7 +1709,7 @@ get_object_set (OR_BUF * buf, int expected)
 	  if (ml_append (&list, op, NULL))
 	    {
 	      /* memory error */
-	      or_abort (buf);
+	      assert (false);
 	    }
 	}
     }
@@ -1867,7 +1865,7 @@ get_substructure_set (OR_BUF * buf, LREADER reader, int expected)
 	}
       else
 	{
-	  or_abort (buf);
+	  assert (false);
 	}
     }
   return (list);
@@ -1982,7 +1980,7 @@ get_property_list (OR_BUF * buf, int expected_size)
       tp_Sequence.data_readval (buf, &value, NULL, expected_size, true, NULL, 0);
       properties = db_get_set (&value);
       if (properties == NULL)
-	or_abort (buf);		/* trouble allocating a handle */
+	assert (false);		/* trouble allocating a handle */
       else
 	{
 	  max = set_size (properties);
@@ -2111,7 +2109,7 @@ disk_to_domain2 (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_domain.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
       return NULL;
     }
 
@@ -2121,7 +2119,7 @@ disk_to_domain2 (OR_BUF * buf)
   if (domain == NULL)
     {
       free_var_table (vars);
-      or_abort (buf);
+      assert (false);
       return NULL;
     }
 
@@ -2149,7 +2147,7 @@ disk_to_domain2 (OR_BUF * buf)
       if (domain->class_mop == NULL)
 	{
 	  free_var_table (vars);
-	  or_abort (buf);
+	  assert (false);
 	}
     }
   domain->setdomain = (TP_DOMAIN *) get_substructure_set (buf, (LREADER) disk_to_domain2,
@@ -2160,7 +2158,7 @@ disk_to_domain2 (OR_BUF * buf)
     {
       free_var_table (vars);
       tp_domain_free (domain);
-      or_abort (buf);
+      assert (false);
       return NULL;
     }
 
@@ -2303,14 +2301,14 @@ disk_to_metharg (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_metharg.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
       return NULL;
     }
 
   arg = classobj_make_method_arg (0);
   if (arg == NULL)
     {
-      or_abort (buf);
+      assert (false);
     }
   else
     {
@@ -2429,7 +2427,7 @@ disk_to_methsig (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_methsig.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
     }
   else
     {
@@ -2437,7 +2435,7 @@ disk_to_methsig (OR_BUF * buf)
       sig = classobj_make_method_signature (NULL);
       if (sig == NULL)
 	{
-	  or_abort (buf);
+	  assert (false);
 	}
       else
 	{
@@ -2455,7 +2453,7 @@ disk_to_methsig (OR_BUF * buf)
 	      fix = ws_copy_string (fname + 1);
 	      if (fix == NULL)
 		{
-		  or_abort (buf);
+		  assert (false);
 		}
 	      else
 		{
@@ -2579,7 +2577,7 @@ disk_to_method (OR_BUF * buf, SM_METHOD * method)
   vars = read_var_table (buf, tf_Metaclass_method.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
     }
   else
     {
@@ -2700,14 +2698,14 @@ disk_to_methfile (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_methfile.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
     }
   else
     {
       file = classobj_make_method_file (NULL);
       if (file == NULL)
 	{
-	  or_abort (buf);
+	  assert (false);
 	}
       else
 	{
@@ -2805,14 +2803,14 @@ disk_to_query_spec (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_query_spec.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
     }
   else
     {
       statement = classobj_make_query_spec (NULL);
       if (statement == NULL)
 	{
-	  or_abort (buf);
+	  assert (false);
 	}
       else
 	{
@@ -2983,7 +2981,7 @@ disk_to_attribute (OR_BUF * buf, SM_ATTRIBUTE * att)
   vars = read_var_table (buf, tf_Metaclass_attribute.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
     }
   else
     {
@@ -3237,7 +3235,7 @@ disk_to_resolution (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_resolution.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
     }
   else
     {
@@ -3255,7 +3253,7 @@ disk_to_resolution (OR_BUF * buf)
 	  res = classobj_make_resolution (NULL, NULL, NULL, name_space);
 	  if (res == NULL)
 	    {
-	      or_abort (buf);
+	      assert (false);
 	    }
 	  else
 	    {
@@ -3352,7 +3350,7 @@ disk_to_repattribute (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_repattribute.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
       return NULL;
     }
 
@@ -3362,7 +3360,7 @@ disk_to_repattribute (OR_BUF * buf)
   if (rat == NULL)
     {
       free_var_table (vars);
-      or_abort (buf);
+      assert (false);
       return NULL;
     }
 
@@ -3464,7 +3462,7 @@ disk_to_representation (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_representation.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
       return NULL;
     }
 
@@ -3473,7 +3471,7 @@ disk_to_representation (OR_BUF * buf)
   if (rep == NULL)
     {
       free_var_table (vars);
-      or_abort (buf);
+      assert (false);
       return NULL;
     }
   else
@@ -3746,7 +3744,7 @@ class_to_disk (OR_BUF * buf, SM_CLASS * class_)
    * conversion routines */
   if (!check_class_structure (class_))
     {
-      or_abort (buf);
+      assert (false);
     }
   else
     {
@@ -3758,7 +3756,7 @@ class_to_disk (OR_BUF * buf, SM_CLASS * class_)
       if (start + offset + OR_NON_MVCC_HEADER_SIZE != buf->ptr)
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_OUT_OF_SYNC, 0);
-	  or_abort (buf);
+	  assert (false);
 	}
     }
 }
@@ -4150,7 +4148,7 @@ disk_to_class (OR_BUF * buf, SM_CLASS ** class_ptr)
 	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_INVALID_ATTRIBUTE, 1, auto_increment_name);
 	      db_ws_free (class_);
 	      free_var_table (vars);
-	      or_abort (buf);
+	      assert (false);
 	      return NULL;
 	    }
 #endif
@@ -4274,7 +4272,7 @@ disk_to_root (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_root.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
     }
   else
     {
@@ -4482,7 +4480,6 @@ exit:
 	}
     }
 
-  buf->error_abort = 0;
   return (status);
 }
 
@@ -4753,9 +4750,8 @@ tf_pack_set (DB_SET * set, char *buffer, int buffer_size, int *actual_bytes)
   /* set up a transformation buffer, may want to do deferred fixup here ? */
   buf = &orep;
   or_init (buf, buffer, buffer_size);
-  buf->error_abort = 1;
 
-  switch (_setjmp (buf->env))
+  switch (_setjmp ())
     {
     case 0:
       error = NO_ERROR;
@@ -4794,7 +4790,6 @@ tf_pack_set (DB_SET * set, char *buffer, int buffer_size, int *actual_bytes)
       error = er_errid ();
       break;
     }
-  buf->error_abort = 0;
 
   return (error);
 }
@@ -4898,7 +4893,7 @@ disk_to_partition_info (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_partition.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      assert (false);
       return NULL;
     }
 
@@ -4907,7 +4902,7 @@ disk_to_partition_info (OR_BUF * buf)
   partition_info = classobj_make_partition_info ();
   if (partition_info == NULL)
     {
-      or_abort (buf);
+      assert (false);
     }
   else
     {

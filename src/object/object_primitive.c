@@ -16180,14 +16180,11 @@ pr_get_size_and_write_string_to_buffer (struct or_buf *buf, char *val_p, DB_VALU
   int rc = NO_ERROR, str_length = 0, length = 0;
   int compression_length = 0, compress_buffer_size;
   bool compressed = false;
-  int save_error_abort = 0;
 
   /* Checks to be sure that we have the correct input */
   assert (DB_VALUE_DOMAIN_TYPE (value) == DB_TYPE_VARNCHAR || DB_VALUE_DOMAIN_TYPE (value) == DB_TYPE_STRING);
   assert (db_get_string_size (value) >= OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION);
 
-  save_error_abort = buf->error_abort;
-  buf->error_abort = 0;
 
   string = db_get_string (value);
   str_length = db_get_string_size (value);
@@ -16279,7 +16276,6 @@ after_compression:
 
 cleanup:
 
-  buf->error_abort = save_error_abort;
 
   if (compressed_string != NULL)
     {
@@ -16911,12 +16907,6 @@ mr_data_writeval_json (OR_BUF * buf, DB_VALUE * value)
       return ER_FAILED;
     }
 
-  if (buf->error_abort)
-    {
-      int estimated_length = mr_data_lengthval_json (value, true);
-
-      assert ((ptrdiff_t) estimated_length <= ((ptrdiff_t) (buf->endptr - buf->ptr)));
-    }
 
   JSON_DOC *json_doc = db_get_json_document (value);
   rc = db_json_serialize (*json_doc, *buf);

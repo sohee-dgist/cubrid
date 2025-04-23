@@ -470,7 +470,7 @@ error:
     {
       free_and_init (bits);
     }
-  or_abort (buf);
+  assert (false);
 }
 
 /*
@@ -883,7 +883,7 @@ abort_on_error:
       free (vars);
     }
 
-  or_abort (buf);
+  assert (false);
 }
 
 /*

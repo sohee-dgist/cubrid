@@ -3983,11 +3983,7 @@ db_json_serialize_length (const JSON_DOC &doc)
 static int
 db_json_or_buf_underflow (or_buf *buf, size_t length)
 {
-  if ((buf->ptr + length) > buf->endptr)
-    {
-      return or_underflow (buf);
-    }
-
+  assert (buf->ptr + length <= buf->endptr);
   return NO_ERROR;
 }
 

@@ -1035,8 +1035,6 @@ struct or_buf
   char *ptr;
   char *endptr;
   struct or_fixup *fixups;
-  jmp_buf env;
-  bool error_abort;
 };
 
 /* Need to translate types of DB_TYPE_OBJECT into DB_TYPE_OID in server-side */
@@ -1197,10 +1195,6 @@ extern void or_encode (char *buffer, const char *source, int size);
 extern void or_decode (const char *buffer, char *dest, int size);
 
 STATIC_INLINE void or_init (OR_BUF * buf, char *data, int length) __attribute__ ((ALWAYS_INLINE));
-
-/* These are called when overflow/underflow are detected */
-extern int or_underflow (OR_BUF * buf);
-extern void or_abort (OR_BUF * buf);
 
 /* Pack/unpack support functions */
 STATIC_INLINE int or_advance (OR_BUF * buf, int offset) __attribute__ ((ALWAYS_INLINE));
@@ -1451,7 +1445,6 @@ or_init (OR_BUF * buf, char *data, int length)
       buf->endptr = data + length;
     }
 
-  buf->error_abort = 0;
   buf->fixups = NULL;
 }
 
@@ -1634,17 +1627,11 @@ or_get_byte (OR_BUF * buf, int *error)
 {
   int value = 0;
 
-  if ((buf->ptr + OR_BYTE_SIZE) > buf->endptr)
-    {
-      *error = or_underflow (buf);
-      return 0;
-    }
-  else
-    {
-      value = OR_GET_BYTE (buf->ptr);
-      buf->ptr += OR_BYTE_SIZE;
-      *error = NO_ERROR;
-    }
+  assert (buf->ptr + OR_BYTE_SIZE <= buf->endptr);
+value = OR_GET_BYTE (buf->ptr);
+buf->ptr += OR_BYTE_SIZE;
+*error = NO_ERROR;
+
   return value;
 }
 
@@ -1678,16 +1665,9 @@ or_get_short (OR_BUF * buf, int *error)
 
   ASSERT_ALIGN (buf->ptr, SHORT_ALIGNMENT);
 
-  if ((buf->ptr + OR_SHORT_SIZE) > buf->endptr)
-    {
-      *error = or_underflow (buf);
-      return 0;
-    }
-  else
-    {
+  assert (buf->ptr + OR_SHORT_SIZE <= buf->endptr);
       value = OR_GET_SHORT (buf->ptr);
       buf->ptr += OR_SHORT_SIZE;
-    }
   *error = NO_ERROR;
   return value;
 }
@@ -1721,16 +1701,10 @@ or_get_int (OR_BUF * buf, int *error)
 
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
-  if ((buf->ptr + OR_INT_SIZE) > buf->endptr)
-    {
-      *error = or_underflow (buf);
-    }
-  else
-    {
+  assert (buf->ptr + OR_INT_SIZE <= buf->endptr);
       value = OR_GET_INT (buf->ptr);
       buf->ptr += OR_INT_SIZE;
       *error = NO_ERROR;
-    }
   return value;
 }
 
@@ -1782,16 +1756,11 @@ or_get_bigint (OR_BUF * buf, int *error)
 
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
-  if ((buf->ptr + OR_BIGINT_SIZE) > buf->endptr)
-    {
-      *error = or_underflow (buf);
-    }
-  else
-    {
+  assert (buf->ptr + OR_BIGINT_SIZE <= buf->endptr);
+
       OR_GET_BIGINT (buf->ptr, &value);
       buf->ptr += OR_BIGINT_SIZE;
       *error = NO_ERROR;
-    }
   return value;
 }
 
@@ -1825,16 +1794,11 @@ or_get_float (OR_BUF * buf, int *error)
 
   ASSERT_ALIGN (buf->ptr, FLOAT_ALIGNMENT);
 
-  if ((buf->ptr + OR_FLOAT_SIZE) > buf->endptr)
-    {
-      *error = or_underflow (buf);
-    }
-  else
-    {
+  assert (buf->ptr + OR_FLOAT_SIZE <= buf->endptr);
+
       OR_GET_FLOAT (buf->ptr, &value);
       buf->ptr += OR_FLOAT_SIZE;
       *error = NO_ERROR;
-    }
   return value;
 }
 
@@ -1867,17 +1831,11 @@ or_get_double (OR_BUF * buf, int *error)
   double value = 0.0;
 
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
+  assert (buf->ptr + OR_DOUBLE_SIZE <= buf->endptr);
 
-  if ((buf->ptr + OR_DOUBLE_SIZE) > buf->endptr)
-    {
-      *error = or_underflow (buf);
-    }
-  else
-    {
       OR_GET_DOUBLE (buf->ptr, &value);
       buf->ptr += OR_DOUBLE_SIZE;
       *error = NO_ERROR;
-    }
   return value;
 }
 
@@ -1914,16 +1872,9 @@ STATIC_INLINE int
 or_get_time (OR_BUF * buf, DB_TIME * timeval)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
-  if ((buf->ptr + OR_TIME_SIZE) > buf->endptr)
-    {
-      return or_underflow (buf);
-    }
-  else
-    {
+  assert (buf->ptr + OR_TIME_SIZE <= buf->endptr);
       OR_GET_TIME (buf->ptr, timeval);
       buf->ptr += OR_TIME_SIZE;
-    }
   return NO_ERROR;
 }
 
@@ -1954,16 +1905,10 @@ STATIC_INLINE int
 or_get_utime (OR_BUF * buf, DB_UTIME * timeval)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
+  assert (buf->ptr + OR_UTIME_SIZE <= buf->endptr);
 
-  if ((buf->ptr + OR_UTIME_SIZE) > buf->endptr)
-    {
-      return or_underflow (buf);
-    }
-  else
-    {
       OR_GET_UTIME (buf->ptr, timeval);
       buf->ptr += OR_UTIME_SIZE;
-    }
   return NO_ERROR;
 }
 
@@ -1995,15 +1940,9 @@ or_get_timestamptz (OR_BUF * buf, DB_TIMESTAMPTZ * ts_tz)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
-  if ((buf->ptr + OR_TIMESTAMPTZ_SIZE) > buf->endptr)
-    {
-      return or_underflow (buf);
-    }
-  else
-    {
+  assert (buf->ptr + OR_TIMESTAMPTZ_SIZE <= buf->endptr);
       OR_GET_TIMESTAMPTZ (buf->ptr, ts_tz);
       buf->ptr += OR_TIMESTAMPTZ_SIZE;
-    }
   return NO_ERROR;
 }
 
@@ -2035,15 +1974,9 @@ or_get_date (OR_BUF * buf, DB_DATE * date)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
-  if ((buf->ptr + OR_DATE_SIZE) > buf->endptr)
-    {
-      return or_underflow (buf);
-    }
-  else
-    {
+  assert (buf->ptr + OR_DATE_SIZE <= buf->endptr);
       OR_GET_DATE (buf->ptr, date);
       buf->ptr += OR_DATE_SIZE;
-    }
   return NO_ERROR;
 }
 
@@ -2075,15 +2008,9 @@ or_get_datetime (OR_BUF * buf, DB_DATETIME * datetime)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
-  if ((buf->ptr + OR_DATETIME_SIZE) > buf->endptr)
-    {
-      return or_underflow (buf);
-    }
-  else
-    {
-      OR_GET_DATETIME (buf->ptr, datetime);
-      buf->ptr += OR_DATETIME_SIZE;
-    }
+  assert (buf->ptr + OR_DATETIME_SIZE <= buf->endptr);
+  OR_GET_DATETIME (buf->ptr, datetime);
+  buf->ptr += OR_DATETIME_SIZE;
   return NO_ERROR;
 }
 
@@ -2115,15 +2042,9 @@ or_get_datetimetz (OR_BUF * buf, DB_DATETIMETZ * datetimetz)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
-  if ((buf->ptr + OR_DATETIMETZ_SIZE) > buf->endptr)
-    {
-      return or_underflow (buf);
-    }
-  else
-    {
-      OR_GET_DATETIMETZ (buf->ptr, datetimetz);
+  assert (buf->ptr + OR_DATETIMETZ_SIZE <= buf->endptr);
+  OR_GET_DATETIMETZ (buf->ptr, datetimetz);
       buf->ptr += OR_DATETIMETZ_SIZE;
-    }
   return NO_ERROR;
 }
 
@@ -2350,17 +2271,10 @@ or_get_string_size_byte (OR_BUF * buf, int *error)
 {
   int size_prefix;
 
-  if ((buf->ptr + OR_BYTE_SIZE) > buf->endptr)
-    {
-      *error = or_underflow (buf);
-      size_prefix = 0;
-    }
-  else
-    {
-      size_prefix = OR_GET_BYTE (buf->ptr);
-      buf->ptr += OR_BYTE_SIZE;
-      *error = NO_ERROR;
-    }
+  assert (buf->ptr + OR_BYTE_SIZE <= buf->endptr);
+  size_prefix = OR_GET_BYTE (buf->ptr);
+  buf->ptr += OR_BYTE_SIZE;
+  *error = NO_ERROR;
   return size_prefix;
 }
 
@@ -2580,16 +2494,9 @@ STATIC_INLINE int
 or_get_oid (OR_BUF * buf, OID * oid)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
-  if ((buf->ptr + OR_OID_SIZE) > buf->endptr)
-    {
-      return or_underflow (buf);
-    }
-  else
-    {
-      OR_GET_OID (buf->ptr, oid);
-      buf->ptr += OR_OID_SIZE;
-    }
+  assert (buf->ptr + OR_OID_SIZE <= buf->endptr);
+  OR_GET_OID (buf->ptr, oid);
+  buf->ptr += OR_OID_SIZE;
   return NO_ERROR;
 }
 
@@ -2625,16 +2532,9 @@ or_get_mvccid (OR_BUF * buf, MVCCID * mvccid)
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
   *mvccid = MVCCID_NULL;
-
-  if ((buf->ptr + OR_MVCCID_SIZE) > buf->endptr)
-    {
-      return or_underflow (buf);
-    }
-  else
-    {
-      OR_GET_MVCCID (buf->ptr, mvccid);
-      buf->ptr += OR_MVCCID_SIZE;
-    }
+  assert (buf->ptr + OR_MVCCID_SIZE <= buf->endptr);
+  OR_GET_MVCCID (buf->ptr, mvccid);
+  buf->ptr += OR_MVCCID_SIZE;
   return NO_ERROR;
 }
 
