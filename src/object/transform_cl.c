@@ -777,8 +777,7 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
 
   buf = &orep;
   or_init (buf, record->data, record->area_size);
-  buf->error_abort = 1;
-
+  buf->error_abort = 0;
   if (tf_Allow_fixups)
     {
       buf->fixups = tf_make_fixup ();
@@ -800,6 +799,7 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
     }
 
   expected_size = object_size (class_, obj, (int *) &offset_size);
+
   if ((expected_size + OR_MVCC_MAX_HEADER_SIZE - OR_MVCC_INSERT_HEADER_SIZE) > record->area_size)
     {
       record->length = -expected_size;
@@ -814,45 +814,53 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
       return (TF_OUT_OF_SPACE);
     }
 
-  switch (_setjmp (buf->env))
+  status = TF_SUCCESS;
+
+  if (OID_ISTEMP (WS_OID (classmop)))
     {
-    case 0:
-      status = TF_SUCCESS;
-
-      if (OID_ISTEMP (WS_OID (classmop)))
+      /*
+       * since this isn't a mem_oid, can't rely on write_oid to do this,
+       * don't bother making this part of the deferred fixup stuff yet.
+       */
+      if (locator_assign_permanent_oid (classmop) == NULL)
 	{
-	  /*
-	   * since this isn't a mem_oid, can't rely on write_oid to do this,
-	   * don't bother making this part of the deferred fixup stuff yet.
-	   */
-	  if (locator_assign_permanent_oid (classmop) == NULL)
+	  if (er_errid () == NO_ERROR)
 	    {
-	      if (er_errid () == NO_ERROR)
-		{
-		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_CANT_ASSIGN_OID, 0);
-		}
-
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_CANT_ASSIGN_OID, 0);
 	    }
+	  status = TF_ERROR;
+	  has_index = false;
+	  goto exit;
 	}
+    }
 
-      /* header */
+  /* header */
 
-      repid_bits = class_->repid;
-      if (class_->fixed_count)
-	{
-	  repid_bits |= OR_BOUND_BIT_FLAG;
-	}
-      /* offset size */
-      OR_SET_VAR_OFFSET_SIZE (repid_bits, offset_size);
+  repid_bits = class_->repid;
+  if (class_->fixed_count)
+    {
+      repid_bits |= OR_BOUND_BIT_FLAG;
+    }
+  /* offset size */
+  OR_SET_VAR_OFFSET_SIZE (repid_bits, offset_size);
 
-      chn = WS_CHN (obj) + 1;
+  chn = WS_CHN (obj) + 1;
 
-      /* in most of the cases, we expect the MVCC header of a new object to have OR_MVCC_FLAG_VALID_INSID flag,
-       * repid_bits, MVCC insert id and chn. This header may be changed later, at insert/update. So, we must be sure
-       * that the record has enough free space. */
+  /* in most of the cases, we expect the MVCC header of a new object to have OR_MVCC_FLAG_VALID_INSID flag,
+   * repid_bits, MVCC insert id and chn. This header may be changed later, at insert/update. So, we must be sure
+   * that the record has enough free space. */
 
-      repid_bits |= (OR_MVCC_FLAG_VALID_INSID << OR_MVCC_FLAG_SHIFT_BITS);
+  repid_bits |= (OR_MVCC_FLAG_VALID_INSID << OR_MVCC_FLAG_SHIFT_BITS);
+  if (buf->ptr + expected_size > buf->endptr)
+    {
+      status = TF_OUT_OF_SPACE;
+      record->length = -expected_size;
+      has_index = false;
+      goto exit;
+    }
+  else
+    {
+
       or_put_int (buf, repid_bits);
       or_put_int (buf, chn);	/* CHN, short size */
       or_put_bigint (buf, MVCCID_NULL);	/* MVCC insert id */
@@ -862,7 +870,6 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
 
       /* attributes, fixed followed by variable */
       put_attributes (buf, obj, class_);
-
       record->length = (int) (buf->ptr - buf->buffer);
 
       /* see if there are any indexes */
@@ -883,22 +890,8 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
        */
       WS_CHN (obj) = chn;
 
-      break;
-
-      /* if the longjmp status was anything other than ER_TF_BUFFER_OVERFLOW, it represents an error condition and
-       * er_set will have been called */
-    case ER_TF_BUFFER_OVERFLOW:
-      status = TF_OUT_OF_SPACE;
-      record->length = -expected_size;
-      has_index = false;
-      break;
-
-    default:
-      status = TF_ERROR;
-      has_index = false;
-      break;
     }
-
+exit:
   /* make sure we free this */
   if (tf_Allow_fixups)
     {
@@ -1231,11 +1224,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 	    {
 	      bits = buf->ptr;
 	      bytes = OR_BOUND_BIT_BYTES (oldrep->fixed_count);
-	      if ((buf->ptr + bytes) > buf->endptr)
-		{
-		  or_overflow (buf);
-		}
-
+	      assert (buf->ptr + bytes <= buf->endptr);
 	      rat = oldrep->attributes;
 	      for (i = 0; i < oldrep->fixed_count && rat != NULL && attmap != NULL; i++, rat = rat->next)
 		{
@@ -1333,75 +1322,59 @@ tf_disk_to_mem (MOBJ classobj, RECDES * record, int *convertp)
 
   buf = &orep;
   or_init (buf, record->data, record->length);
-  buf->error_abort = 1;
+  class_ = (SM_CLASS *) classobj;
 
-  switch (_setjmp (buf->env))
+
+  obj = NULL;
+  convert = 0;
+  /* offset size */
+  offset_size = OR_GET_OFFSET_SIZE (buf->ptr);
+
+  /* in case of MVCC, repid_bits contains MVCC flags */
+  repid_bits = or_mvcc_get_repid_and_flags (buf, &rc);
+  repid = repid_bits & OR_MVCC_REPID_MASK;
+
+  mvcc_flags = (char) ((repid_bits >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK);
+
+  chn = or_get_int (buf, &rc);
+
+  if (mvcc_flags & OR_MVCC_FLAG_VALID_INSID)
     {
-    case 0:
-      class_ = (SM_CLASS *) classobj;
-      obj = NULL;
-      convert = 0;
-      /* offset size */
-      offset_size = OR_GET_OFFSET_SIZE (buf->ptr);
-
-      /* in case of MVCC, repid_bits contains MVCC flags */
-      repid_bits = or_mvcc_get_repid_and_flags (buf, &rc);
-      repid = repid_bits & OR_MVCC_REPID_MASK;
-
-      mvcc_flags = (char) ((repid_bits >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK);
-
-      chn = or_get_int (buf, &rc);
-
-      if (mvcc_flags & OR_MVCC_FLAG_VALID_INSID)
-	{
-	  /* skip insert id */
-	  or_advance (buf, OR_MVCCID_SIZE);
-	}
-
-      if (mvcc_flags & OR_MVCC_FLAG_VALID_DELID)
-	{
-	  /* skip delete id */
-	  or_advance (buf, OR_MVCCID_SIZE);
-	}
-
-      if (mvcc_flags & OR_MVCC_FLAG_VALID_PREV_VERSION)
-	{
-	  /* skip prev version lsa */
-	  or_advance (buf, OR_MVCC_PREV_VERSION_LSA_SIZE);
-	}
-
-      bound_bit_flag = repid_bits & OR_BOUND_BIT_FLAG;
-
-      if (repid == class_->repid)
-	{
-	  obj = get_current (buf, class_, &obj, bound_bit_flag, offset_size);
-	}
-      else
-	{
-	  obj = get_old (buf, class_, &obj, repid, bound_bit_flag, offset_size);
-	  convert = 1;
-	}
-
-      /* set the chn of the object */
-      if (obj != NULL)
-	{
-	  WS_CHN (obj) = chn;
-	}
-
-      *convertp = convert;
-      break;
-
-    default:
-      /* make sure to clear the object that was being created, an appropriate error will have been set */
-      if (obj != NULL)
-	{
-	  obj_free_memory (class_, obj);
-	  obj = NULL;
-	}
-      break;
+      /* skip insert id */
+      or_advance (buf, OR_MVCCID_SIZE);
     }
 
-  buf->error_abort = 0;
+  if (mvcc_flags & OR_MVCC_FLAG_VALID_DELID)
+    {
+      /* skip delete id */
+      or_advance (buf, OR_MVCCID_SIZE);
+    }
+
+  if (mvcc_flags & OR_MVCC_FLAG_VALID_PREV_VERSION)
+    {
+      /* skip prev version lsa */
+      or_advance (buf, OR_MVCC_PREV_VERSION_LSA_SIZE);
+    }
+
+  bound_bit_flag = repid_bits & OR_BOUND_BIT_FLAG;
+
+  if (repid == class_->repid)
+    {
+      obj = get_current (buf, class_, &obj, bound_bit_flag, offset_size);
+    }
+  else
+    {
+      obj = get_old (buf, class_, &obj, repid, bound_bit_flag, offset_size);
+      convert = 1;
+    }
+
+  /* set the chn of the object */
+  if (obj != NULL)
+    {
+      WS_CHN (obj) = chn;
+    }
+
+  *convertp = convert;
   return (obj);
 }
 
@@ -4364,54 +4337,34 @@ tf_disk_to_class (OID * oid, RECDES * record)
 
   buf = &orep;
   or_init (buf, record->data, record->length);
-  buf->error_abort = 1;
 
-  switch (_setjmp (buf->env))
+
+  assert (OR_GET_OFFSET_SIZE (buf->ptr) == BIG_VAR_OFFSET_SIZE);
+
+  repid = or_get_int (buf, &rc);
+  repid = repid & ~OR_OFFSET_SIZE_FLAG;
+  assert (((char) (repid >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK) == 0);
+  chn = or_get_int (buf, &rc);
+
+  if (oid_is_root (oid))
     {
-    case 0:
-      /* offset size */
-      assert (OR_GET_OFFSET_SIZE (buf->ptr) == BIG_VAR_OFFSET_SIZE);
-
-      repid = or_get_int (buf, &rc);
-      repid = repid & ~OR_OFFSET_SIZE_FLAG;
-      assert (((char) (repid >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK) == 0);
-      chn = or_get_int (buf, &rc);
-
-      if (oid_is_root (oid))
-	{
-	  class_ = (MOBJ) disk_to_root (buf);
-	}
-      else
-	{
-	  class_ = (MOBJ) disk_to_class (buf, (SM_CLASS **) (&class_));
-	  if (class_ != NULL)
-	    {
-	      ((SM_CLASS *) class_)->repid = repid;
-	    }
-	}
-
+      class_ = (MOBJ) disk_to_root (buf);
+    }
+  else
+    {
+      class_ = (MOBJ) disk_to_class (buf, (SM_CLASS **) (&class_));
       if (class_ != NULL)
 	{
-	  ((SM_CLASS *) class_)->header.ch_obj_header.chn = chn;
+	  ((SM_CLASS *) class_)->repid = repid;
 	}
-      break;
+    }
 
-    default:
-      /*
-       * make sure to clear the class that was being created,
-       * an appropriate error will have been set
-       */
-      if (class_ != NULL)
-	{
-	  classobj_free_class ((SM_CLASS *) class_);
-	  class_ = NULL;
-	}
-      break;
+  if (class_ != NULL)
+    {
+      ((SM_CLASS *) class_)->header.ch_obj_header.chn = chn;
     }
 
   sm_bump_global_schema_version ();
-
-  buf->error_abort = 0;
   return (class_);
 }
 
@@ -4452,7 +4405,6 @@ tf_class_to_disk (MOBJ classobj, RECDES * record)
    */
   buf = &orep;
   or_init (buf, record->data, record->area_size);
-  buf->error_abort = 1;
 
   class_ = (SM_CLASS *) classobj;
 
@@ -4476,15 +4428,14 @@ tf_class_to_disk (MOBJ classobj, RECDES * record)
       expected_size = tf_class_size (classobj);
     }
 
-  /* if anything failed this far, no need to save stack context, return code will be handled in the switch below */
-  if (rc == NO_ERROR)
+  if (buf->ptr + expected_size > buf->endptr)
     {
-      rc = _setjmp (buf->env);
+      status = TF_OUT_OF_SPACE;
+      record->length = -expected_size;
+      goto exit;
     }
-
-  switch (rc)
+  else
     {
-    case 0:
       status = TF_SUCCESS;
 
       /* representation id, offset size */
@@ -4515,28 +4466,12 @@ tf_class_to_disk (MOBJ classobj, RECDES * record)
       if (record->length != expected_size)
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_SIZE_MISMATCH, 2, expected_size, record->length);
-	  or_abort (buf);
+	  status = TF_ERROR;
+	  goto exit;
 	}
-
-      /* fprintf(stdout, "Saved class in %d bytes\n", record->length); */
-      break;
-
-      /*
-       * if the longjmp status was anything other than ER_TF_BUFFER_OVERFLOW,
-       * it represents an error condition and er_set will have been called
-       */
-
-    case ER_TF_BUFFER_OVERFLOW:
-      status = TF_OUT_OF_SPACE;
-      record->length = -expected_size;
-      break;
-
-    default:
-      status = TF_ERROR;
-      break;
-
     }
 
+exit:
   /* restore properties */
   if (((SM_CLASS_HEADER *) classobj)->ch_type != SM_META_ROOT && class_->partition)
     {
@@ -4550,7 +4485,6 @@ tf_class_to_disk (MOBJ classobj, RECDES * record)
   buf->error_abort = 0;
   return (status);
 }
-
 
 /*
  * tf_object_size - Determines the number of byte required to store an object

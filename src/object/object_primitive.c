@@ -7083,15 +7083,9 @@ mr_data_writeval_set (OR_BUF * buf, DB_VALUE * value)
       if (ref->disk_set)
 	{
 	  /* check for overflow */
-	  if ((((ptrdiff_t) (buf->endptr - buf->ptr)) < (ptrdiff_t) ref->disk_size))
-	    {
-	      return or_overflow (buf);
-	    }
-	  else
-	    {
-	      memcpy (buf->ptr, ref->disk_set, ref->disk_size);
-	      rc = or_advance (buf, ref->disk_size);
-	    }
+          assert(((ptrdiff_t) (buf->endptr - buf->ptr)) >= (ptrdiff_t) ref->disk_size);
+	  memcpy (buf->ptr, ref->disk_set, ref->disk_size);
+          rc = or_advance (buf, ref->disk_size);
 	}
       else if (set_get_setobj (ref, &set, 0) == NO_ERROR)
 	{
@@ -7114,7 +7108,7 @@ mr_data_writeval_set (OR_BUF * buf, DB_VALUE * value)
 #if !defined (SERVER_MODE)
 		      (void) ws_pin (ref->owner, pin);
 #endif
-		      return or_overflow (buf);
+		      return ER_TF_BUFFER_OVERFLOW;
 		    }
 		  else
 		    {
@@ -16294,7 +16288,7 @@ cleanup:
 
   if (rc == ER_TF_BUFFER_OVERFLOW)
     {
-      return or_overflow (buf);
+      return ER_TF_BUFFER_OVERFLOW;
     }
 
   return rc;
@@ -16921,14 +16915,7 @@ mr_data_writeval_json (OR_BUF * buf, DB_VALUE * value)
     {
       int estimated_length = mr_data_lengthval_json (value, true);
 
-      if ((ptrdiff_t) estimated_length > ((ptrdiff_t) (buf->endptr - buf->ptr)))
-	{
-	  /* this will make string_data_writeval jump because
-	   * of buffer overflow, leaking memory in the process,
-	   * we need to take care of it here
-	   */
-	  (void) or_overflow (buf);
-	}
+      assert ((ptrdiff_t) estimated_length <= ((ptrdiff_t) (buf->endptr - buf->ptr)));
     }
 
   JSON_DOC *json_doc = db_get_json_document (value);

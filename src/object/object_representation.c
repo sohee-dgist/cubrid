@@ -536,41 +536,6 @@ or_put_bound_bit (char *bound_bits, int element, int bound)
 #endif /* !SERVER_MODE */
 
 /*
- * or_overflow - called by the or_put_ functions when there is not enough
- * room in the buffer to hold a particular value.
- *    return: ER_TF_BUFFER_OVERFLOW or long jump to buf->error_abort
- *    buf(in): translation state structure
- *
- * Note:
- *    Because of the recursive nature of the translation functions, we may
- *    be several levels deep so we can do a longjmp out to the top level
- *    if the user has supplied a jmpbuf.
- *    Because jmpbuf is not a pointer, we have to keep an additional flag
- *    called "error_abort" in the OR_BUF structure to indicate the validity
- *    of the jmpbuf.
- *    This is a fairly common ocurrence because the locator regularly calls
- *    the transformer with a buffer that is too small.  When overflow
- *    is detected, it allocates a larger one and retries the operation.
- *    Because of this, a system error is not signaled here.
- */
-int
-or_overflow (OR_BUF * buf)
-{
-  /*
-   * since this is normal behavior, don't set an error condition, the
-   * main transformer functions will need to test the status value
-   * for ER_TF_BUFFER_OVERFLOW and know that this isn't an error condition.
-   */
-
-  if (buf->error_abort)
-    {
-      _longjmp (buf->env, ER_TF_BUFFER_OVERFLOW);
-    }
-
-  return ER_TF_BUFFER_OVERFLOW;
-}
-
-/*
  * or_underflow - This is called by the or_get_ functions when there is
  * not enough data in the buffer to extract a particular value.
  *    return: ER_TF_BUFFER_UNDERFLOW or long jump to buf->env
@@ -658,15 +623,9 @@ or_put_monetary (OR_BUF * buf, DB_MONETARY * monetary)
       return error;
     }
 
-  if ((buf->ptr + OR_MONETARY_SIZE) > buf->endptr)
-    {
-      return (or_overflow (buf));
-    }
-  else
-    {
-      OR_PUT_MONETARY (buf->ptr, monetary);
-      buf->ptr += OR_MONETARY_SIZE;
-    }
+  assert (buf->ptr + OR_MONETARY_SIZE <= buf->endptr);
+  OR_PUT_MONETARY (buf->ptr, monetary);
+  buf->ptr += OR_MONETARY_SIZE;
 
   return error;
 }
@@ -878,70 +837,31 @@ or_put_varbit_internal (OR_BUF * buf, const char *string, int bitlen, int align)
 {
   int net_bitlen;
   int bytelen;
-  char *start;
-  int status;
-  int valid_buf;
-  jmp_buf save_buf;
 
-  if (buf->error_abort)
+  bytelen = BITS_TO_BYTES (bitlen);
+
+  /* store the size prefix */
+  if (bitlen < 0xFF)
     {
-      memcpy (&save_buf, &buf->env, sizeof (save_buf));
-    }
-
-  valid_buf = buf->error_abort;
-  buf->error_abort = 1;
-  status = _setjmp (buf->env);
-
-  if (status == 0)
-    {
-      start = buf->ptr;
-      bytelen = BITS_TO_BYTES (bitlen);
-
-      /* store the size prefix */
-      if (bitlen < 0xFF)
-	{
-	  or_put_byte (buf, bitlen);
-	}
-      else
-	{
-	  or_put_byte (buf, 0xFF);
-	  OR_PUT_INT (&net_bitlen, bitlen);
-	  or_put_data (buf, (char *) &net_bitlen, OR_INT_SIZE);
-	}
-
-      /* store the string bytes */
-      or_put_data (buf, string, bytelen);
-
-      if (align == INT_ALIGNMENT)
-	{
-	  /* round up to a word boundary */
-	  or_put_align32 (buf);
-	}
+      or_put_byte (buf, bitlen);
     }
   else
     {
-      if (valid_buf)
-	{
-	  memcpy (&buf->env, &save_buf, sizeof (save_buf));
-	  _longjmp (buf->env, status);
-	}
+      or_put_byte (buf, 0xFF);
+      OR_PUT_INT (&net_bitlen, bitlen);
+      or_put_data (buf, (char *) &net_bitlen, OR_INT_SIZE);
     }
 
-  if (valid_buf)
+  /* store the string bytes */
+  or_put_data (buf, string, bytelen);
+
+  if (align == INT_ALIGNMENT)
     {
-      memcpy (&buf->env, &save_buf, sizeof (save_buf));
-    }
-  else
-    {
-      buf->error_abort = 0;
+      /* round up to a word boundary */
+      or_put_align32 (buf);
     }
 
-  if (status == 0)
-    {
-      return NO_ERROR;
-    }
-
-  return status;
+  return NO_ERROR;
 }
 
 static int
@@ -1086,7 +1006,7 @@ cleanup:
 
   if (rc == ER_TF_BUFFER_OVERFLOW)
     {
-      return or_overflow (buf);
+      return ER_TF_BUFFER_OVERFLOW;
     }
 
   return rc;

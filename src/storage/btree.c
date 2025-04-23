@@ -22073,12 +22073,7 @@ btree_or_get_mvccinfo (OR_BUF * buf, BTREE_MVCC_INFO * mvcc_info, short btree_mv
 {
   int size = BTREE_GET_MVCC_INFO_SIZE_FROM_FLAGS (btree_mvcc_flags);
 
-  if (buf->ptr + size > buf->endptr)
-    {
-      /* Overflow error */
-      return or_overflow (buf);
-    }
-
+  assert (buf->ptr + size <= buf->endptr);
   /* Unpack and update pointer */
   buf->ptr = btree_unpack_mvccinfo (buf->ptr, mvcc_info, btree_mvcc_flags);
 

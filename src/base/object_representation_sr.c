@@ -4680,12 +4680,7 @@ or_mvcc_set_prev_version_lsa (OR_BUF * buf, MVCC_REC_HEADER * mvcc_rec_header)
     {
       return NO_ERROR;
     }
-
-  if ((buf->ptr + OR_MVCC_PREV_VERSION_LSA_SIZE) > buf->endptr)
-    {
-      return (or_overflow (buf));
-    }
-
+  assert (buf->ptr + OR_MVCC_PREV_VERSION_LSA_SIZE <= buf->endptr);
   memcpy (buf->ptr, &mvcc_rec_header->prev_version_lsa, OR_MVCC_PREV_VERSION_LSA_SIZE);
   buf->ptr += OR_MVCC_PREV_VERSION_LSA_SIZE;
 

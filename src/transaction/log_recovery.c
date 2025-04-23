@@ -6045,11 +6045,7 @@ log_rv_undoredo_partial_changes_recursive (THREAD_ENTRY * thread_p, OR_BUF * rcv
     }
 
   /* At least offset_to_data, old_data_size and new_data_size should be stored. */
-  if (rcv_buf->ptr + OR_SHORT_SIZE + 2 * OR_BYTE_SIZE > rcv_buf->endptr)
-    {
-      assert_release (false);
-      return or_overflow (rcv_buf);
-    }
+  assert (rcv_buf->ptr + OR_SHORT_SIZE + 2 * OR_BYTE_SIZE <= rcv_buf->endptr);
 
   /* Get offset_to_data. */
   offset_to_data = (int) or_get_short (rcv_buf, &error_code);
