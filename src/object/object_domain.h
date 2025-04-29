@@ -490,10 +490,6 @@ extern "C"
   extern DB_VALUE_COMPARE_RESULT tp_value_compare_with_error (const DB_VALUE * value1, const DB_VALUE * value2,
 							      int allow_coercion, int total_order, bool * can_compare);
 
-  extern DB_VALUE_COMPARE_RESULT tp_value_compare_with_no_error_with_same_type (const DB_VALUE * value1,
-										const DB_VALUE * value2,
-										int do_coercion, int total_order,
-										bool * can_compare);
   extern DB_VALUE_COMPARE_RESULT tp_set_compare (const DB_VALUE * value1, const DB_VALUE * value2, int allow_coercion,
 						 int total_order);
 
@@ -505,7 +501,6 @@ extern "C"
 /* misc info */
 
   extern int tp_domain_disk_size (TP_DOMAIN * domain);
-  extern int tp_domain_fixed_disk_size (TP_DOMAIN * domain);
   extern int tp_domain_memory_size (TP_DOMAIN * domain);
   extern TP_DOMAIN_STATUS tp_check_value_size (TP_DOMAIN * domain, DB_VALUE * value);
 

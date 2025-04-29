@@ -4751,7 +4751,7 @@ tf_pack_set (DB_SET * set, char *buffer, int buffer_size, int *actual_bytes)
   buf = &orep;
   or_init (buf, buffer, buffer_size);
 
-  switch (_setjmp ())
+  switch (_setjmp (buf->env))
     {
     case 0:
       error = NO_ERROR;
