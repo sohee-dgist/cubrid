@@ -5426,7 +5426,7 @@ scan_next_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 	    }
 	}
 
-      if (mvcc_is_mvcc_disabled_class (&hsidp->cls_oid))
+      if (scan_id->mvcc_disabled_class)
 	{
 	  LOCK lock = NULL_LOCK;
 	  int tran_index = LOG_FIND_THREAD_TRAN_INDEX (thread_p);
