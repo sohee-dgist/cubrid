@@ -3265,8 +3265,9 @@ catcls_get_or_value_from_buffer (THREAD_ENTRY * thread_p, OR_BUF * buf_p, OR_VAL
   char *bound_bits = NULL;
   int bound_bits_flag = false;
   char *start_p;
-  int i, pad, size, rc;
+  int i, pad, size;
   int error = NO_ERROR;
+  int rc = NO_ERROR;
   char mvcc_flags;
   int offset_size;
 
@@ -3283,7 +3284,7 @@ catcls_get_or_value_from_buffer (THREAD_ENTRY * thread_p, OR_BUF * buf_p, OR_VAL
   /* header */
   assert (offset_size == BIG_VAR_OFFSET_SIZE || offset_size == SHORT_VAR_OFFSET_SIZE);
 
-  repr_id_bits = or_mvcc_get_repid_and_flags (buf_p, &rc);
+  repr_id_bits = or_mvcc_get_repid_and_flags (buf_p);
   /* get bound_bits_flag and skip other MVCC header fields */
   bound_bits_flag = repr_id_bits & OR_BOUND_BIT_FLAG;
   mvcc_flags = (char) ((repr_id_bits >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK);
@@ -5429,11 +5430,7 @@ catcls_get_or_value_from_partition (THREAD_ENTRY * thread_p, OR_BUF * buf_p, OR_
 
   /* values */
   attr_val_p = &attrs[4].value;
-  error = or_get_value (buf_p, attr_val_p, NULL, vars[ORC_PARTITION_VALUES_INDEX].length, true);
-  if (error != NO_ERROR)
-    {
-      goto error;
-    }
+  or_get_value (buf_p, attr_val_p, NULL, vars[ORC_PARTITION_VALUES_INDEX].length, true);
 
   /* comment */
   attr_val_p = &attrs[5].value;

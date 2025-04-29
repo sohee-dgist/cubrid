@@ -2032,7 +2032,7 @@ retry_prepare:
 	}
 
       /* Get MVCC header to check whether the record can be vacuumed. */
-      error_code = or_mvcc_get_header (&helper->record, &helper->mvcc_header);
+      or_mvcc_get_header (&helper->record, &helper->mvcc_header);
       if (error_code != NO_ERROR)
 	{
 	  assert_release (false);
@@ -2141,7 +2141,7 @@ retry_prepare:
 	}
 
       /* Get MVCC header to check whether the record can be vacuumed. */
-      error_code = or_mvcc_get_header (&helper->record, &helper->mvcc_header);
+      or_mvcc_get_header (&helper->record, &helper->mvcc_header);
       if (error_code != NO_ERROR)
 	{
 	  assert_release (false);

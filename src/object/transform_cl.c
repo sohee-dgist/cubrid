@@ -933,10 +933,10 @@ get_current (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int bound_bit_flag
       else
 	{
 	  /* get the offsets relative to the end of the header (beginning of variable table) */
-	  offset = or_get_offset_internal (buf, &rc, offset_size);
+	  offset = or_get_offset_internal (buf, offset_size);
 	  for (i = 0; i < class_->variable_count; i++)
 	    {
-	      offset2 = or_get_offset_internal (buf, &rc, offset_size);
+	      offset2 = or_get_offset_internal (buf, offset_size);
 	      vars[i] = offset2 - offset;
 	      offset = offset2;
 	    }
@@ -1139,10 +1139,10 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 	      else
 		{
 		  /* get the offsets relative to the end of the header (beginning of variable table) */
-		  offset = or_get_offset_internal (buf, &rc, offset_size);
+		  offset = or_get_offset_internal (buf, offset_size);
 		  for (i = 0; i < oldrep->variable_count; i++)
 		    {
-		      offset2 = or_get_offset_internal (buf, &rc, offset_size);
+		      offset2 = or_get_offset_internal (buf, offset_size);
 		      vars[i] = offset2 - offset;
 		      offset = offset2;
 		    }
@@ -1329,12 +1329,12 @@ tf_disk_to_mem (MOBJ classobj, RECDES * record, int *convertp)
   offset_size = OR_GET_OFFSET_SIZE (buf->ptr);
 
   /* in case of MVCC, repid_bits contains MVCC flags */
-  repid_bits = or_mvcc_get_repid_and_flags (buf, &rc);
+  repid_bits = or_mvcc_get_repid_and_flags (buf);
   repid = repid_bits & OR_MVCC_REPID_MASK;
 
   mvcc_flags = (char) ((repid_bits >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK);
 
-  chn = or_get_int (buf, &rc);
+  chn = or_get_int (buf);
 
   if (mvcc_flags & OR_MVCC_FLAG_VALID_INSID)
     {
@@ -2113,7 +2113,7 @@ disk_to_domain2 (OR_BUF * buf)
       return NULL;
     }
 
-  typeid_ = (DB_TYPE) or_get_int (buf, &rc);
+  typeid_ = (DB_TYPE) or_get_int (buf);
 
   domain = tp_domain_new (typeid_);
   if (domain == NULL)
@@ -2123,10 +2123,10 @@ disk_to_domain2 (OR_BUF * buf)
       return NULL;
     }
 
-  domain->precision = or_get_int (buf, &rc);
-  domain->scale = or_get_int (buf, &rc);
-  domain->codeset = or_get_int (buf, &rc);
-  domain->collation_id = or_get_int (buf, &rc);
+  domain->precision = or_get_int (buf);
+  domain->scale = or_get_int (buf);
+  domain->codeset = or_get_int (buf);
+  domain->collation_id = or_get_int (buf);
   if (typeid_ == DB_TYPE_ENUMERATION && domain->codeset == 0)
     {
       assert (domain->collation_id == LANG_COLL_ISO_BINARY);
@@ -2312,7 +2312,7 @@ disk_to_metharg (OR_BUF * buf)
     }
   else
     {
-      argtype = (DB_TYPE) or_get_int (buf, &rc);
+      argtype = (DB_TYPE) or_get_int (buf);
       if (argtype == DB_TYPE_NULL)
 	{
 	  arg->type = NULL;
@@ -2321,7 +2321,7 @@ disk_to_metharg (OR_BUF * buf)
 	{
 	  arg->type = pr_type_from_id (argtype);
 	}
-      arg->index = or_get_int (buf, &rc);
+      arg->index = or_get_int (buf);
       arg->domain =
 	(TP_DOMAIN *) get_substructure_set (buf, (LREADER) disk_to_domain, vars[ORC_METHARG_DOMAIN_INDEX].length);
     }
@@ -2431,7 +2431,7 @@ disk_to_methsig (OR_BUF * buf)
     }
   else
     {
-      nargs = or_get_int (buf, &rc);
+      nargs = or_get_int (buf);
       sig = classobj_make_method_signature (NULL);
       if (sig == NULL)
 	{
@@ -2587,7 +2587,7 @@ disk_to_method (OR_BUF * buf, SM_METHOD * method)
       /* CLASS */
       tp_Object.data_readval (buf, &value, NULL, -1, true, NULL, 0);
       method->class_mop = db_get_object (&value);
-      method->id = or_get_int (buf, &rc);
+      method->id = or_get_int (buf);
       method->function = NULL;
 
       /* variable attrubute 0 : name */
@@ -3001,29 +3001,29 @@ disk_to_attribute (OR_BUF * buf, SM_ATTRIBUTE * att)
       att->triggers = NULL;
       att->auto_increment = NULL;
 
-      att->id = or_get_int (buf, &rc);
-      dbval_type = (DB_TYPE) or_get_int (buf, &rc);
+      att->id = or_get_int (buf);
+      dbval_type = (DB_TYPE) or_get_int (buf);
       att->type = pr_type_from_id (dbval_type);
-      att->offset = or_get_int (buf, &rc);
+      att->offset = or_get_int (buf);
       att->offset = 0;		/* calculated later */
-      att->order = or_get_int (buf, &rc);
+      att->order = or_get_int (buf);
 
       tp_Object.data_readval (buf, &value, NULL, -1, true, NULL, 0);
       att->class_mop = db_get_object (&value);
       /* prevents clear on next readval call */
       db_value_put_null (&value);
 
-      att->flags = or_get_int (buf, &rc);
+      att->flags = or_get_int (buf);
 
-      fileid = or_get_int (buf, &rc);
+      fileid = or_get_int (buf);
 
       /* index BTID */
       /*
        * Read the NULL BTID from disk.  There is no place to put this so
        * ignore it.  - JB
        */
-      (void) or_get_int (buf, &rc);
-      (void) or_get_int (buf, &rc);
+      (void) or_get_int (buf);
+      (void) or_get_int (buf);
 
       /* variable attribute 0 : name */
       att->header.name = get_string (buf, vars[ORC_ATT_NAME_INDEX].length);
@@ -3229,7 +3229,7 @@ disk_to_resolution (OR_BUF * buf)
   OR_VARINFO *vars;
   MOP class_;
   DB_VALUE value;
-  int rc;
+  int rc = NO_ERROR;
 
   res = NULL;
   vars = read_var_table (buf, tf_Metaclass_resolution.mc_n_variable);
@@ -3243,13 +3243,13 @@ disk_to_resolution (OR_BUF * buf)
       class_ = db_get_object (&value);
       if (class_ == NULL)
 	{
-	  (void) or_get_int (buf, &rc);
+	  (void) or_get_int (buf);
 	  tp_VarNChar.data_readval (buf, NULL, NULL, vars[ORC_RES_NAME_INDEX].length, true, NULL, 0);
 	  tp_VarNChar.data_readval (buf, NULL, NULL, vars[ORC_RES_ALIAS_INDEX].length, true, NULL, 0);
 	}
       else
 	{
-	  name_space = (SM_NAME_SPACE) or_get_int (buf, &rc);
+	  name_space = (SM_NAME_SPACE) or_get_int (buf);
 	  res = classobj_make_resolution (NULL, NULL, NULL, name_space);
 	  if (res == NULL)
 	    {
@@ -3354,8 +3354,8 @@ disk_to_repattribute (OR_BUF * buf)
       return NULL;
     }
 
-  id = or_get_int (buf, &rc);
-  tid = or_get_int (buf, &rc);
+  id = or_get_int (buf);
+  tid = or_get_int (buf);
   rat = classobj_make_repattribute (id, (DB_TYPE) tid, NULL);
   if (rat == NULL)
     {
@@ -3476,12 +3476,12 @@ disk_to_representation (OR_BUF * buf)
     }
   else
     {
-      rep->id = or_get_int (buf, &rc);
-      rep->fixed_count = or_get_int (buf, &rc);
-      rep->variable_count = or_get_int (buf, &rc);
+      rep->id = or_get_int (buf);
+      rep->fixed_count = or_get_int (buf);
+      rep->variable_count = or_get_int (buf);
 
       /* we no longer use this field, formerly fixed_size */
-      (void) or_get_int (buf, &rc);
+      (void) or_get_int (buf);
 
       /* variable 0 : attributes */
       rep->attributes =
@@ -3974,14 +3974,14 @@ disk_to_class (OR_BUF * buf, SM_CLASS ** class_ptr)
       goto on_error;
     }
 
-  class_->att_ids = or_get_int (buf, &rc);
-  class_->method_ids = or_get_int (buf, &rc);
+  class_->att_ids = or_get_int (buf);
+  class_->method_ids = or_get_int (buf);
 
   or_get_oid (buf, &(class_->header.ch_rep_dir));
 
-  class_->header.ch_heap.vfid.fileid = or_get_int (buf, &rc);
-  class_->header.ch_heap.vfid.volid = or_get_int (buf, &rc);
-  class_->header.ch_heap.hpgid = or_get_int (buf, &rc);
+  class_->header.ch_heap.vfid.fileid = or_get_int (buf);
+  class_->header.ch_heap.vfid.volid = or_get_int (buf);
+  class_->header.ch_heap.hpgid = or_get_int (buf);
 
 #if !defined(NDEBUG)
   if (!HFID_IS_NULL (sm_ch_heap ((MOBJ) class_)))
@@ -3990,25 +3990,25 @@ disk_to_class (OR_BUF * buf, SM_CLASS ** class_ptr)
     }
 #endif
 
-  class_->fixed_count = or_get_int (buf, &rc);
-  class_->variable_count = or_get_int (buf, &rc);
-  class_->fixed_size = or_get_int (buf, &rc);
-  class_->att_count = or_get_int (buf, &rc);
-  class_->object_size = or_get_int (buf, &rc);
+  class_->fixed_count = or_get_int (buf);
+  class_->variable_count = or_get_int (buf);
+  class_->fixed_size = or_get_int (buf);
+  class_->att_count = or_get_int (buf);
+  class_->object_size = or_get_int (buf);
   class_->object_size = 0;	/* calculated later */
-  class_->shared_count = or_get_int (buf, &rc);
-  class_->method_count = or_get_int (buf, &rc);
-  class_->class_method_count = or_get_int (buf, &rc);
-  class_->class_attribute_count = or_get_int (buf, &rc);
-  class_->flags = or_get_int (buf, &rc);
-  class_->class_type = (SM_CLASS_TYPE) or_get_int (buf, &rc);
+  class_->shared_count = or_get_int (buf);
+  class_->method_count = or_get_int (buf);
+  class_->class_method_count = or_get_int (buf);
+  class_->class_attribute_count = or_get_int (buf);
+  class_->flags = or_get_int (buf);
+  class_->class_type = (SM_CLASS_TYPE) or_get_int (buf);
 
   /* owner object */
   tp_Object.data_readval (buf, &value, NULL, -1, true, NULL, 0);
   class_->owner = db_get_object (&value);
-  class_->collation_id = or_get_int (buf, &rc);
+  class_->collation_id = or_get_int (buf);
 
-  class_->tde_algorithm = or_get_int (buf, &rc);
+  class_->tde_algorithm = or_get_int (buf);
 
   /* variable 0 */
   class_->header.ch_name = get_string (buf, vars[ORC_NAME_INDEX].length);
@@ -4278,9 +4278,9 @@ disk_to_root (OR_BUF * buf)
     {
       assert (OID_ISNULL (sm_ch_rep_dir ((MOBJ) & sm_Root_class)));	/* is dummy */
 
-      sm_Root_class.header.ch_heap.vfid.fileid = (FILEID) or_get_int (buf, &rc);
-      sm_Root_class.header.ch_heap.vfid.volid = (VOLID) or_get_int (buf, &rc);
-      sm_Root_class.header.ch_heap.hpgid = (PAGEID) or_get_int (buf, &rc);
+      sm_Root_class.header.ch_heap.vfid.fileid = (FILEID) or_get_int (buf);
+      sm_Root_class.header.ch_heap.vfid.volid = (VOLID) or_get_int (buf);
+      sm_Root_class.header.ch_heap.hpgid = (PAGEID) or_get_int (buf);
 
       /* name - could make sure its the same as sm_Root_class_name */
       or_advance (buf, vars[0].length);
@@ -4339,10 +4339,10 @@ tf_disk_to_class (OID * oid, RECDES * record)
 
   assert (OR_GET_OFFSET_SIZE (buf->ptr) == BIG_VAR_OFFSET_SIZE);
 
-  repid = or_get_int (buf, &rc);
+  repid = or_get_int (buf);
   repid = repid & ~OR_OFFSET_SIZE_FLAG;
   assert (((char) (repid >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK) == 0);
-  chn = or_get_int (buf, &rc);
+  chn = or_get_int (buf);
 
   if (oid_is_root (oid))
     {
@@ -4906,24 +4906,11 @@ disk_to_partition_info (OR_BUF * buf)
     }
   else
     {
-      partition_info->partition_type = or_get_int (buf, &error);
-      if (error != NO_ERROR)
-	{
-	  free_var_table (vars);
-	  classobj_free_partition_info (partition_info);
-	  return NULL;
-	}
-
+      partition_info->partition_type = or_get_int (buf);
       partition_info->pname = get_string (buf, vars[ORC_PARTITION_NAME_INDEX].length);
       partition_info->expr = get_string (buf, vars[ORC_PARTITION_EXPR_INDEX].length);
 
-      error = or_get_value (buf, &val, NULL, vars[ORC_PARTITION_VALUES_INDEX].length, true);
-      if (error != NO_ERROR)
-	{
-	  free_var_table (vars);
-	  classobj_free_partition_info (partition_info);
-	  return NULL;
-	}
+      or_get_value (buf, &val, NULL, vars[ORC_PARTITION_VALUES_INDEX].length, true);
       partition_info->values = db_seq_copy (db_get_set (&val));
       if (partition_info->values == NULL)
 	{

@@ -577,10 +577,10 @@ get_desc_current (OR_BUF * buf, SM_CLASS * class_, DESC_OBJ * obj, int bound_bit
 	    }
 	}
       /* get the offsets relative to the end of the header (beginning of variable table) */
-      offset = or_get_offset_internal (buf, &rc, offset_size);
+      offset = or_get_offset_internal (buf, offset_size);
       for (i = 0; i < class_->variable_count; i++)
 	{
-	  offset2 = or_get_offset_internal (buf, &rc, offset_size);
+	  offset2 = or_get_offset_internal (buf, offset_size);
 	  vars[i] = offset2 - offset;
 	  offset = offset2;
 	}
@@ -725,10 +725,10 @@ get_desc_old (OR_BUF * buf, SM_CLASS * class_, int repid, DESC_OBJ * obj, int bo
 	    }
 	}
       /* compute the variable offsets relative to the end of the header (beginning of variable table) */
-      offset = or_get_offset_internal (buf, &rc, offset_size);
+      offset = or_get_offset_internal (buf, offset_size);
       for (i = 0; i < oldrep->variable_count; i++)
 	{
-	  offset2 = or_get_offset_internal (buf, &rc, offset_size);
+	  offset2 = or_get_offset_internal (buf, offset_size);
 	  vars[i] = offset2 - offset;
 	  offset = offset2;
 	}
@@ -932,7 +932,7 @@ desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * ob
   /* offset size */
   offset_size = OR_GET_OFFSET_SIZE (buf->ptr);
   /* in case of MVCC, repid_bits contains MVCC flags */
-  repid_bits = or_mvcc_get_repid_and_flags (buf, &rc);
+  repid_bits = or_mvcc_get_repid_and_flags (buf);
   repid = repid_bits & OR_MVCC_REPID_MASK;
   mvcc_flags = (char) ((repid_bits >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK);
 

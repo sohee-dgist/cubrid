@@ -6840,7 +6840,7 @@ locator_repl_prepare_force (THREAD_ENTRY * thread_p, LC_COPYAREA_ONEOBJ * obj, R
 	  return ER_CT_INVALID_REPRID;
 	}
 
-      error_code = or_replace_rep_id (recdes, last_repr_id);
+      or_replace_rep_id (recdes, last_repr_id);
       if (error_code != NO_ERROR)
 	{
 	  return error_code;
@@ -6886,7 +6886,7 @@ locator_repl_prepare_force (THREAD_ENTRY * thread_p, LC_COPYAREA_ONEOBJ * obj, R
 
       old_chn = or_chn (old_recdes);
 
-      error_code = or_replace_chn (recdes, old_chn + 1);
+      or_replace_chn (recdes, old_chn + 1);
       if (error_code != NO_ERROR)
 	{
 	  return error_code;

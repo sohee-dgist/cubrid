@@ -974,7 +974,7 @@ qfile_locate_tuple_value_r (QFILE_TUPLE tuple, int index, char **tuple_value_p, 
  *   buf(out): output OR_BUF to be positioned on next tuple value
  *   flag(out): V_BOUND/V_UNBOUND
  */
-int
+void
 qfile_locate_tuple_next_value (OR_BUF * iterator, OR_BUF * buf, QFILE_TUPLE_VALUE_FLAG * flag)
 {
   int value_size = QFILE_GET_TUPLE_VALUE_LENGTH (iterator->ptr);
@@ -984,7 +984,7 @@ qfile_locate_tuple_next_value (OR_BUF * iterator, OR_BUF * buf, QFILE_TUPLE_VALU
   or_init (buf, iterator->ptr + QFILE_TUPLE_VALUE_HEADER_SIZE, value_size);
 
   /* advance iterator */
-  return or_advance (iterator, QFILE_TUPLE_VALUE_HEADER_SIZE + value_size);
+  or_advance (iterator, QFILE_TUPLE_VALUE_HEADER_SIZE + value_size);
 }
 
 #if !defined(NDEBUG)

@@ -21767,7 +21767,7 @@ heap_delete_home (THREAD_ENTRY * thread_p, HEAP_OPERATION_CONTEXT * context, boo
 	   * Rare case - don't care to optimize it for now. Get the MVCC header, build adjusted record
 	   * header - slow operation.
 	   */
-	  error_code = or_mvcc_get_header (&context->home_recdes, &record_header);
+	  or_mvcc_get_header (&context->home_recdes, &record_header);
 	  if (error_code != NO_ERROR)
 	    {
 	      ASSERT_ERROR ();
@@ -25271,7 +25271,7 @@ heap_update_set_prev_version (THREAD_ENTRY * thread_p, const OID * oid, PGBUF_WA
 
   if (recdes.type == REC_HOME)
     {
-      error_code = or_mvcc_set_log_lsa_to_record (&recdes, prev_version_lsa);
+      or_mvcc_set_log_lsa_to_record (&recdes, prev_version_lsa);
       if (error_code != NO_ERROR)
 	{
 	  assert (false);
@@ -25295,7 +25295,7 @@ heap_update_set_prev_version (THREAD_ENTRY * thread_p, const OID * oid, PGBUF_WA
 	  goto end;
 	}
 
-      error_code = or_mvcc_set_log_lsa_to_record (&forward_recdes, prev_version_lsa);
+      or_mvcc_set_log_lsa_to_record (&forward_recdes, prev_version_lsa);
       if (error_code != NO_ERROR)
 	{
 	  assert (false);
@@ -25320,7 +25320,7 @@ heap_update_set_prev_version (THREAD_ENTRY * thread_p, const OID * oid, PGBUF_WA
       forward_recdes.data = overflow_get_first_page_data (overflow_pg_watcher.pgptr);
       forward_recdes.length = OR_HEADER_SIZE (forward_recdes.data);
 
-      error_code = or_mvcc_set_log_lsa_to_record (&forward_recdes, prev_version_lsa);
+      or_mvcc_set_log_lsa_to_record (&forward_recdes, prev_version_lsa);
 
       /* unfix overflow page; it is used only locally */
       pgbuf_set_dirty (thread_p, overflow_pg_watcher.pgptr, DONT_FREE);

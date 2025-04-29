@@ -353,17 +353,13 @@ or_rep_id (RECDES * record)
  * disk representation is the same as the one of the root table (even though
  * the actual id might differ). Do not use this function in another context!
  */
-int
+void
 or_set_rep_id (RECDES * record, int repid)
 {
   OR_BUF orep, *buf;
   unsigned int new_bits = 0;
 
-  if (record->length < OR_HEADER_SIZE (record->data))
-    {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_UNDERFLOW, 0);
-      return ER_FAILED;
-    }
+  assert (record->length >= OR_HEADER_SIZE (record->data));
 
   or_init (&orep, record->data, record->area_size);
   buf = &orep;
@@ -381,8 +377,6 @@ or_set_rep_id (RECDES * record, int repid)
 
   /* write new REPR_ID to the record */
   or_put_int (buf, new_bits);
-
-  return NO_ERROR;
 }
 
 /*
@@ -413,22 +407,19 @@ or_chn (RECDES * record)
  *   NOTE: It determines the type of record based on flag in record not system
  *	   parameter.
  */
-int
+void
 or_replace_chn (RECDES * record, int chn)
 {
   OR_BUF orep, *buf;
   int offset;
-  int error;
-
   or_init (&orep, record->data, record->area_size);
   buf = &orep;
 
   offset = OR_CHN_OFFSET;
   buf->ptr = buf->buffer + offset;
 
-  error = or_put_int (buf, chn);
+  or_put_int (buf, chn);
 
-  return error;
 }
 
 /*
@@ -439,14 +430,13 @@ or_replace_chn (RECDES * record, int chn)
  * error(out): NO_ERROR or error code
  */
 int
-or_mvcc_get_repid_and_flags (OR_BUF * buf, int *error)
+or_mvcc_get_repid_and_flags (OR_BUF * buf)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
   int repid_and_flag_bits = 0;
   repid_and_flag_bits = OR_GET_INT (buf->ptr);
   buf->ptr += OR_INT_SIZE;
-  *error = NO_ERROR;
   return repid_and_flag_bits;
 }
 
@@ -459,7 +449,7 @@ or_mvcc_get_repid_and_flags (OR_BUF * buf, int *error)
  * variable_offset_size(in); variable offset size
  * error(out): NO_ERROR or error code
  */
-int
+void
 or_mvcc_set_repid_and_flags (OR_BUF * buf, int mvcc_flag, int repid, int bound_bit, int variable_offset_size)
 {
   int repid_and_flags;
@@ -476,7 +466,7 @@ or_mvcc_set_repid_and_flags (OR_BUF * buf, int mvcc_flag, int repid, int bound_b
 
   repid_and_flags |= (mvcc_flag & OR_MVCC_FLAG_MASK) << OR_MVCC_FLAG_SHIFT_BITS;
 
-  return or_put_int (buf, repid_and_flags);
+  or_put_int (buf, repid_and_flags);
 }
 
 #if !defined (SERVER_MODE)
@@ -603,7 +593,7 @@ or_put_monetary (OR_BUF * buf, DB_MONETARY * monetary)
  *    buf(in/out): or buffer
  *    monetary(out): pointer to DB_MONETARY value
  */
-int
+void
 or_get_monetary (OR_BUF * buf, DB_MONETARY * monetary)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
@@ -611,7 +601,6 @@ or_get_monetary (OR_BUF * buf, DB_MONETARY * monetary)
   assert (buf->ptr + OR_MONETARY_SIZE <= buf->endptr);
   OR_GET_MONETARY (buf->ptr, monetary);
   buf->ptr += OR_MONETARY_SIZE;
-  return NO_ERROR;
 }
 
 #if defined(ENABLE_UNUSED_FUNCTION)
@@ -642,10 +631,10 @@ or_put_binary (OR_BUF * buf, DB_BINARY * binary)
 	  pad = 4 - bits;
 	}
       header = binary->length | (pad << OR_BINARY_PAD_SHIFT);
-      rc = or_put_int (buf, header);
+      or_put_int (buf, header);
       if (rc == NO_ERROR)
 	{
-	  rc = or_put_data (buf, (char *) binary->data, binary->length);
+	  or_put_data (buf, (char *) binary->data, binary->length);
 	  if (rc == NO_ERROR)
 	    {
 	      rc = or_pad (buf, pad);
@@ -663,10 +652,10 @@ or_put_binary (OR_BUF * buf, DB_BINARY * binary)
  *    string(in): string contains varbit value
  *    bitlen(in): length of varbit
  */
-extern int
+extern void
 or_put_varbit (OR_BUF * buf, const char *string, int bitlen)
 {
-  return or_put_varbit_internal (buf, string, bitlen, CHAR_ALIGNMENT);
+  or_put_varbit_internal (buf, string, bitlen, CHAR_ALIGNMENT);
 }
 
 #if defined(ENABLE_UNUSED_FUNCTION)
@@ -683,7 +672,7 @@ or_get_varbit (OR_BUF * buf, int *length_ptr)
   char *new_ = NULL;
   int rc = NO_ERROR;
 
-  bitlen = or_get_varbit_length (buf, &rc);
+  bitlen = or_get_varbit_length (buf);
 
   if (rc != NO_ERROR)
     {
@@ -751,7 +740,7 @@ or_get_varchar (OR_BUF * buf, int *length_ptr)
   int charlen;
   char *new_;
 
-  charlen = or_get_varchar_length (buf, &rc);
+  charlen = or_get_varchar_length (buf);
 
   if (rc != NO_ERROR)
     {
@@ -835,11 +824,11 @@ or_put_varchar_internal (OR_BUF * buf, char *string, int charlen, int align)
   /* store the size prefix */
   if (charlen < OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION)
     {
-      rc = or_put_byte (buf, charlen);
+      or_put_byte (buf, charlen);
     }
   else
     {
-      rc = or_put_byte (buf, OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION);
+      or_put_byte (buf, OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION);
       compressable = true;
     }
 
@@ -890,7 +879,7 @@ or_put_varchar_internal (OR_BUF * buf, char *string, int charlen, int align)
       assert (compressed_length < charlen - 8);
     after_compression:
       OR_PUT_INT (&net_charlen, compressed_length);
-      rc = or_put_data (buf, (char *) &net_charlen, OR_INT_SIZE);
+      or_put_data (buf, (char *) &net_charlen, OR_INT_SIZE);
       if (rc != NO_ERROR)
 	{
 	  goto cleanup;
@@ -899,7 +888,7 @@ or_put_varchar_internal (OR_BUF * buf, char *string, int charlen, int align)
       net_charlen = 0;
       /* Store the uncompressed data size */
       OR_PUT_INT (&net_charlen, charlen);
-      rc = or_put_data (buf, (char *) &net_charlen, OR_INT_SIZE);
+      or_put_data (buf, (char *) &net_charlen, OR_INT_SIZE);
       if (rc != NO_ERROR)
 	{
 	  goto cleanup;
@@ -909,7 +898,7 @@ or_put_varchar_internal (OR_BUF * buf, char *string, int charlen, int align)
 	{
 	  /* Compression failed. */
 	  /* Store the original string bytes */
-	  rc = or_put_data (buf, string, charlen);
+	  or_put_data (buf, string, charlen);
 	  if (rc != NO_ERROR)
 	    {
 	      goto cleanup;
@@ -918,7 +907,7 @@ or_put_varchar_internal (OR_BUF * buf, char *string, int charlen, int align)
       else
 	{
 	  /* Store the compressed string bytes */
-	  rc = or_put_data (buf, compressed_string, (int) compressed_length);
+	  or_put_data (buf, compressed_string, (int) compressed_length);
 	  if (rc != NO_ERROR)
 	    {
 	      goto cleanup;
@@ -929,7 +918,7 @@ or_put_varchar_internal (OR_BUF * buf, char *string, int charlen, int align)
     {
       /* No compression needed */
       /* Store the string in its raw form */
-      rc = or_put_data (buf, string, charlen);
+      or_put_data (buf, string, charlen);
       if (rc != NO_ERROR)
 	{
 	  goto cleanup;
@@ -939,14 +928,14 @@ or_put_varchar_internal (OR_BUF * buf, char *string, int charlen, int align)
   if (align == INT_ALIGNMENT)
     {
       /* kludge, temporary NULL terminator */
-      rc = or_put_byte (buf, 0);
+      or_put_byte (buf, 0);
       if (rc != NO_ERROR)
 	{
 	  goto cleanup;
 	}
 
       /* round up to a word boundary */
-      rc = or_put_align32 (buf);
+      or_put_align32 (buf);
     }
 
 cleanup:
@@ -1031,10 +1020,10 @@ or_length_string (char *string)
  *    string(in): string contains varbit value
  *    bitlen(in): length of varbit
  */
-int
+void
 or_packed_put_varbit (OR_BUF * buf, const char *string, int bitlen)
 {
-  return or_put_varbit_internal (buf, string, bitlen, INT_ALIGNMENT);
+  or_put_varbit_internal (buf, string, bitlen, INT_ALIGNMENT);
 }
 
 /*
@@ -2739,7 +2728,8 @@ or_put_domain (OR_BUF * buf, TP_DOMAIN * domain, int include_classoids, int is_n
 	{
 	  carrier |= OR_DOMAIN_NULL_FLAG;
 	}
-      return (or_put_int (buf, carrier));
+      or_put_int (buf, carrier);
+      return NO_ERROR;
     }
 
   /* must pack a full domain description */
@@ -2924,11 +2914,9 @@ or_put_domain (OR_BUF * buf, TP_DOMAIN * domain, int include_classoids, int is_n
 	}
 
       /* store the first word */
-      rc = or_put_int (buf, carrier);
-      if (rc != NO_ERROR)
-	{
-	  return rc;
-	}
+
+      or_put_int (buf, carrier);
+
 
       if (has_collation)
 	{
@@ -2942,59 +2930,35 @@ or_put_domain (OR_BUF * buf, TP_DOMAIN * domain, int include_classoids, int is_n
 	      collation_storage |= OR_DOMAIN_COLL_LEAVE_FLAG;
 	    }
 
-	  rc = or_put_int (buf, collation_storage);
-	  if (rc != NO_ERROR)
-	    {
-	      return rc;
-	    }
+	  or_put_int (buf, collation_storage);
 	}
 
       /* do we require any extended precision words ? */
       if (extended_precision)
 	{
-	  rc = or_put_int (buf, extended_precision);
-	  if (rc != NO_ERROR)
-	    {
-	      return rc;
-	    }
+	  or_put_int (buf, extended_precision);
+
 	}
 
       if (extended_scale)
 	{
-	  rc = or_put_int (buf, extended_scale);
-	  if (rc != NO_ERROR)
-	    {
-	      return rc;
-	    }
+	  or_put_int (buf, extended_scale);
 	}
 
       /* do we require a class OID ? */
       if (has_oid)
 	{
-	  rc = or_put_oid (buf, &d->class_oid);
-	  if (rc != NO_ERROR)
-	    {
-	      return rc;
-	    }
+	  or_put_oid (buf, &d->class_oid);
 	}
 
       if (has_enum)
 	{
-	  rc = or_put_enumeration (buf, &DOM_GET_ENUMERATION (d));
-
-	  if (rc != NO_ERROR)
-	    {
-	      return rc;
-	    }
+	  or_put_enumeration (buf, &DOM_GET_ENUMERATION (d));
 	}
 
       if (has_schema)
 	{
-	  rc = or_put_json_validator (buf, d->json_validator);
-	  if (rc != NO_ERROR)
-	    {
-	      return rc;
-	    }
+	  or_put_json_validator (buf, d->json_validator);
 	}
 
       /*
@@ -3004,11 +2968,7 @@ or_put_domain (OR_BUF * buf, TP_DOMAIN * domain, int include_classoids, int is_n
        */
       if (has_subdomain)
 	{
-	  rc = or_put_domain (buf, d->setdomain, include_classoids, 0);
-	  if (rc != NO_ERROR)
-	    {
-	      return rc;
-	    }
+	  or_put_domain (buf, d->setdomain, include_classoids, 0);
 	}
     }
   return rc;
@@ -3040,7 +3000,7 @@ unpack_domain_2 (OR_BUF * buf, int *is_null)
   while (more)
     {
 
-      carrier = or_get_int (buf, &rc);
+      carrier = or_get_int (buf);
       if (rc != NO_ERROR)
 	{
 	  goto error;
@@ -3180,7 +3140,7 @@ unpack_domain_2 (OR_BUF * buf, int *is_null)
 
 	  if (has_collation)
 	    {
-	      collation_storage = or_get_int (buf, &rc);
+	      collation_storage = or_get_int (buf);
 	      if (rc != NO_ERROR)
 		{
 		  goto error;
@@ -3209,7 +3169,7 @@ unpack_domain_2 (OR_BUF * buf, int *is_null)
 	  /* do we have an extra precision word ? */
 	  if (precision == OR_DOMAIN_PRECISION_MAX && !auto_precision)
 	    {
-	      precision = or_get_int (buf, &rc);
+	      precision = or_get_int (buf);
 	    }
 
 	  if (rc != NO_ERROR)
@@ -3220,7 +3180,7 @@ unpack_domain_2 (OR_BUF * buf, int *is_null)
 	  /* do we have an extra scale word ? */
 	  if (scale == OR_DOMAIN_SCALE_MAX)
 	    {
-	      scale = or_get_int (buf, &rc);
+	      scale = or_get_int (buf);
 	    }
 
 	  if (rc != NO_ERROR)
@@ -3247,11 +3207,7 @@ unpack_domain_2 (OR_BUF * buf, int *is_null)
 	  /* do we have a class oid */
 	  if (has_classoid)
 	    {
-	      rc = or_get_oid (buf, &d->class_oid);
-	      if (rc != NO_ERROR)
-		{
-		  goto error;
-		}
+	      or_get_oid (buf, &d->class_oid);
 #if !defined (SERVER_MODE)
 	      /* swizzle the pointer if we're on the client */
 	      d->class_mop = ws_mop (&d->class_oid, NULL);
@@ -3387,7 +3343,7 @@ unpack_domain (OR_BUF * buf, int *is_null)
   more = true;
   while (more)
     {
-      carrier = or_get_int (buf, &rc);
+      carrier = or_get_int (buf);
       if (rc != NO_ERROR)
 	{
 	  goto error;
@@ -3457,7 +3413,7 @@ unpack_domain (OR_BUF * buf, int *is_null)
 	      /* do we have an extra precision word ? */
 	      if (precision == OR_DOMAIN_PRECISION_MAX)
 		{
-		  precision = or_get_int (buf, &rc);
+		  precision = or_get_int (buf);
 		  if (rc != NO_ERROR)
 		    {
 		      goto error;
@@ -3466,7 +3422,7 @@ unpack_domain (OR_BUF * buf, int *is_null)
 	      /* do we have an extra scale word ? */
 	      if (scale == OR_DOMAIN_SCALE_MAX)
 		{
-		  scale = or_get_int (buf, &rc);
+		  scale = or_get_int (buf);
 		  if (rc != NO_ERROR)
 		    {
 		      goto error;
@@ -3479,7 +3435,7 @@ unpack_domain (OR_BUF * buf, int *is_null)
 	    case DB_TYPE_VARNCHAR:
 	    case DB_TYPE_CHAR:
 	    case DB_TYPE_VARCHAR:
-	      collation_storage = or_get_int (buf, &rc);
+	      collation_storage = or_get_int (buf);
 	      if (rc != NO_ERROR)
 		{
 		  goto error;
@@ -3507,7 +3463,7 @@ unpack_domain (OR_BUF * buf, int *is_null)
 	      /* do we have an extra precision word ? */
 	      if (precision == OR_DOMAIN_PRECISION_MAX)
 		{
-		  precision = or_get_int (buf, &rc);
+		  precision = or_get_int (buf);
 		  if (rc != NO_ERROR)
 		    {
 		      goto error;
@@ -3544,11 +3500,8 @@ unpack_domain (OR_BUF * buf, int *is_null)
 	      if (carrier & OR_DOMAIN_CLASS_OID_FLAG)
 		{
 		  /* has classoid */
-		  rc = or_get_oid (buf, &class_oid);
-		  if (rc != NO_ERROR)
-		    {
-		      goto error;
-		    }
+		  or_get_oid (buf, &class_oid);
+
 #if !defined (SERVER_MODE)
 		  /* swizzle the pointer if we're on the client */
 		  class_mop = ws_mop (&class_oid, NULL);
@@ -3601,7 +3554,7 @@ unpack_domain (OR_BUF * buf, int *is_null)
 	      if ((carrier & OR_DOMAIN_ENUM_COLL_FLAG) == OR_DOMAIN_ENUM_COLL_FLAG)
 		{
 		  LANG_COLLATION *lc;
-		  collation_id = or_get_int (buf, &rc);
+		  collation_id = or_get_int (buf);
 		  assert (collation_id != LANG_COLL_ISO_BINARY);
 		  if (rc != NO_ERROR)
 		    {
@@ -3809,7 +3762,7 @@ or_pack_domain (char *ptr, TP_DOMAIN * domain, int include_classoids, int is_nul
   int rc = 0;
 
   or_init (&buf, ptr, 0);
-  rc = or_put_domain (&buf, domain, include_classoids, is_null);
+  or_put_domain (&buf, domain, include_classoids, is_null);
   if (rc == NO_ERROR)
     {
       return buf.ptr;
@@ -3860,13 +3813,13 @@ or_unpack_domain (char *ptr, struct tp_domain **domain_ptr, int *is_null)
  *    built-in domains for the meta classes though that wouldn't be all that
  *    hard to add to the tp_Domain array.
  */
-int
+void
 or_put_sub_domain (OR_BUF * buf)
 {
   unsigned int carrier;
 
   carrier = (DB_TYPE_SUB & OR_DOMAIN_TYPE_MASK);
-  return (or_put_int (buf, carrier));
+  or_put_int (buf, carrier);
 }
 
 /*
@@ -3982,7 +3935,7 @@ or_packed_set_info (DB_TYPE set_type, TP_DOMAIN * domain, int include_domain, in
  *    Common sub_header is used only for class objects currently.
  *
  */
-int
+void
 or_put_set_header (OR_BUF * buf, DB_TYPE set_type, int size, int domain, int bound_bits, int offset_table,
 		   int element_tags, int common_sub_header)
 {
@@ -4012,14 +3965,8 @@ or_put_set_header (OR_BUF * buf, DB_TYPE set_type, int size, int domain, int bou
     {
       header |= OR_SET_COMMON_SUB_BIT;
     }
-  rc = or_put_int (buf, header);
-
-  if (rc == NO_ERROR)
-    {
-      rc = or_put_int (buf, size);
-    }
-
-  return rc;
+  or_put_int (buf, header);
+  or_put_int (buf, size);
 }
 
 /*
@@ -4034,28 +3981,24 @@ or_put_set_header (OR_BUF * buf, DB_TYPE set_type, int size, int domain, int bou
  *    element_tags(out): set non-zero if there will be element tags
  *    common_sub(out): set non-zero if there will be substructure tags
  */
-int
+void
 or_get_set_header (OR_BUF * buf, DB_TYPE * set_type, int *size, int *domain, int *bound_bits, int *offset_table,
 		   int *element_tags, int *common_sub)
 {
   unsigned int header;
-  int rc = NO_ERROR;
 
-  header = or_get_int (buf, &rc);
-  if (rc == NO_ERROR)
+  header = or_get_int (buf);
+  *set_type = (DB_TYPE) (header & OR_SET_TYPE_MASK);
+  *domain = ((header & OR_SET_DOMAIN_BIT) != 0);
+  *bound_bits = ((header & OR_SET_BOUND_BIT) != 0);
+  *offset_table = ((header & OR_SET_VARIABLE_BIT) != 0);
+  *element_tags = ((header & OR_SET_TAG_BIT) != 0);
+  if (common_sub != NULL)
     {
-      *set_type = (DB_TYPE) (header & OR_SET_TYPE_MASK);
-      *domain = ((header & OR_SET_DOMAIN_BIT) != 0);
-      *bound_bits = ((header & OR_SET_BOUND_BIT) != 0);
-      *offset_table = ((header & OR_SET_VARIABLE_BIT) != 0);
-      *element_tags = ((header & OR_SET_TAG_BIT) != 0);
-      if (common_sub != NULL)
-	{
-	  *common_sub = ((header & OR_SET_COMMON_SUB_BIT) != 0);
-	}
-      *size = or_get_int (buf, &rc);
+      *common_sub = ((header & OR_SET_COMMON_SUB_BIT) != 0);
     }
-  return rc;
+  *size = or_get_int (buf);
+
 }
 
 /*
@@ -4071,7 +4014,7 @@ int
 or_skip_set_header (OR_BUF * buf)
 {
   DB_TYPE set_type;
-  int count, length, rc = NO_ERROR;
+  int count, length;
   int domain, bound_bits, offset_table, element_tags, sub_header;
 
   or_get_set_header (buf, &set_type, &count, &domain, &bound_bits, &offset_table, &element_tags, &sub_header);
@@ -4088,7 +4031,7 @@ or_skip_set_header (OR_BUF * buf)
 
   if (domain)
     {
-      length = or_get_int (buf, &rc);
+      length = or_get_int (buf);
       or_advance (buf, length);
     }
 
@@ -4440,7 +4383,7 @@ or_get_set (OR_BUF * buf, TP_DOMAIN * domain)
 
   if (has_domain)
     {
-      (void) or_get_int (buf, &rc);	/* skip the domain size */
+      (void) or_get_int (buf);	/* skip the domain size */
       /* the domain returned here will be cached */
       setobj_put_domain (set, or_get_domain (buf, domain, NULL));
       /* If this is stored and the caller has supplied one as an argument to this function, they should be the same.
@@ -4622,7 +4565,7 @@ or_disk_set_size (OR_BUF * buf, TP_DOMAIN * set_domain, DB_TYPE * set_type)
 
   if (has_domain)
     {
-      (void) or_get_int (buf, &rc);	/* skip the domain size */
+      (void) or_get_int (buf);	/* skip the domain size */
       /* we have to unpack the domain */
       set_domain = or_get_domain (buf, set_domain, NULL);
     }
@@ -4863,12 +4806,12 @@ or_put_value (OR_BUF * buf, DB_VALUE * value, int collapse_null, int include_dom
 	  domain = tp_domain_resolve_value (value, NULL);
 	  if (domain != NULL)
 	    {
-	      rc = or_put_domain (buf, domain, include_domain_classoids, 1);
+	      or_put_domain (buf, domain, include_domain_classoids, 1);
 	    }
 	  else
 	    {
 	      /* shouldn't get here */
-	      rc = or_put_domain (buf, &tp_Null_domain, 0, 1);
+	      or_put_domain (buf, &tp_Null_domain, 0, 1);
 	    }
 	}
     }
@@ -4879,12 +4822,12 @@ or_put_value (OR_BUF * buf, DB_VALUE * value, int collapse_null, int include_dom
 	  domain = tp_domain_resolve_value (value, NULL);
 	  if (domain != NULL)
 	    {
-	      rc = or_put_domain (buf, domain, include_domain_classoids, 0);
+	      or_put_domain (buf, domain, include_domain_classoids, 0);
 	    }
 	  else
 	    {
 	      /* shouldn't get here */
-	      rc = or_put_domain (buf, &tp_Null_domain, 0, 1);
+	      or_put_domain (buf, &tp_Null_domain, 0, 1);
 	      return NO_ERROR;
 	    }
 	}
@@ -4908,7 +4851,7 @@ or_put_value (OR_BUF * buf, DB_VALUE * value, int collapse_null, int include_dom
 	  bits = length & 3;
 	  if (bits)
 	    {
-	      rc = or_pad (buf, 4 - bits);
+	      or_pad (buf, 4 - bits);
 	    }
 	}
     }
@@ -5047,7 +4990,7 @@ or_get_value (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int expected, 
     }
   if (pad > 0)
     {
-      rc = or_advance (buf, pad);
+      or_advance (buf, pad);
     }
   return rc;
 }
@@ -5117,12 +5060,12 @@ or_pack_mem_value (char *ptr, DB_VALUE * value, int *packed_len_except_alignment
       domain = tp_domain_resolve_value (value, NULL);
       if (domain != NULL)
 	{
-	  rc = or_put_domain (buf, domain, 1, 1);
+	  or_put_domain (buf, domain, 1, 1);
 	}
       else
 	{
 	  /* shouldn't get here */
-	  rc = or_put_domain (buf, &tp_Null_domain, 0, 1);
+	  or_put_domain (buf, &tp_Null_domain, 0, 1);
 	}
     }
   else
@@ -5130,12 +5073,12 @@ or_pack_mem_value (char *ptr, DB_VALUE * value, int *packed_len_except_alignment
       domain = tp_domain_resolve_value (value, NULL);
       if (domain != NULL)
 	{
-	  rc = or_put_domain (buf, domain, 1, 0);
+	  or_put_domain (buf, domain, 1, 0);
 	}
       else
 	{
 	  /* shouldn't get here */
-	  rc = or_put_domain (buf, &tp_Null_domain, 0, 1);
+	  or_put_domain (buf, &tp_Null_domain, 0, 1);
 	  return buf->ptr;
 	}
 
@@ -5158,7 +5101,7 @@ or_pack_mem_value (char *ptr, DB_VALUE * value, int *packed_len_except_alignment
       bits = length & 3;
       if (bits)
 	{
-	  rc = or_pad (buf, 4 - bits);
+	  or_pad (buf, 4 - bits);
 	}
 
     }
@@ -5242,7 +5185,7 @@ or_unpack_mem_value (char *ptr, DB_VALUE * value)
     }
   if (pad > 0)
     {
-      rc = or_advance (buf, pad);
+      or_advance (buf, pad);
     }
 
   if (rc != NO_ERROR)
@@ -5642,7 +5585,7 @@ or_put_enumeration (OR_BUF * buf, const DB_ENUMERATION * enumeration)
       return rc;
     }
   /* an enumeration is packed as a collection of strings */
-  rc = or_put_set_header (buf, DB_TYPE_SEQUENCE, enumeration->count, 0, 0, 0, 0, 0);
+  or_put_set_header (buf, DB_TYPE_SEQUENCE, enumeration->count, 0, 0, 0, 0, 0);
   if (rc != NO_ERROR)
     {
       return rc;

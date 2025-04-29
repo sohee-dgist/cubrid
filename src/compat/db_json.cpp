@@ -3455,7 +3455,7 @@ JSON_SERIALIZER::SaveSizePointers (char *ptr)
   m_size_pointers.push (ptr);
 
   // skip the size
-  m_error = or_put_int (m_buffer, 0);
+  or_put_int (m_buffer, 0);
 
   return !HasError ();
 }
@@ -3475,14 +3475,14 @@ JSON_SERIALIZER::SetSizePointers (SizeType size)
 bool
 JSON_SERIALIZER::PackType (const DB_JSON_TYPE &type)
 {
-  m_error = or_put_int (m_buffer, static_cast<int> (type));
+  or_put_int (m_buffer, static_cast<int> (type));
   return !HasError ();
 }
 
 bool
 JSON_SERIALIZER::PackString (const char *str)
 {
-  m_error = or_put_string_aligned_with_length (m_buffer, str);
+  or_put_string_aligned_with_length (m_buffer, str);
   return !HasError ();
 }
 
@@ -3515,7 +3515,7 @@ JSON_SERIALIZER::Bool (bool b)
       return false;
     }
 
-  m_error = or_put_int (m_buffer, b ? 1 : 0);
+  or_put_int (m_buffer, b ? 1 : 0);
   return !HasError ();
 }
 
@@ -3538,7 +3538,7 @@ JSON_SERIALIZER::Int (int i)
   int is_uint = 0;
   or_put_int (m_buffer, is_uint);
 
-  m_error = or_put_int (m_buffer, i);
+  or_put_int (m_buffer, i);
   return !HasError ();
 }
 
@@ -3560,8 +3560,7 @@ JSON_SERIALIZER::Uint (unsigned i)
 
   int is_uint = 1;
   or_put_int (m_buffer, is_uint);
-
-  m_error = or_put_int (m_buffer, i);
+  or_put_int (m_buffer, i);
   return !HasError ();
 }
 
@@ -3584,7 +3583,7 @@ JSON_SERIALIZER::Int64 (std::int64_t i)
   int is_uint64 = 0;
   or_put_int (m_buffer, is_uint64);
 
-  m_error = or_put_bigint (m_buffer, i);
+  or_put_bigint (m_buffer, i);
   return !HasError ();
 }
 
@@ -3607,7 +3606,7 @@ JSON_SERIALIZER::Uint64 (std::uint64_t i)
   int is_uint64 = 1;
   or_put_int (m_buffer, is_uint64);
 
-  m_error = or_put_bigint (m_buffer, i);
+  or_put_bigint (m_buffer, i);
   return !HasError ();
 }
 
@@ -3627,7 +3626,7 @@ JSON_SERIALIZER::Double (double d)
       return false;
     }
 
-  m_error = or_put_double (m_buffer, d);
+  or_put_double (m_buffer, d);
   return !HasError ();
 }
 
@@ -3994,21 +3993,14 @@ db_json_unpack_string_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEM
   int rc = NO_ERROR;
 
   // get the string length
-  str_length = or_get_int (buf, &rc);
+  str_length = or_get_int (buf);
   if (rc != NO_ERROR)
     {
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
       return rc;
     }
 
-  rc = db_json_or_buf_underflow (buf, str_length);
-  if (rc != NO_ERROR)
-    {
-      // we need to assert error here because or_underflow sets the error unlike or_overflow
-      // which only returns the error code
-      ASSERT_ERROR ();
-      return rc;
-    }
+  db_json_or_buf_underflow (buf, str_length);
 
   // set the string directly from the buffer to avoid additional copy
   value.SetString (buf->ptr, static_cast<rapidjson::SizeType> (str_length - 1), doc_allocator);
@@ -4016,12 +4008,7 @@ db_json_unpack_string_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEM
   buf->ptr += str_length;
 
   // still need to take care of the alignment
-  rc = or_align (buf, INT_ALIGNMENT);
-  if (rc != NO_ERROR)
-    {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
-      return rc;
-    }
+  or_align (buf, INT_ALIGNMENT);
 
   return NO_ERROR;
 }
@@ -4032,10 +4019,10 @@ db_json_unpack_int_to_value (OR_BUF *buf, JSON_VALUE &value)
   int rc = NO_ERROR;
   int int_value;
 
-  int is_uint = or_get_int (buf, &rc);
+  int is_uint = or_get_int (buf);
 
   // unpack int
-  int_value = or_get_int (buf, &rc);
+  int_value = or_get_int (buf);
   if (rc != NO_ERROR)
     {
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
@@ -4060,10 +4047,10 @@ db_json_unpack_bigint_to_value (OR_BUF *buf, JSON_VALUE &value)
   int rc = NO_ERROR;
   DB_BIGINT bigint_value;
 
-  int is_uint64 = or_get_int (buf, &rc);
+  int is_uint64 = or_get_int (buf);
 
   // unpack bigint
-  bigint_value = or_get_bigint (buf, &rc);
+  bigint_value = or_get_bigint (buf);
   if (rc != NO_ERROR)
     {
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
@@ -4089,7 +4076,7 @@ db_json_unpack_double_to_value (OR_BUF *buf, JSON_VALUE &value)
   double double_value;
 
   // unpack double
-  double_value = or_get_double (buf, &rc);
+  double_value = or_get_double (buf);
   if (rc != NO_ERROR)
     {
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
@@ -4107,7 +4094,7 @@ db_json_unpack_bool_to_value (OR_BUF *buf, JSON_VALUE &value)
   int rc = NO_ERROR;
   int int_value;
 
-  int_value = or_get_int (buf, &rc); // it can be 0 or 1
+  int_value = or_get_int (buf); // it can be 0 or 1
   if (rc != NO_ERROR)
     {
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
@@ -4130,7 +4117,7 @@ db_json_unpack_object_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEM
   value.SetObject ();
 
   // get the member count of the object
-  size = or_get_int (buf, &rc);
+  size = or_get_int (buf);
   if (rc != NO_ERROR)
     {
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
@@ -4173,7 +4160,7 @@ db_json_unpack_array_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMP
   value.SetArray ();
 
   // get the member count of the array
-  size = or_get_int (buf, &rc);
+  size = or_get_int (buf);
   if (rc != NO_ERROR)
     {
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
@@ -4214,7 +4201,7 @@ db_json_deserialize_doc_internal (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_M
   int rc = NO_ERROR;
 
   // get the json scalar value
-  json_type = static_cast<DB_JSON_TYPE> (or_get_int (buf, &rc));
+  json_type = static_cast<DB_JSON_TYPE> (or_get_int (buf));
   if (rc != NO_ERROR)
     {
       ASSERT_ERROR ();

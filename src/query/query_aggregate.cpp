@@ -2482,25 +2482,17 @@ qdata_load_agg_hentry_from_tuple (cubthread::entry *thread_p, QFILE_TUPLE tuple,
   QFILE_TUPLE_VALUE_FLAG flag;
   DB_VALUE int_val;
   OR_BUF iterator, buf;
-  int i, rc;
+  int i;
 
   /* initialize buffer */
   db_make_int (&int_val, 0);
   or_init (&iterator, tuple, QFILE_GET_TUPLE_LENGTH (tuple));
-  rc = or_advance (&iterator, QFILE_TUPLE_LENGTH_SIZE);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
+  or_advance (&iterator, QFILE_TUPLE_LENGTH_SIZE);
 
   /* read key */
   for (i = 0; i < key->val_count; i++)
     {
-      rc = qfile_locate_tuple_next_value (&iterator, &buf, &flag);
-      if (rc != NO_ERROR)
-	{
-	  return rc;
-	}
+      qfile_locate_tuple_next_value (&iterator, &buf, &flag);
 
       (void) pr_clear_value (key->values[i]);
       if (flag == V_BOUND)
@@ -2517,11 +2509,7 @@ qdata_load_agg_hentry_from_tuple (cubthread::entry *thread_p, QFILE_TUPLE tuple,
   for (i = 0; i < value->func_count; i++)
     {
       /* read value */
-      rc = qfile_locate_tuple_next_value (&iterator, &buf, &flag);
-      if (rc != NO_ERROR)
-	{
-	  return rc;
-	}
+      qfile_locate_tuple_next_value (&iterator, &buf, &flag);
 
       (void) pr_clear_value (value->accumulators[i].value);
       if (flag == V_BOUND)
@@ -2535,11 +2523,7 @@ qdata_load_agg_hentry_from_tuple (cubthread::entry *thread_p, QFILE_TUPLE tuple,
 	}
 
       /* read value2 */
-      rc = qfile_locate_tuple_next_value (&iterator, &buf, &flag);
-      if (rc != NO_ERROR)
-	{
-	  return rc;
-	}
+      qfile_locate_tuple_next_value (&iterator, &buf, &flag);
 
       (void) pr_clear_value (value->accumulators[i].value2);
       if (flag == V_BOUND)
@@ -2553,11 +2537,7 @@ qdata_load_agg_hentry_from_tuple (cubthread::entry *thread_p, QFILE_TUPLE tuple,
 	}
 
       /* read tuple count */
-      rc = qfile_locate_tuple_next_value (&iterator, &buf, &flag);
-      if (rc != NO_ERROR)
-	{
-	  return rc;
-	}
+      qfile_locate_tuple_next_value (&iterator, &buf, &flag);
 
       if (flag == V_BOUND)
 	{
@@ -2572,11 +2552,7 @@ qdata_load_agg_hentry_from_tuple (cubthread::entry *thread_p, QFILE_TUPLE tuple,
     }
 
   /* read tuple count */
-  rc = qfile_locate_tuple_next_value (&iterator, &buf, &flag);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
+  qfile_locate_tuple_next_value (&iterator, &buf, &flag);
 
   if (flag == V_BOUND)
     {

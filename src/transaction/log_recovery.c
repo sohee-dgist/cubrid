@@ -6048,39 +6048,19 @@ log_rv_undoredo_partial_changes_recursive (THREAD_ENTRY * thread_p, OR_BUF * rcv
   assert (rcv_buf->ptr + OR_SHORT_SIZE + 2 * OR_BYTE_SIZE <= rcv_buf->endptr);
 
   /* Get offset_to_data. */
-  offset_to_data = (int) or_get_short (rcv_buf, &error_code);
-  if (error_code != NO_ERROR)
-    {
-      assert_release (false);
-      return error_code;
-    }
+  offset_to_data = (int) or_get_short (rcv_buf);
 
   /* Get old_data_size */
-  old_data_size = (int) or_get_byte (rcv_buf, &error_code);
-  if (error_code != NO_ERROR)
-    {
-      assert_release (false);
-      return error_code;
-    }
+  old_data_size = (int) or_get_byte (rcv_buf);
 
   /* Get new_data_size */
-  new_data_size = (int) or_get_byte (rcv_buf, &error_code);
-  if (error_code != NO_ERROR)
-    {
-      assert_release (false);
-      return error_code;
-    }
+  new_data_size = (int) or_get_byte (rcv_buf);
 
   if (new_data_size > 0)
     {
       /* Get new data. */
       new_data = rcv_buf->ptr;
-      error_code = or_advance (rcv_buf, new_data_size);
-      if (error_code != NO_ERROR)
-	{
-	  assert_release (false);
-	  return error_code;
-	}
+      or_advance (rcv_buf, new_data_size);
     }
   else
     {

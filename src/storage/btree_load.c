@@ -545,7 +545,7 @@ btree_pack_root_header (RECDES * rec, BTREE_ROOT_HEADER * root_header, TP_DOMAIN
 
   or_init (&buf, rec->data + fixed_size, (rec->area_size == -1) ? -1 : (rec->area_size - fixed_size));
 
-  rc = or_put_domain (&buf, key_type, 0, 0);
+  or_put_domain (&buf, key_type, 0, 0);
 
   rec->length = fixed_size + CAST_BUFLEN (buf.ptr - buf.buffer);
   rec->type = REC_HOME;
@@ -2319,56 +2319,37 @@ bt_load_put_buf_to_record (RECDES * recdes, SORT_ARGS * sort_args, int value_has
   or_pad (&buf, next_size);	/* init as NULL */
 
   /* save has_null */
-  if (or_put_byte (&buf, value_has_null) != NO_ERROR)
-    {
-      return ER_FAILED;
-    }
+  or_put_byte (&buf, value_has_null);
 
   or_advance (&buf, (OR_INT_SIZE - OR_BYTE_SIZE));
   assert (buf.ptr == PTR_ALIGN (buf.ptr, INT_ALIGNMENT));
 
-  if (or_put_oid (&buf, &sort_args->cur_oid) != NO_ERROR)
-    {
-      return ER_FAILED;
-    }
+  or_put_oid (&buf, &sort_args->cur_oid);
 
   if (BTREE_IS_UNIQUE (sort_args->unique_pk))
     {
-      if (or_put_oid (&buf, &sort_args->class_ids[cur_class]) != NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+      or_put_oid (&buf, &sort_args->class_ids[cur_class]);
     }
 
   /* Pack insert and delete MVCCID's */
   if (MVCC_IS_HEADER_INSID_NOT_ALL_VISIBLE (mvcc_header))
     {
-      if (or_put_mvccid (&buf, MVCC_GET_INSID (mvcc_header)) != NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+      or_put_mvccid (&buf, MVCC_GET_INSID (mvcc_header));
+
     }
   else
     {
-      if (or_put_mvccid (&buf, MVCCID_ALL_VISIBLE) != NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+      or_put_mvccid (&buf, MVCCID_ALL_VISIBLE);
+
     }
 
   if (MVCC_IS_HEADER_DELID_VALID (mvcc_header))
     {
-      if (or_put_mvccid (&buf, MVCC_GET_DELID (mvcc_header)) != NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+      or_put_mvccid (&buf, MVCC_GET_DELID (mvcc_header));
     }
   else
     {
-      if (or_put_mvccid (&buf, MVCCID_NULL) != NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+      or_put_mvccid (&buf, MVCCID_NULL);
     }
 
   if (is_btree_ops_log)
@@ -2425,37 +2406,21 @@ bt_load_get_buf_from_record (RECDES * recdes, LOAD_ARGS * load_args, S_PARAM_ST 
   assert (buf.ptr == PTR_ALIGN (buf.ptr, INT_ALIGNMENT));
 
   /* Get OID */
-  ret = or_get_oid (&buf, &pparam->rec_oid);
-  if (ret != NO_ERROR)
-    {
-      return ret;
-    }
+  or_get_oid (&buf, &pparam->rec_oid);
 
   /* Instance level uniqueness checking */
   if (BTREE_IS_UNIQUE (load_args->btid->unique_pk))
     {				/* unique index */
       /* extract class OID */
-      ret = or_get_oid (&buf, &pparam->class_oid);
-      if (ret != NO_ERROR)
-	{
-	  return ret;
-	}
+      or_get_oid (&buf, &pparam->class_oid);
     }
 
   /* Create MVCC header */
   BTREE_INIT_MVCC_HEADER (&pparam->mvcc_header);
 
-  ret = or_get_mvccid (&buf, &MVCC_GET_INSID (&pparam->mvcc_header));
-  if (ret != NO_ERROR)
-    {
-      return ret;
-    }
+  or_get_mvccid (&buf, &MVCC_GET_INSID (&pparam->mvcc_header));
+  or_get_mvccid (&buf, &MVCC_GET_DELID (&pparam->mvcc_header));
 
-  ret = or_get_mvccid (&buf, &MVCC_GET_DELID (&pparam->mvcc_header));
-  if (ret != NO_ERROR)
-    {
-      return ret;
-    }
 
 #if defined(SERVER_MODE)
   if (MVCC_GET_INSID (&pparam->mvcc_header) != MVCCID_ALL_VISIBLE)
