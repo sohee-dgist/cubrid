@@ -286,10 +286,6 @@ eval_value_rel_cmp (THREAD_ENTRY * thread_p, DB_VALUE * dbval1, DB_VALUE * dbval
 		  result = pr_type->cmpval (dbval1, dbval2, 1, 0, NULL, 0);
 		}
 	    }
-	  else if (vtype1 == vtype2)
-	    {
-	      result = tp_value_compare_with_error (dbval1, dbval2, 1, 0, &comparable);
-	    }
 	  else
 	    {
 	      result = tp_value_compare_with_error (dbval1, dbval2, 1, 0, &comparable);
