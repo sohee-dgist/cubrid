@@ -7496,7 +7496,8 @@ mr_index_readval_midxkey (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	{
 	  /* need to be able to return errors ! */
 	  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	  assert (false) return ER_FAILED;
+	  assert (false);
+          return ER_FAILED;
 	}
       else
 	{
