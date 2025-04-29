@@ -7837,6 +7837,7 @@ heap_get_record_data_when_all_ready (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT *
   /* Shouldn't be here. */
   return S_ERROR;
 }
+
 /*
  * heap_next_internal () - Retrieve of peek next object.
  *
@@ -8200,8 +8201,8 @@ heap_next_internal (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid,
  */
 static SCAN_CODE
 heap_next_internal_new (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid, RECDES * recdes,
-		    HEAP_SCANCACHE * scan_cache, bool ispeeking, bool reversed_direction, DB_VALUE ** cache_recordinfo,
-		    sampling_info * sampling, bool mvcc_disabled_class)
+			HEAP_SCANCACHE * scan_cache, bool ispeeking, bool reversed_direction,
+			DB_VALUE ** cache_recordinfo, sampling_info * sampling, bool mvcc_disabled_class)
 {
   VPID vpid;
   VPID *vpidptr_incache;
@@ -8463,8 +8464,8 @@ heap_next_internal_new (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_
 	  scan_cache->cache_last_fix_page = true;
 
 	  scan =
-	    heap_scan_get_visible_version_new (thread_p, &oid, class_oid, recdes, &forward_recdes, scan_cache, ispeeking,
-					   NULL_CHN, mvcc_disabled_class);
+	    heap_scan_get_visible_version_new (thread_p, &oid, class_oid, recdes, &forward_recdes, scan_cache,
+					       ispeeking, NULL_CHN, mvcc_disabled_class);
 	  scan_cache->cache_last_fix_page = cache_last_fix_page_save;
 	}
 
@@ -19345,9 +19346,10 @@ heap_next (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * ne
 
 SCAN_CODE
 heap_next_new (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid, RECDES * recdes,
-	   HEAP_SCANCACHE * scan_cache, int ispeeking, bool mvcc_disabled_class)
+	       HEAP_SCANCACHE * scan_cache, int ispeeking, bool mvcc_disabled_class)
 {
-  return heap_next_internal_new (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL, NULL, mvcc_disabled_class);
+  return heap_next_internal_new (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL, NULL,
+				 mvcc_disabled_class);
 }
 
 /*
@@ -25504,7 +25506,8 @@ heap_scan_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * c
 */
 SCAN_CODE
 heap_scan_get_visible_version_new (THREAD_ENTRY * thread_p, const OID * oid, OID * class_oid, RECDES * recdes,
-			       RECDES * peeked_recdes, HEAP_SCANCACHE * scan_cache, int ispeeking, int old_chn, bool mvcc_disabled_class)
+				   RECDES * peeked_recdes, HEAP_SCANCACHE * scan_cache, int ispeeking, int old_chn,
+				   bool mvcc_disabled_class)
 {
   SCAN_CODE scan = S_SUCCESS;
   HEAP_GET_CONTEXT context;

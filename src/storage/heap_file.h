@@ -685,8 +685,9 @@ extern SCAN_CODE heap_scan_get_visible_version (THREAD_ENTRY * thread_p, const O
 						RECDES * recdes, RECDES * forward_recdes, HEAP_SCANCACHE * scan_cache,
 						int ispeeking, int old_chn);
 extern SCAN_CODE heap_scan_get_visible_version_new (THREAD_ENTRY * thread_p, const OID * oid, OID * class_oid,
-						    RECDES * recdes, RECDES * forward_recdes, HEAP_SCANCACHE * scan_cache,
-						    int ispeeking, int old_chn, bool mvcc_disabled_class);
+						    RECDES * recdes, RECDES * forward_recdes,
+						    HEAP_SCANCACHE * scan_cache, int ispeeking, int old_chn,
+						    bool mvcc_disabled_class);
 extern SCAN_CODE heap_get_last_version (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context);
 extern void heap_clean_get_context (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context);
 extern void heap_init_get_context (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context, const OID * oid,
