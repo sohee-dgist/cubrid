@@ -7837,7 +7837,6 @@ heap_get_record_data_when_all_ready (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT *
   /* Shouldn't be here. */
   return S_ERROR;
 }
-
 /*
  * heap_next_internal () - Retrieve of peek next object.
  *
@@ -8124,6 +8123,348 @@ heap_next_internal (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid,
 	  scan =
 	    heap_scan_get_visible_version (thread_p, &oid, class_oid, recdes, &forward_recdes, scan_cache, ispeeking,
 					   NULL_CHN);
+	  scan_cache->cache_last_fix_page = cache_last_fix_page_save;
+	}
+
+      if (scan == S_SUCCESS)
+	{
+	  /*
+	   * Make sure that the found object is an instance of the desired
+	   * class. If it isn't then continue looking.
+	   */
+	  if (class_oid == NULL || OID_ISNULL (class_oid) || !OID_IS_ROOTOID (&oid))
+	    {
+	      /* stop */
+	      *next_oid = oid;
+	      break;
+	    }
+	  else
+	    {
+	      /* continue looking */
+	      if (is_null_recdata)
+		{
+		  /* reset recdes->data before getting next record */
+		  recdes->data = NULL;
+		}
+	      continue;
+	    }
+	}
+      else if (scan == S_SNAPSHOT_NOT_SATISFIED || scan == S_DOESNT_EXIST)
+	{
+	  /* the record does not satisfies snapshot or was deleted - continue */
+	  if (is_null_recdata)
+	    {
+	      /* reset recdes->data before getting next record */
+	      recdes->data = NULL;
+	    }
+	  continue;
+	}
+
+      /* scan was not successful, stop scanning */
+      break;
+    }
+
+  if (old_page_watcher.pgptr != NULL)
+    {
+      pgbuf_ordered_unfix (thread_p, &old_page_watcher);
+    }
+
+  if (scan_cache->page_watcher.pgptr != NULL && scan_cache->cache_last_fix_page == false)
+    {
+      pgbuf_ordered_unfix (thread_p, &scan_cache->page_watcher);
+    }
+
+  return scan;
+}
+
+
+
+/*
+ * heap_next_internal () - Retrieve of peek next object.
+ *
+ * return		     : SCAN_CODE (Either of S_SUCCESS, S_DOESNT_FIT,
+ *			       S_END, S_ERROR).
+ * thread_p (in)	     : Thread entry.
+ * hfid (in)		     : Heap file identifier.
+ * class_oid (in)	     : Class object identifier.
+ * next_oid (in/out)	     : Object identifier of current record. Will be
+ *			       set to next available record or NULL_OID
+ *			       when there is not one.
+ * recdes (in)		     : Pointer to a record descriptor. Will be
+ *			       modified to describe the new record.
+ * scan_cache (in)	     : Scan cache or NULL
+ * ispeeking (in)	     : PEEK when the object is peeked scan_cache can't
+ *			       be NULL COPY when the object is copied.
+ * cache_recordinfo (in/out) : DB_VALUE pointer array that caches record
+ *			       information values.
+ */
+static SCAN_CODE
+heap_next_internal_new (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid, RECDES * recdes,
+		    HEAP_SCANCACHE * scan_cache, bool ispeeking, bool reversed_direction, DB_VALUE ** cache_recordinfo,
+		    sampling_info * sampling, bool mvcc_disabled_class)
+{
+  VPID vpid;
+  VPID *vpidptr_incache;
+  INT16 type = REC_UNKNOWN;
+  OID oid;
+  RECDES forward_recdes;
+  SCAN_CODE scan = S_ERROR;
+  int get_rec_info = cache_recordinfo != NULL;
+  bool is_null_recdata;
+  PGBUF_WATCHER old_page_watcher;
+  PGBUF_WATCHER rec_info_page_watcher;
+
+  assert (scan_cache != NULL);
+
+#if defined(CUBRID_DEBUG)
+  if (scan_cache != NULL && scan_cache->debug_initpattern != HEAP_DEBUG_SCANCACHE_INITPATTERN)
+    {
+      er_log_debug (ARG_FILE_LINE, "heap_next: Your scancache is not initialized");
+      er_set (ER_FATAL_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+      return S_ERROR;
+    }
+  if (scan_cache != NULL && HFID_IS_NULL (&scan_cache->hfid))
+    {
+      er_log_debug (ARG_FILE_LINE,
+		    "heap_next: scan_cache without heap.. heap file must be given to heap_scancache_start () when"
+		    " scan_cache is used with heap_first, heap_next, heap_prev heap_last");
+      er_set (ER_FATAL_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+      return S_ERROR;
+    }
+#endif /* CUBRID_DEBUG */
+
+  hfid = &scan_cache->node.hfid;
+  if (!OID_ISNULL (&scan_cache->node.class_oid))
+    {
+      class_oid = &scan_cache->node.class_oid;
+    }
+
+  PGBUF_INIT_WATCHER (&old_page_watcher, PGBUF_ORDERED_HEAP_NORMAL, hfid);
+
+  if (OID_ISNULL (next_oid))
+    {
+      if (reversed_direction)
+	{
+	  /* Retrieve the last record of the file. */
+	  if (heap_get_last_vpid (thread_p, hfid, &vpid) != NO_ERROR)
+	    {
+	      ASSERT_ERROR ();
+	      return S_ERROR;
+	    }
+	  oid.volid = vpid.volid;
+	  oid.pageid = vpid.pageid;
+	  oid.slotid = NULL_SLOTID;
+	}
+      else
+	{
+	  /* Retrieve the first object of the heap */
+	  oid.volid = hfid->vfid.volid;
+	  oid.pageid = hfid->hpgid;
+	  oid.slotid = 0;	/* i.e., will get slot 1 */
+	}
+    }
+  else
+    {
+      oid = *next_oid;
+    }
+
+  is_null_recdata = (recdes->data == NULL);
+
+  /* Start looking for next object */
+  while (true)
+    {
+      /* Start looking for next object in current page. If we reach the end of this page without finding a new object,
+       * fetch next page and continue looking there. If no objects are found, end scanning */
+      while (true)
+	{
+	  vpid.volid = oid.volid;
+	  vpid.pageid = oid.pageid;
+
+	  /*
+	   * Fetch the page where the object of OID is stored. Use previous
+	   * scan page whenever possible, otherwise, deallocate the page.
+	   */
+	  if (scan_cache->cache_last_fix_page == true && scan_cache->page_watcher.pgptr != NULL)
+	    {
+	      vpidptr_incache = pgbuf_get_vpid_ptr (scan_cache->page_watcher.pgptr);
+	      if (!VPID_EQ (&vpid, vpidptr_incache))
+		{
+		  /* Keep previous scan page fixed until we fixed the current one */
+		  pgbuf_replace_watcher (thread_p, &scan_cache->page_watcher, &old_page_watcher);
+		}
+	    }
+	  if (scan_cache->page_watcher.pgptr == NULL)
+	    {
+	      scan_cache->page_watcher.pgptr =
+		heap_scan_pb_lock_and_fetch (thread_p, &vpid, OLD_PAGE_PREVENT_DEALLOC, S_LOCK, scan_cache,
+					     &scan_cache->page_watcher);
+	      if (old_page_watcher.pgptr != NULL)
+		{
+		  pgbuf_ordered_unfix (thread_p, &old_page_watcher);
+		}
+	      if (scan_cache->page_watcher.pgptr == NULL)
+		{
+		  if (er_errid () == ER_PB_BAD_PAGEID)
+		    {
+		      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_HEAP_UNKNOWN_OBJECT, 3, oid.volid, oid.pageid,
+			      oid.slotid);
+		    }
+
+		  /* something went wrong, return */
+		  assert (scan_cache->page_watcher.pgptr == NULL);
+		  return S_ERROR;
+		}
+	    }
+
+	  if (get_rec_info)
+	    {
+	      /* Getting record information means that we need to scan all slots even if they store no object. */
+	      if (reversed_direction)
+		{
+		  scan =
+		    spage_previous_record_dont_skip_empty (scan_cache->page_watcher.pgptr, &oid.slotid, &forward_recdes,
+							   PEEK);
+		}
+	      else
+		{
+		  scan =
+		    spage_next_record_dont_skip_empty (scan_cache->page_watcher.pgptr, &oid.slotid, &forward_recdes,
+						       PEEK);
+		}
+	      if (oid.slotid == HEAP_HEADER_AND_CHAIN_SLOTID)
+		{
+		  /* skip the header */
+		  scan =
+		    spage_next_record_dont_skip_empty (scan_cache->page_watcher.pgptr, &oid.slotid, &forward_recdes,
+						       PEEK);
+		}
+	    }
+	  else
+	    {
+	      /* Find the next object. Skip relocated records (i.e., new_home records). This records must be accessed
+	       * through the relocation record (i.e., the object). */
+
+	      while (true)
+		{
+		  if (reversed_direction)
+		    {
+		      scan = spage_previous_record (scan_cache->page_watcher.pgptr, &oid.slotid, &forward_recdes, PEEK);
+		    }
+		  else
+		    {
+		      scan = spage_next_record (scan_cache->page_watcher.pgptr, &oid.slotid, &forward_recdes, PEEK);
+		    }
+		  if (scan != S_SUCCESS)
+		    {
+		      /* stop */
+		      break;
+		    }
+
+		  if (thread_p->_unload_cnt_parallel_process > 1)
+		    {
+		      assert (thread_p->_unload_parallel_process_idx >= 0
+			      && thread_p->_unload_parallel_process_idx < thread_p->_unload_cnt_parallel_process);
+		      if ((oid.pageid % thread_p->_unload_cnt_parallel_process) !=
+			  thread_p->_unload_parallel_process_idx)
+			{
+			  scan = S_END;
+			  oid.slotid = -1;
+			  break;
+			}
+		    }
+
+		  if (oid.slotid == HEAP_HEADER_AND_CHAIN_SLOTID)
+		    {
+		      /* skip the header */
+		      continue;
+		    }
+		  type = spage_get_record_type (scan_cache->page_watcher.pgptr, oid.slotid);
+		  if (type == REC_NEWHOME || type == REC_ASSIGN_ADDRESS || type == REC_UNKNOWN)
+		    {
+		      /* skip */
+		      continue;
+		    }
+
+		  break;
+		}
+	    }
+
+	  if (scan != S_SUCCESS)
+	    {
+	      if (scan == S_END)
+		{
+		  /* Find next page of heap and continue scanning */
+		  if (reversed_direction)
+		    {
+		      (void) heap_vpid_prev (thread_p, hfid, scan_cache->page_watcher.pgptr, &vpid);
+		    }
+		  else
+		    {
+		      if (sampling)
+			{
+			  /* skip pages */
+			  if (heap_vpid_skip_next (thread_p, hfid, &scan_cache->page_watcher, &old_page_watcher,
+						   sampling->weight, &vpid, scan_cache) == S_ERROR)
+			    {
+			      return S_ERROR;
+			    }
+			}
+		      else
+			{
+			  (void) heap_vpid_next (thread_p, hfid, scan_cache->page_watcher.pgptr, &vpid);
+			}
+		    }
+		  pgbuf_replace_watcher (thread_p, &scan_cache->page_watcher, &old_page_watcher);
+		  oid.volid = vpid.volid;
+		  oid.pageid = vpid.pageid;
+		  oid.slotid = -1;
+		  if (oid.pageid == NULL_PAGEID)
+		    {
+		      /* must be last page, end scanning */
+		      OID_SET_NULL (next_oid);
+		      if (old_page_watcher.pgptr != NULL)
+			{
+			  pgbuf_ordered_unfix (thread_p, &old_page_watcher);
+			}
+		      return scan;
+		    }
+		}
+	      else
+		{
+		  /* Error, stop scanning */
+		  if (old_page_watcher.pgptr != NULL)
+		    {
+		      pgbuf_ordered_unfix (thread_p, &old_page_watcher);
+		    }
+		  pgbuf_ordered_unfix (thread_p, &scan_cache->page_watcher);
+		  return scan;
+		}
+	    }
+	  else
+	    {
+	      /* found a new object */
+	      break;
+	    }
+	}
+
+      /* A record was found */
+      if (get_rec_info)
+	{
+	  PGBUF_INIT_WATCHER (&rec_info_page_watcher, PGBUF_ORDERED_HEAP_NORMAL, hfid);
+	  pgbuf_replace_watcher (thread_p, &scan_cache->page_watcher, &rec_info_page_watcher);
+	  scan =
+	    heap_get_record_info (thread_p, oid, recdes, forward_recdes, &rec_info_page_watcher, scan_cache,
+				  ispeeking, cache_recordinfo);
+	}
+      else
+	{
+	  int cache_last_fix_page_save = scan_cache->cache_last_fix_page;
+
+	  scan_cache->cache_last_fix_page = true;
+
+	  scan =
+	    heap_scan_get_visible_version_new (thread_p, &oid, class_oid, recdes, &forward_recdes, scan_cache, ispeeking,
+					   NULL_CHN, mvcc_disabled_class);
 	  scan_cache->cache_last_fix_page = cache_last_fix_page_save;
 	}
 
@@ -19002,6 +19343,13 @@ heap_next (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * ne
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL, NULL);
 }
 
+SCAN_CODE
+heap_next_new (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid, RECDES * recdes,
+	   HEAP_SCANCACHE * scan_cache, int ispeeking, bool mvcc_disabled_class)
+{
+  return heap_next_internal_new (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL, NULL, mvcc_disabled_class);
+}
+
 /*
  * heap_next_sampling () - Retrieve or peek next object
  *   return: SCAN_CODE (Either of S_SUCCESS, S_DOESNT_FIT, S_END, S_ERROR)
@@ -25131,6 +25479,98 @@ heap_scan_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * c
   return scan;
 }
 
+
+/*
+* heap_scan_get_visible_version () - get visible version, mvcc style when snapshot provided, otherwise directly from heap
+*
+*   return: SCAN_CODE. Posible values:
+*	     - S_SUCCESS: for successful case when record was obtained.
+*	     - S_DOESNT_EXIT:
+*	     - S_DOESNT_FIT: the record doesn't fit in allocated area
+*	     - S_ERROR: In case of error
+*	     - S_SNAPSHOT_NOT_SATISFIED
+*	     - S_SUCCESS_CHN_UPTODATE: CHN is up to date and it's not necessary to get record again
+*   thread_p (in): Thread entry.
+*   oid (in): Object to be obtained.
+*   class_oid (in):
+*   recdes (out): Record descriptor. NULL if not needed
+*   forward_recdes (in): Record descriptor for heap scan optimizing
+*   scan_cache(in): Heap scan cache.
+*   ispeeking(in): Peek record or copy.
+*   old_chn (in): Cache coherency number for existing record data. It is
+*		   used by clients to avoid resending record data when
+*		   it was not updated.
+*  Note: this function should be used for heap scan;
+*/
+SCAN_CODE
+heap_scan_get_visible_version_new (THREAD_ENTRY * thread_p, const OID * oid, OID * class_oid, RECDES * recdes,
+			       RECDES * peeked_recdes, HEAP_SCANCACHE * scan_cache, int ispeeking, int old_chn, bool mvcc_disabled_class)
+{
+  SCAN_CODE scan = S_SUCCESS;
+  HEAP_GET_CONTEXT context;
+
+  /*
+   * The process below should be within heap_get_visible_version_internal(), 
+   * but it's an added shortcut for performance improvement. Under certain specific conditions, 
+   * it allows for skipping the process of initializing and cleaning the context and the 
+   * heap_get_visible_version_internal() function. This brings the current CUBRID's heap scan 
+   * performance closer to the heap scan performance of CUBRID before the introduction of MVCC. 
+   * Following is the explanation for the code below.
+   * Before fetching a record, check peeked_recdes to see if the record type is REC_HOME,
+   * and it's being PEEKed (meaning there's no need to COPY the record data to a new space). 
+   * In this case, we can use peeked_recdes as the record without executing the
+   * heap_get_visible_version_internal() function. If the conditions above are not met,
+   * or the mvcc_snapshot does not satisfy, then carry out the necessary steps through 
+   * the heap_get_visible_version_internal() function.
+   */
+  if (peeked_recdes->type == REC_HOME && ispeeking == PEEK)
+    {
+      MVCC_REC_HEADER mvcc_header = MVCC_REC_HEADER_INITIALIZER;
+
+      assert (scan_cache != NULL);
+      assert (recdes != NULL);
+      assert (peeked_recdes != NULL);
+
+      if (or_mvcc_get_header (peeked_recdes, &mvcc_header) != NO_ERROR)
+	{
+	  /* Unexpected. */
+	  assert (false);
+	  return S_ERROR;
+	}
+
+      if (class_oid != NULL)
+	{
+	  if (!mvcc_disabled_class)
+	    {
+	      if (scan_cache->mvcc_snapshot != NULL && scan_cache->mvcc_snapshot->snapshot_fnc != NULL)
+		{
+		  if (scan_cache->mvcc_snapshot->snapshot_fnc (thread_p, &mvcc_header, scan_cache->mvcc_snapshot) ==
+		      SNAPSHOT_SATISFIED)
+		    {
+		      *recdes = *peeked_recdes;
+		      return scan;
+		    }
+		}
+	    }
+	  else
+	    {
+	      /* mvcc_disabled_class */
+	      *recdes = *peeked_recdes;
+	      return scan;
+	    }
+	}
+      /* fall through.. */
+    }
+
+  heap_init_get_context (thread_p, &context, oid, class_oid, recdes, scan_cache, ispeeking, old_chn);
+
+  scan = heap_get_visible_version_internal (thread_p, &context, true);
+
+  heap_clean_get_context (thread_p, &context);
+
+  return scan;
+}
+
 /*
  * heap_get_visible_version_internal () - Retrieve the visible version of an object according to snapshot
  *
@@ -25342,6 +25782,7 @@ heap_update_set_prev_version (THREAD_ENTRY * thread_p, const OID * oid, PGBUF_WA
 end:
   return error_code;
 }
+
 
 /*
  * heap_get_last_version () - Generic function for retrieving last version of heap objects (not considering visibility)

@@ -418,6 +418,8 @@ extern void heap_scancache_end_modify (THREAD_ENTRY * thread_p, HEAP_SCANCACHE *
 extern SCAN_CODE heap_get_class_oid (THREAD_ENTRY * thread_p, const OID * oid, OID * class_oid);
 extern SCAN_CODE heap_next (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid,
 			    RECDES * recdes, HEAP_SCANCACHE * scan_cache, int ispeeking);
+extern SCAN_CODE heap_next_new (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid,
+				RECDES * recdes, HEAP_SCANCACHE * scan_cache, int ispeeking, bool mvcc_disabled_class);
 extern SCAN_CODE heap_next_sampling (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid,
 				     RECDES * recdes, HEAP_SCANCACHE * scan_cache, int ispeeking,
 				     sampling_info * sampling);
@@ -682,6 +684,9 @@ extern SCAN_CODE heap_get_visible_version (THREAD_ENTRY * thread_p, const OID * 
 extern SCAN_CODE heap_scan_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * class_oid,
 						RECDES * recdes, RECDES * forward_recdes, HEAP_SCANCACHE * scan_cache,
 						int ispeeking, int old_chn);
+extern SCAN_CODE heap_scan_get_visible_version_new (THREAD_ENTRY * thread_p, const OID * oid, OID * class_oid,
+						    RECDES * recdes, RECDES * forward_recdes, HEAP_SCANCACHE * scan_cache,
+						    int ispeeking, int old_chn, bool mvcc_disabled_class);
 extern SCAN_CODE heap_get_last_version (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context);
 extern void heap_clean_get_context (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context);
 extern void heap_init_get_context (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context, const OID * oid,
