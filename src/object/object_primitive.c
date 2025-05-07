@@ -15522,6 +15522,7 @@ mr_writeval_varbit_internal (OR_BUF * buf, DB_VALUE * value, int align)
   if (value != NULL && (str = db_get_string (value)) != NULL)
     {
       src_bit_length = db_get_string_length (value);	/* size in bits */
+      assert (buf->ptr + src_bit_length <= buf->endptr);	/* safety check in heap_file.c */
 
       if (align == INT_ALIGNMENT)
 	{
@@ -16197,14 +16198,10 @@ pr_get_size_and_write_string_to_buffer (struct or_buf *buf, char *val_p, DB_VALU
   int rc = NO_ERROR, str_length = 0, length = 0;
   int compression_length = 0, compress_buffer_size;
   bool compressed = false;
-  int save_error_abort = 0;
 
   /* Checks to be sure that we have the correct input */
   assert (DB_VALUE_DOMAIN_TYPE (value) == DB_TYPE_VARNCHAR || DB_VALUE_DOMAIN_TYPE (value) == DB_TYPE_STRING);
   assert (db_get_string_size (value) >= OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION);
-
-  save_error_abort = buf->error_abort;
-  buf->error_abort = 0;
 
   string = db_get_string (value);
   str_length = db_get_string_size (value);
@@ -16295,8 +16292,6 @@ after_compression:
     }
 
 cleanup:
-
-  buf->error_abort = save_error_abort;
 
   if (compressed_string != NULL)
     {
@@ -16928,19 +16923,18 @@ mr_data_writeval_json (OR_BUF * buf, DB_VALUE * value)
       return ER_FAILED;
     }
 
-  if (buf->error_abort)
-    {
-      int estimated_length = mr_data_lengthval_json (value, true);
 
-      if ((ptrdiff_t) estimated_length > ((ptrdiff_t) (buf->endptr - buf->ptr)))
-	{
-	  /* this will make string_data_writeval jump because
-	   * of buffer overflow, leaking memory in the process,
-	   * we need to take care of it here
-	   */
-	  (void) or_overflow (buf);
-	}
+  int estimated_length = mr_data_lengthval_json (value, true);
+
+  if ((ptrdiff_t) estimated_length > ((ptrdiff_t) (buf->endptr - buf->ptr)))
+    {
+      /* this will make string_data_writeval jump because
+       * of buffer overflow, leaking memory in the process,
+       * we need to take care of it here
+       */
+      (void) or_overflow (buf);
     }
+
 
   JSON_DOC *json_doc = db_get_json_document (value);
   rc = db_json_serialize (*json_doc, *buf);

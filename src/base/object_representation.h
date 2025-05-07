@@ -1035,8 +1035,6 @@ struct or_buf
   char *ptr;
   char *endptr;
   struct or_fixup *fixups;
-  jmp_buf env;
-  int error_abort;
 };
 
 /* Need to translate types of DB_TYPE_OBJECT into DB_TYPE_OID in server-side */
@@ -1452,7 +1450,6 @@ or_init (OR_BUF * buf, char *data, int length)
       buf->endptr = data + length;
     }
 
-  buf->error_abort = 0;
   buf->fixups = NULL;
 }
 

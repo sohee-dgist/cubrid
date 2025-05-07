@@ -570,11 +570,6 @@ or_overflow (OR_BUF * buf)
    * for ER_TF_BUFFER_OVERFLOW and know that this isn't an error condition.
    */
 
-  if (buf->error_abort)
-    {
-      _longjmp (buf->env, ER_TF_BUFFER_OVERFLOW);
-    }
-
   return ER_TF_BUFFER_OVERFLOW;
 }
 
@@ -592,11 +587,6 @@ int
 or_underflow (OR_BUF * buf)
 {
   er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_UNDERFLOW, 0);
-
-  if (buf->error_abort)
-    {
-      _longjmp (buf->env, ER_TF_BUFFER_UNDERFLOW);
-    }
   return ER_TF_BUFFER_UNDERFLOW;
 }
 
@@ -612,10 +602,6 @@ void
 or_abort (OR_BUF * buf)
 {
   /* assume an appropriate error has already been set */
-  if (buf->error_abort)
-    {
-      _longjmp (buf->env, er_errid ());
-    }
 }
 
 /*
@@ -891,70 +877,30 @@ or_put_varbit_internal (OR_BUF * buf, const char *string, int bitlen, int align)
 {
   int net_bitlen;
   int bytelen;
-  char *start;
-  int status;
-  int valid_buf;
-  jmp_buf save_buf;
+  bytelen = BITS_TO_BYTES (bitlen);
 
-  if (buf->error_abort)
+  /* store the size prefix */
+  if (bitlen < 0xFF)
     {
-      memcpy (&save_buf, &buf->env, sizeof (save_buf));
-    }
-
-  valid_buf = buf->error_abort;
-  buf->error_abort = 1;
-  status = _setjmp (buf->env);
-
-  if (status == 0)
-    {
-      start = buf->ptr;
-      bytelen = BITS_TO_BYTES (bitlen);
-
-      /* store the size prefix */
-      if (bitlen < 0xFF)
-	{
-	  or_put_byte (buf, bitlen);
-	}
-      else
-	{
-	  or_put_byte (buf, 0xFF);
-	  OR_PUT_INT (&net_bitlen, bitlen);
-	  or_put_data (buf, (char *) &net_bitlen, OR_INT_SIZE);
-	}
-
-      /* store the string bytes */
-      or_put_data (buf, string, bytelen);
-
-      if (align == INT_ALIGNMENT)
-	{
-	  /* round up to a word boundary */
-	  or_put_align32 (buf);
-	}
+      or_put_byte (buf, bitlen);
     }
   else
     {
-      if (valid_buf)
-	{
-	  memcpy (&buf->env, &save_buf, sizeof (save_buf));
-	  _longjmp (buf->env, status);
-	}
+      or_put_byte (buf, 0xFF);
+      OR_PUT_INT (&net_bitlen, bitlen);
+      or_put_data (buf, (char *) &net_bitlen, OR_INT_SIZE);
     }
 
-  if (valid_buf)
+  /* store the string bytes */
+  or_put_data (buf, string, bytelen);
+
+  if (align == INT_ALIGNMENT)
     {
-      memcpy (&buf->env, &save_buf, sizeof (save_buf));
-    }
-  else
-    {
-      buf->error_abort = 0;
+      /* round up to a word boundary */
+      or_put_align32 (buf);
     }
 
-  if (status == 0)
-    {
-      return NO_ERROR;
-    }
-
-  return status;
+  return NO_ERROR;
 }
 
 static int
@@ -965,11 +911,6 @@ or_put_varchar_internal (OR_BUF * buf, char *string, int charlen, int align)
   int rc = NO_ERROR;
   bool compressable = false;
   int compressed_length = 0;
-  int error_abort = 0;
-
-  error_abort = buf->error_abort;
-
-  buf->error_abort = 0;
 
   /* store the size prefix */
   if (charlen < OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION)
@@ -1094,8 +1035,6 @@ cleanup:
     {
       free_and_init (compressed_string);
     }
-
-  buf->error_abort = error_abort;
 
   if (rc == ER_TF_BUFFER_OVERFLOW)
     {

@@ -224,7 +224,7 @@ object_disk_size (DESC_OBJ * obj, int *offset_size_ptr)
   SM_ATTRIBUTE *att;
   SM_CLASS *class_;
   int a, i;
-  volatile int size;
+  int size;
   *offset_size_ptr = OR_BYTE_SIZE;
   class_ = obj->class_;
 re_check:
@@ -498,7 +498,8 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
   int offset_size;
   buf = &orep;
   or_init (buf, record->data, record->area_size);
-  buf->error_abort = 1;
+
+  /* expected disk size perfectly fits the size of the object , no need to check overflow */
   expected_disk_size = object_disk_size (obj, &offset_size);
   if (record->area_size < (expected_disk_size + (OR_MVCC_MAX_HEADER_SIZE - OR_MVCC_INSERT_HEADER_SIZE)))
     {
@@ -507,54 +508,35 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
       return (1);
     }
 
-  status = setjmp (buf->env);
-  if (status == 0)
+
+  if (OID_ISTEMP (WS_OID (obj->classop)))
     {
-      error = 0;
-      if (OID_ISTEMP (WS_OID (obj->classop)))
-	{
-	  fprintf (stderr, msgcat_message (MSGCAT_CATALOG_UTILS, MSGCAT_UTIL_SET_MIGDB, MIGDB_MSG_TEMPORARY_CLASS_OID));
-	  return (1);
-	}
-
-      /* header */
-
-      repid_bits = obj->class_->repid;
-      if (obj->class_->fixed_count)
-	{
-	  repid_bits |= OR_BOUND_BIT_FLAG;
-	}
-
-      /* offset size */
-      OR_SET_VAR_OFFSET_SIZE (repid_bits, offset_size);
-      repid_bits |= (OR_MVCC_FLAG_VALID_INSID << OR_MVCC_FLAG_SHIFT_BITS);
-      or_put_int (buf, repid_bits);
-      or_put_int (buf, 0);	/* CHN, fixed size */
-      or_put_bigint (buf, MVCCID_NULL);	/* MVCC insert id */
-      /* variable info block */
-      put_varinfo (buf, obj, offset_size);
-      /* attributes, fixed followed by bound bits, followed by variable */
-      put_attributes (buf, obj);
-      record->length = (int) (buf->ptr - buf->buffer);
-      /* see if there are any indexes */
-      has_index = classobj_class_has_indexes (obj->class_);
-    }
-  else
-    {
-      assert (false);		/* impossible case */
-      /*
-       * error, currently can only be from buffer overflow
-       * might be nice to store the "size guess" from the class
-       * SHOULD BE USING TF_STATUS LIKE tf_mem_to_disk, need to
-       * merge these two programs !
-       */
-      record->length = -expected_disk_size;
-      error = 1;
-      has_index = false;
+      fprintf (stderr, msgcat_message (MSGCAT_CATALOG_UTILS, MSGCAT_UTIL_SET_MIGDB, MIGDB_MSG_TEMPORARY_CLASS_OID));
+      return (1);
     }
 
-  *index_flag = has_index;
-  return (error);
+  /* header */
+  repid_bits = obj->class_->repid;
+  if (obj->class_->fixed_count)
+    {
+      repid_bits |= OR_BOUND_BIT_FLAG;
+    }
+
+  /* offset size */
+  OR_SET_VAR_OFFSET_SIZE (repid_bits, offset_size);
+  repid_bits |= (OR_MVCC_FLAG_VALID_INSID << OR_MVCC_FLAG_SHIFT_BITS);
+  or_put_int (buf, repid_bits);
+  or_put_int (buf, 0);		/* CHN, fixed size */
+  or_put_bigint (buf, MVCCID_NULL);	/* MVCC insert id */
+  /* variable info block */
+  put_varinfo (buf, obj, offset_size);
+  /* attributes, fixed followed by bound bits, followed by variable */
+  put_attributes (buf, obj);
+  record->length = (int) (buf->ptr - buf->buffer);
+  /* see if there are any indexes */
+  has_index = classobj_class_has_indexes (obj->class_);
+
+  return NO_ERROR;
 }
 
 /*
@@ -914,12 +896,21 @@ abort_on_error:
  *    record(in): disk record
  *    obj(out): object descriptor
  */
+/*
+ * desc_disk_to_obj - similar to tf_disk_to_mem except that it builds an
+ * object descriptor structure rather than a workspace object.
+ *    return: NO_ERROR if successful, error code otherwise
+ *    classop(in): class MOP
+ *    class(in): class structure
+ *    record(in): disk record
+ *    obj(out): object descriptor
+ */
 int
 desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * obj, bool is_unloaddb)
 {
   volatile int error = NO_ERROR;
   OR_BUF orep, *buf;
-  int repid, status;
+  int repid;
   unsigned int repid_bits;
   int bound_bit_flag;
   int save;
@@ -944,53 +935,45 @@ desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * ob
   pr_Inhibit_oid_promotion = 1;
   buf = &orep;
   or_init (buf, record->data, record->length);
-  buf->error_abort = 1;
   obj->classop = classop;
-  status = setjmp (buf->env);
-  if (status == 0)
+
+
+  char mvcc_flags;
+  /* offset size */
+  offset_size = OR_GET_OFFSET_SIZE (buf->ptr);
+  /* in case of MVCC, repid_bits contains MVCC flags */
+  repid_bits = or_mvcc_get_repid_and_flags (buf, &rc);
+  repid = repid_bits & OR_MVCC_REPID_MASK;
+  mvcc_flags = (char) ((repid_bits >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK);
+
+  i = OR_INT_SIZE;		/* skip chn */
+  if (mvcc_flags & OR_MVCC_FLAG_VALID_INSID)
     {
-      char mvcc_flags;
-      /* offset size */
-      offset_size = OR_GET_OFFSET_SIZE (buf->ptr);
-      /* in case of MVCC, repid_bits contains MVCC flags */
-      repid_bits = or_mvcc_get_repid_and_flags (buf, &rc);
-      repid = repid_bits & OR_MVCC_REPID_MASK;
-      mvcc_flags = (char) ((repid_bits >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK);
+      i += OR_MVCCID_SIZE;	/* skip insert id */
+    }
+  if (mvcc_flags & OR_MVCC_FLAG_VALID_DELID)
+    {
+      i += OR_MVCCID_SIZE;	/* skip delete id */
+    }
+  if (mvcc_flags & OR_MVCC_FLAG_VALID_PREV_VERSION)
+    {
+      i += OR_MVCC_PREV_VERSION_LSA_SIZE;	/* skip prev version lsa */
+    }
 
-      i = OR_INT_SIZE;		/* skip chn */
-      if (mvcc_flags & OR_MVCC_FLAG_VALID_INSID)
-	{
-	  i += OR_MVCCID_SIZE;	/* skip insert id */
-	}
-      if (mvcc_flags & OR_MVCC_FLAG_VALID_DELID)
-	{
-	  i += OR_MVCCID_SIZE;	/* skip delete id */
-	}
-      if (mvcc_flags & OR_MVCC_FLAG_VALID_PREV_VERSION)
-	{
-	  i += OR_MVCC_PREV_VERSION_LSA_SIZE;	/* skip prev version lsa */
-	}
+  or_advance (buf, i);
 
-      or_advance (buf, i);
-
-      bound_bit_flag = repid_bits & OR_BOUND_BIT_FLAG;
-      if (repid == class_->repid)
-	{
-	  get_desc_current (buf, class_, obj, bound_bit_flag, offset_size, is_unloaddb);
-	}
-      else
-	{
-	  get_desc_old (buf, class_, repid, obj, bound_bit_flag, offset_size, is_unloaddb);
-	}
+  bound_bit_flag = repid_bits & OR_BOUND_BIT_FLAG;
+  if (repid == class_->repid)
+    {
+      get_desc_current (buf, class_, obj, bound_bit_flag, offset_size, is_unloaddb);
     }
   else
     {
-      error = ER_TF_BUFFER_UNDERFLOW;
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
+      get_desc_old (buf, class_, repid, obj, bound_bit_flag, offset_size, is_unloaddb);
     }
 
   pr_Inhibit_oid_promotion = save;
-  return error;
+  return NO_ERROR;
 }
 
 static bool filter_ignore_errors[-ER_LAST_ERROR] = {
