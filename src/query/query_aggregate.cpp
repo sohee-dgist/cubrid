@@ -2484,7 +2484,7 @@ qdata_load_agg_hentry_from_tuple (cubthread::entry *thread_p, QFILE_TUPLE tuple,
   /* initialize buffer */
   db_make_int (&int_val, 0);
   or_init (&iterator, tuple, QFILE_GET_TUPLE_LENGTH (tuple));
-  rc = or_advance (&iterator, QFILE_TUPLE_LENGTH_SIZE);
+  or_advance (&iterator, QFILE_TUPLE_LENGTH_SIZE);
   if (rc != NO_ERROR)
     {
       return rc;

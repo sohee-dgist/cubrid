@@ -984,7 +984,8 @@ qfile_locate_tuple_next_value (OR_BUF * iterator, OR_BUF * buf, QFILE_TUPLE_VALU
   or_init (buf, iterator->ptr + QFILE_TUPLE_VALUE_HEADER_SIZE, value_size);
 
   /* advance iterator */
-  return or_advance (iterator, QFILE_TUPLE_VALUE_HEADER_SIZE + value_size);
+  or_advance (iterator, QFILE_TUPLE_VALUE_HEADER_SIZE + value_size);
+  return NO_ERROR;
 }
 
 #if !defined(NDEBUG)

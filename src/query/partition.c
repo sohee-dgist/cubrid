@@ -3056,7 +3056,7 @@ partition_find_partition_for_record (PRUNING_CONTEXT * pinfo, const OID * class_
        * representation id */
 
       repr_id = pinfo->partitions[pos + 1].rep_id;
-      error = or_set_rep_id (recdes, repr_id);
+      or_set_rep_id (recdes, repr_id);
     }
 
 cleanup:

@@ -3579,10 +3579,10 @@ la_get_current (OR_BUF * buf, SM_CLASS * sm_class, int bound_bit_flag, DB_OTMPL 
 		  DB_SIZEOF (int) * sm_class->variable_count);
 	  return ER_OUT_OF_VIRTUAL_MEMORY;
 	}
-      offset = or_get_offset_internal (buf, &rc, offset_size);
+      offset = or_get_offset_internal (buf, offset_size);
       for (i = 0; i < sm_class->variable_count; i++)
 	{
-	  offset2 = or_get_offset_internal (buf, &rc, offset_size);
+	  offset2 = or_get_offset_internal (buf, offset_size);
 	  vars[i] = offset2 - offset;
 	  offset = offset2;
 	}
@@ -3759,7 +3759,7 @@ la_disk_to_obj (MOBJ classobj, RECDES * record, DB_OTMPL * def, DB_VALUE * key)
   offset_size = OR_GET_OFFSET_SIZE (buf->ptr);
 
   /* in case of MVCC, repid_bits contains MVCC flags */
-  repid_bits = or_mvcc_get_repid_and_flags (buf, &rc);
+  repid_bits = or_mvcc_get_repid_and_flags (buf);
 
   mvcc_flags = (char) ((repid_bits >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK);
   if (mvcc_flags == 0)

@@ -470,6 +470,7 @@ error:
     {
       free_and_init (bits);
     }
+  assert (false);
 }
 
 /*
@@ -490,7 +491,6 @@ int
 desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
 {
   OR_BUF orep, *buf;
-  int error, status;
   bool has_index = false;
   unsigned int repid_bits;
   int expected_disk_size;
@@ -507,7 +507,6 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
       return (1);
     }
 
-
   if (OID_ISTEMP (WS_OID (obj->classop)))
     {
       fprintf (stderr, msgcat_message (MSGCAT_CATALOG_UTILS, MSGCAT_UTIL_SET_MIGDB, MIGDB_MSG_TEMPORARY_CLASS_OID));
@@ -521,20 +520,21 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
       repid_bits |= OR_BOUND_BIT_FLAG;
     }
 
-  /* offset size */
+/* offset size */
   OR_SET_VAR_OFFSET_SIZE (repid_bits, offset_size);
   repid_bits |= (OR_MVCC_FLAG_VALID_INSID << OR_MVCC_FLAG_SHIFT_BITS);
   or_put_int (buf, repid_bits);
   or_put_int (buf, 0);		/* CHN, fixed size */
   or_put_bigint (buf, MVCCID_NULL);	/* MVCC insert id */
-  /* variable info block */
+/* variable info block */
   put_varinfo (buf, obj, offset_size);
-  /* attributes, fixed followed by bound bits, followed by variable */
+/* attributes, fixed followed by bound bits, followed by variable */
   put_attributes (buf, obj);
   record->length = (int) (buf->ptr - buf->buffer);
-  /* see if there are any indexes */
+/* see if there are any indexes */
   has_index = classobj_class_has_indexes (obj->class_);
 
+  *index_flag = has_index;
   return NO_ERROR;
 }
 
@@ -577,10 +577,10 @@ get_desc_current (OR_BUF * buf, SM_CLASS * class_, DESC_OBJ * obj, int bound_bit
 	    }
 	}
       /* get the offsets relative to the end of the header (beginning of variable table) */
-      offset = or_get_offset_internal (buf, &rc, offset_size);
+      offset = or_get_offset_internal (buf, offset_size);
       for (i = 0; i < class_->variable_count; i++)
 	{
-	  offset2 = or_get_offset_internal (buf, &rc, offset_size);
+	  offset2 = or_get_offset_internal (buf, offset_size);
 	  vars[i] = offset2 - offset;
 	  offset = offset2;
 	}
@@ -725,10 +725,10 @@ get_desc_old (OR_BUF * buf, SM_CLASS * class_, int repid, DESC_OBJ * obj, int bo
 	    }
 	}
       /* compute the variable offsets relative to the end of the header (beginning of variable table) */
-      offset = or_get_offset_internal (buf, &rc, offset_size);
+      offset = or_get_offset_internal (buf, offset_size);
       for (i = 0; i < oldrep->variable_count; i++)
 	{
-	  offset2 = or_get_offset_internal (buf, &rc, offset_size);
+	  offset2 = or_get_offset_internal (buf, offset_size);
 	  vars[i] = offset2 - offset;
 	  offset = offset2;
 	}
@@ -883,18 +883,9 @@ abort_on_error:
       free (vars);
     }
 
-  assert (false);		// or abort do nothing here
+  assert (false);
 }
 
-/*
- * desc_disk_to_obj - similar to tf_disk_to_mem except that it builds an
- * object descriptor structure rather than a workspace object.
- *    return: NO_ERROR if successful, error code otherwise
- *    classop(in): class MOP
- *    class(in): class structure
- *    record(in): disk record
- *    obj(out): object descriptor
- */
 /*
  * desc_disk_to_obj - similar to tf_disk_to_mem except that it builds an
  * object descriptor structure rather than a workspace object.
@@ -907,6 +898,7 @@ abort_on_error:
 int
 desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * obj, bool is_unloaddb)
 {
+  int error = NO_ERROR;
   OR_BUF orep, *buf;
   int repid;
   unsigned int repid_bits;
@@ -940,7 +932,7 @@ desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * ob
   /* offset size */
   offset_size = OR_GET_OFFSET_SIZE (buf->ptr);
   /* in case of MVCC, repid_bits contains MVCC flags */
-  repid_bits = or_mvcc_get_repid_and_flags (buf, &rc);
+  repid_bits = or_mvcc_get_repid_and_flags (buf);
   repid = repid_bits & OR_MVCC_REPID_MASK;
   mvcc_flags = (char) ((repid_bits >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK);
 

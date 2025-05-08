@@ -1060,18 +1060,16 @@ extern "C"
 #endif
 
 extern int or_rep_id (RECDES * record);
-extern int or_set_rep_id (RECDES * record, int repid);
+extern void or_set_rep_id (RECDES * record, int repid);
 extern int or_chn (RECDES * record);
-extern int or_replace_chn (RECDES * record, int chn);
-extern int or_mvcc_get_repid_and_flags (OR_BUF * buf, int *error);
-extern int or_mvcc_set_repid_and_flags (OR_BUF * buf, int mvcc_flag, int repid, int bound_bit,
-					int variable_offset_size);
+extern void or_replace_chn (RECDES * record, int chn);
+extern int or_mvcc_get_repid_and_flags (OR_BUF * buf);
+extern void or_mvcc_set_repid_and_flags (OR_BUF * buf, int mvcc_flag, int repid, int bound_bit,
+					 int variable_offset_size);
 extern char *or_class_name (RECDES * record);
 
-/* Pointer based decoding functions */
-extern int or_set_element_offset (char *setptr, int element);
-
 #if defined(ENABLE_UNUSED_FUNCTION)
+extern int or_set_element_offset (char *setptr, int element);
 extern int or_get_bound_bit (char *bound_bits, int element);
 extern void or_put_bound_bit (char *bound_bits, int element, int bound);
 #endif
@@ -1197,15 +1195,15 @@ extern void or_decode (const char *buffer, char *dest, int size);
 STATIC_INLINE void or_init (OR_BUF * buf, char *data, int length) __attribute__ ((ALWAYS_INLINE));
 
 /* Pack/unpack support functions */
-STATIC_INLINE int or_advance (OR_BUF * buf, int offset) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_seek (OR_BUF * buf, int psn) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_pad (OR_BUF * buf, int length) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_advance (OR_BUF * buf, int offset) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_seek (OR_BUF * buf, int psn) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_pad (OR_BUF * buf, int length) __attribute__ ((ALWAYS_INLINE));
 
-STATIC_INLINE int or_put_align32 (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_align (OR_BUF * buf, int alignment) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_align (OR_BUF * buf, int align) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_align32 (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_align64 (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_align32 (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_align (OR_BUF * buf, int alignment) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_get_align (OR_BUF * buf, int align) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_get_align32 (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_get_align64 (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
 
 /*
  * NUMERIC DATA TRANSFORMS
@@ -1214,19 +1212,19 @@ STATIC_INLINE int or_get_align64 (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
  *
  */
 
-STATIC_INLINE int or_put_byte (OR_BUF * buf, int num) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_short (OR_BUF * buf, int num) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_int (OR_BUF * buf, int num) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_bigint (OR_BUF * buf, DB_BIGINT num) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_float (OR_BUF * buf, float num) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_double (OR_BUF * buf, double num) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_byte (OR_BUF * buf, int num) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_short (OR_BUF * buf, int num) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_int (OR_BUF * buf, int num) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_bigint (OR_BUF * buf, DB_BIGINT num) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_float (OR_BUF * buf, float num) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_double (OR_BUF * buf, double num) __attribute__ ((ALWAYS_INLINE));
 
-STATIC_INLINE int or_get_byte (OR_BUF * buf, int *error) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_short (OR_BUF * buf, int *error) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_int (OR_BUF * buf, int *error) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE DB_BIGINT or_get_bigint (OR_BUF * buf, int *error) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE float or_get_float (OR_BUF * buf, int *error) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE double or_get_double (OR_BUF * buf, int *error) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE int or_get_byte (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE int or_get_short (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE int or_get_int (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE DB_BIGINT or_get_bigint (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE float or_get_float (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE double or_get_double (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
 
 /*
  * EXTENDED TYPE TRANSLATORS
@@ -1234,52 +1232,52 @@ STATIC_INLINE double or_get_double (OR_BUF * buf, int *error) __attribute__ ((AL
  *    utime, date, and monetary.
  */
 
-STATIC_INLINE int or_put_time (OR_BUF * buf, DB_TIME * timeval) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_utime (OR_BUF * buf, DB_UTIME * timeval) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_timestamptz (OR_BUF * buf, DB_TIMESTAMPTZ * ts_tz) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_date (OR_BUF * buf, DB_DATE * date) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_datetime (OR_BUF * buf, DB_DATETIME * datetimeval) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_datetimetz (OR_BUF * buf, DB_DATETIMETZ * datetimetz) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_time (OR_BUF * buf, DB_TIME * timeval) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_utime (OR_BUF * buf, DB_UTIME * timeval) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_timestamptz (OR_BUF * buf, DB_TIMESTAMPTZ * ts_tz) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_date (OR_BUF * buf, DB_DATE * date) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_datetime (OR_BUF * buf, DB_DATETIME * datetimeval) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_datetimetz (OR_BUF * buf, DB_DATETIMETZ * datetimetz) __attribute__ ((ALWAYS_INLINE));
 extern int or_put_monetary (OR_BUF * buf, DB_MONETARY * monetary);
 
-STATIC_INLINE int or_get_time (OR_BUF * buf, DB_TIME * timeval) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_utime (OR_BUF * buf, DB_UTIME * timeval) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_timestamptz (OR_BUF * buf, DB_TIMESTAMPTZ * ts_tz) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_date (OR_BUF * buf, DB_DATE * date) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_datetime (OR_BUF * buf, DB_DATETIME * datetime) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_datetimetz (OR_BUF * buf, DB_DATETIMETZ * datetimetz) __attribute__ ((ALWAYS_INLINE));
-extern int or_get_monetary (OR_BUF * buf, DB_MONETARY * monetary);
+STATIC_INLINE void or_get_time (OR_BUF * buf, DB_TIME * timeval) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_get_utime (OR_BUF * buf, DB_UTIME * timeval) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_get_timestamptz (OR_BUF * buf, DB_TIMESTAMPTZ * ts_tz) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_get_date (OR_BUF * buf, DB_DATE * date) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_get_datetime (OR_BUF * buf, DB_DATETIME * datetime) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_get_datetimetz (OR_BUF * buf, DB_DATETIMETZ * datetimetz) __attribute__ ((ALWAYS_INLINE));
+extern void or_get_monetary (OR_BUF * buf, DB_MONETARY * monetary);
 
 #if defined(ENABLE_UNUSED_FUNCTION)
 extern int or_put_binary (OR_BUF * buf, DB_BINARY * binary);
 #endif
-STATIC_INLINE int or_put_data (OR_BUF * buf, const char *data, int length) __attribute__ ((ALWAYS_INLINE));
-extern int or_put_varbit (OR_BUF * buf, const char *string, int bitlen);
+STATIC_INLINE void or_put_data (OR_BUF * buf, const char *data, int length) __attribute__ ((ALWAYS_INLINE));
+extern void or_put_varbit (OR_BUF * buf, const char *string, int bitlen);
 extern int or_put_varchar (OR_BUF * buf, char *string, int charlen);
-STATIC_INLINE int or_put_string_aligned (OR_BUF * buf, char *string) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_string_aligned_with_length (OR_BUF * buf, const char *str) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_string_aligned (OR_BUF * buf, char *string) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_string_aligned_with_length (OR_BUF * buf, const char *str) __attribute__ ((ALWAYS_INLINE));
 
-STATIC_INLINE int or_get_data (OR_BUF * buf, char *data, int length) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_get_data (OR_BUF * buf, char *data, int length) __attribute__ ((ALWAYS_INLINE));
 #if defined(ENABLE_UNUSED_FUNCTION)
 extern char *or_get_varbit (OR_BUF * buf, int *length_ptr);
 extern char *or_get_varchar (OR_BUF * buf, int *length_ptr);
 #endif
-STATIC_INLINE int or_get_varbit_length (OR_BUF * buf, int *intval) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE int or_get_varbit_length (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
 STATIC_INLINE int or_get_varchar_length (OR_BUF * buf, int *intval) __attribute__ ((ALWAYS_INLINE));
 /* Get the compressed and the decompressed lengths of a string stored in buffer */
-STATIC_INLINE int or_get_varchar_compression_lengths (OR_BUF * buf, int *compressed_size, int *decompressed_size)
+STATIC_INLINE void or_get_varchar_compression_lengths (OR_BUF * buf, int *compressed_size, int *decompressed_size)
   __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_string_size_byte (OR_BUF * buf, int *error) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE int or_get_string_size_byte (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
 
 STATIC_INLINE int or_varbit_length (int bitlen) __attribute__ ((ALWAYS_INLINE));
 STATIC_INLINE int or_varchar_length (int charlen) __attribute__ ((ALWAYS_INLINE));
 STATIC_INLINE int or_varbit_length_internal (int bitlen, int align) __attribute__ ((ALWAYS_INLINE));
 STATIC_INLINE int or_varchar_length_internal (int charlen, int align) __attribute__ ((ALWAYS_INLINE));
 
-STATIC_INLINE int or_skip_varbit (OR_BUF * buf, int align) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_skip_varchar (OR_BUF * buf, int align) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_skip_varbit_remainder (OR_BUF * buf, int bitlen, int align) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_skip_varchar_remainder (OR_BUF * buf, int charlen, int align) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_skip_varbit (OR_BUF * buf, int align) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_skip_varchar (OR_BUF * buf, int align) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_skip_varbit_remainder (OR_BUF * buf, int bitlen, int align) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_skip_varchar_remainder (OR_BUF * buf, int charlen, int align) __attribute__ ((ALWAYS_INLINE));
 
 #if defined(ENABLE_UNUSED_FUNCTION)
 extern int or_length_binary (DB_BINARY * binary);
@@ -1291,25 +1289,25 @@ extern int or_length_string (char *string);
  *    Translators for the disk identifiers OID, HFID, BTID, EHID.
  */
 
-STATIC_INLINE int or_put_oid (OR_BUF * buf, const OID * oid) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_mvccid (OR_BUF * buf, MVCCID mvccid) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_oid (OR_BUF * buf, const OID * oid) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_mvccid (OR_BUF * buf, MVCCID mvccid) __attribute__ ((ALWAYS_INLINE));
 
-STATIC_INLINE int or_get_oid (OR_BUF * buf, OID * oid) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_mvccid (OR_BUF * buf, MVCCID * mvccid) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_get_oid (OR_BUF * buf, OID * oid) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_get_mvccid (OR_BUF * buf, MVCCID * mvccid) __attribute__ ((ALWAYS_INLINE));
 
 /* VARIABLE OFFSET TABLE ACCESSORS */
 
-STATIC_INLINE int or_put_big_var_offset (OR_BUF * buf, int num) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_offset (OR_BUF * buf, int num) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_put_offset_internal (OR_BUF * buf, int num, int offset_size) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_big_var_offset (OR_BUF * buf, int num) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_offset (OR_BUF * buf, int num) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE void or_put_offset_internal (OR_BUF * buf, int num, int offset_size) __attribute__ ((ALWAYS_INLINE));
 
-STATIC_INLINE int or_get_big_var_offset (OR_BUF * buf, int *error) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_offset (OR_BUF * buf, int *error) __attribute__ ((ALWAYS_INLINE));
-STATIC_INLINE int or_get_offset_internal (OR_BUF * buf, int *error, int offset_size) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE int or_get_big_var_offset (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE int or_get_offset (OR_BUF * buf) __attribute__ ((ALWAYS_INLINE));
+STATIC_INLINE int or_get_offset_internal (OR_BUF * buf, int offset_size) __attribute__ ((ALWAYS_INLINE));
 
 /* Data unpacking functions */
 
-extern int or_packed_put_varbit (OR_BUF * buf, const char *string, int bitlen);
+extern void or_packed_put_varbit (OR_BUF * buf, const char *string, int bitlen);
 extern int or_packed_put_varchar (OR_BUF * buf, char *string, int charlen);
 extern int or_packed_varchar_length (int charlen);
 extern int or_packed_recdesc_length (int length);
@@ -1322,19 +1320,19 @@ extern OR_VARINFO *or_get_var_table_internal (OR_BUF * buf, int nvars, char *(*a
 extern int or_packed_domain_size (struct tp_domain *domain, int include_classoids);
 extern char *or_pack_domain (char *ptr, struct tp_domain *domain, int include_classoids, int is_null);
 extern char *or_unpack_domain (char *ptr, struct tp_domain **domain_ptr, int *is_null);
-extern int or_put_domain (OR_BUF * buf, struct tp_domain *domain, int include_classoids, int is_null);
+extern void or_put_domain (OR_BUF * buf, struct tp_domain *domain, int include_classoids, int is_null);
 extern struct tp_domain *or_get_domain (OR_BUF * buf, struct tp_domain *dom, int *is_null);
-extern int or_put_sub_domain (OR_BUF * buf);
+extern void or_put_sub_domain (OR_BUF * buf);
 
 /* SET functions */
 extern void or_packed_set_info (DB_TYPE set_type, struct tp_domain *domain, int include_domain, int *bound_bits,
 				int *offset_table, int *element_tags, int *element_size);
 
-extern int or_put_set_header (OR_BUF * buf, DB_TYPE set_type, int size, int domain, int bound_bits, int offset_table,
-			      int element_tags, int common_sub_header);
+extern void or_put_set_header (OR_BUF * buf, DB_TYPE set_type, int size, int domain, int bound_bits, int offset_table,
+			       int element_tags, int common_sub_header);
 
-extern int or_get_set_header (OR_BUF * buf, DB_TYPE * set_type, int *size, int *domain, int *bound_bits,
-			      int *offset_table, int *element_tags, int *common_sub_header);
+extern void or_get_set_header (OR_BUF * buf, DB_TYPE * set_type, int *size, int *domain, int *bound_bits,
+			       int *offset_table, int *element_tags, int *common_sub_header);
 
 extern int or_skip_set_header (OR_BUF * buf);
 
@@ -1455,35 +1453,31 @@ or_init (OR_BUF * buf, char *data, int length)
 /*
  * or_seek - This sets the translation pointer directly to a certain byte in
  * the buffer.
- *    return: ERROR_SUCCESS or error code
  *    buf(in/out): or buffer
  *    psn(in): position within buffer
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_seek (OR_BUF * buf, int psn)
 {
   assert (buf->buffer + psn <= buf->endptr);
   buf->ptr = buf->buffer + psn;
-  return NO_ERROR;
 }
 
 /*
  * or_advance - This advances the translation pointer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    offset(in): number of bytes to skip
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_advance (OR_BUF * buf, int offset)
 {
   assert (buf->ptr + offset <= buf->endptr);
   buf->ptr += offset;
-  return NO_ERROR;
 }
 
 /*
  * or_pad - This advances the translation pointer and adds bytes of zero.
- *    return: NO_ERROR or error code
+ *    return: void
  *    buf(in/out): or buffer
  *    length(in): number of bytes to pad
  *
@@ -1492,58 +1486,49 @@ or_advance (OR_BUF * buf, int offset)
  *    This is used add padding bytes to ensure proper alignment of
  *    some data types.
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_pad (OR_BUF * buf, int length)
 {
   assert (buf->ptr + length <= buf->endptr);
   (void) memset (buf->ptr, 0, length);
   buf->ptr += length;
-  return NO_ERROR;
 }
 
 /*
  * or_put_align32 - pad zero bytes round up to 4 byte bound
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_align32 (OR_BUF * buf)
 {
   unsigned int bits;
-  int rc = NO_ERROR;
-
   bits = (UINTPTR) buf->ptr & 3;
   if (bits)
     {
-      rc = or_pad (buf, 4 - bits);
+      or_pad (buf, 4 - bits);
     }
-
-  return rc;
 }
 
 /*
  * or_align () - Align current buffer pointer to given alignment.
  *
- * return	 : Error code.
  * buf (in/out)	 : Buffer.
  * alignment (in) : Desired alignment.
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_align (OR_BUF * buf, int alignment)
 {
   char *new_ptr = PTR_ALIGN (buf->ptr, alignment);
   assert (new_ptr <= buf->endptr);
   buf->ptr = new_ptr;
-  return NO_ERROR;
 }
 
 /*
  * or_get_align - adnvance or buf pointer to next alignment position
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    align(in):
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_align (OR_BUF * buf, int align)
 {
   char *ptr;
@@ -1551,47 +1536,38 @@ or_get_align (OR_BUF * buf, int align)
   ptr = PTR_ALIGN (buf->ptr, align);
   assert (ptr <= buf->endptr);
   buf->ptr = ptr;
-  return NO_ERROR;
 }
 
 /*
  * or_get_align32 - adnvance or buf pointer to next 4 byte alignment position
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_align32 (OR_BUF * buf)
 {
   unsigned int bits;
-  int rc = NO_ERROR;
 
   bits = (UINTPTR) (buf->ptr) & 3;
   if (bits)
     {
-      rc = or_advance (buf, 4 - bits);
+      or_advance (buf, 4 - bits);
     }
-
-  return rc;
 }
 
 /*
  * or_get_align64 - adnvance or buf pointer to next 8 byte alignment position
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_align64 (OR_BUF * buf)
 {
   unsigned int bits;
-  int rc = NO_ERROR;
 
   bits = (UINTPTR) (buf->ptr) & 7;
   if (bits)
     {
-      rc = or_advance (buf, 8 - bits);
+      or_advance (buf, 8 - bits);
     }
-
-  return rc;
 }
 
 /*
@@ -1603,99 +1579,89 @@ or_get_align64 (OR_BUF * buf)
 
 /*
  * or_put_byte - put a byte to or buffer
- *    return: NO_ERROR or error code
  *    buf(out/out): or buffer
  *    num(in): byte value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_byte (OR_BUF * buf, int num)
 {
   assert (buf->ptr + OR_BYTE_SIZE <= buf->endptr);
   OR_PUT_BYTE (buf->ptr, num);
   buf->ptr += OR_BYTE_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_byte - read a byte value from or buffer
  *    return: byte value read
  *    buf(in/out): or buffer
- *    error(out): NO_ERROR or error code
  */
 STATIC_INLINE int
-or_get_byte (OR_BUF * buf, int *error)
+or_get_byte (OR_BUF * buf)
 {
   int value = 0;
 
   assert (buf->ptr + OR_BYTE_SIZE <= buf->endptr);
   value = OR_GET_BYTE (buf->ptr);
   buf->ptr += OR_BYTE_SIZE;
-  *error = NO_ERROR;
 
   return value;
 }
 
 /*
  * or_put_short - put a short value to or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    num(in): short value to put
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_short (OR_BUF * buf, int num)
 {
   ASSERT_ALIGN (buf->ptr, SHORT_ALIGNMENT);
-
   assert (buf->ptr + OR_SHORT_SIZE <= buf->endptr);
+
   OR_PUT_SHORT (buf->ptr, num);
   buf->ptr += OR_SHORT_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_short - read a short value from or buffer
  *    return: short value read
  *    buf(in/out): or buffer
- *    error(out): NO_ERROR or error code
  */
 STATIC_INLINE int
-or_get_short (OR_BUF * buf, int *error)
+or_get_short (OR_BUF * buf)
 {
   int value = 0;
 
   ASSERT_ALIGN (buf->ptr, SHORT_ALIGNMENT);
-
   assert (buf->ptr + OR_SHORT_SIZE <= buf->endptr);
+
   value = OR_GET_SHORT (buf->ptr);
   buf->ptr += OR_SHORT_SIZE;
-  *error = NO_ERROR;
   return value;
 }
 
 /*
  * or_put_int - put int value to or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    num(in): int value to put
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_int (OR_BUF * buf, int num)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
   assert (buf->ptr + OR_INT_SIZE <= buf->endptr);
+
   OR_PUT_INT (buf->ptr, num);
   buf->ptr += OR_INT_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_int - get int value from or buffer
  *    return: int value read
  *    buf(in/out): or buffer
- *    error(out): NO_ERROR or error code
  */
 STATIC_INLINE int
-or_get_int (OR_BUF * buf, int *error)
+or_get_int (OR_BUF * buf)
 {
   int value = 0;
 
@@ -1704,35 +1670,15 @@ or_get_int (OR_BUF * buf, int *error)
   assert (buf->ptr + OR_INT_SIZE <= buf->endptr);
   value = OR_GET_INT (buf->ptr);
   buf->ptr += OR_INT_SIZE;
-  *error = NO_ERROR;
   return value;
 }
 
 /*
- * or_get_int - get int value from or buffer (for only mr_data_readval)
- *    return: int value read
- *    buf(in/out): or buffer
- *    error(out): NO_ERROR or error code
- */
-STATIC_INLINE int
-or_get_int_no_error (OR_BUF * buf)
-{
-  int value = 0;
-
-  ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
-  value = OR_GET_INT (buf->ptr);
-  buf->ptr += OR_INT_SIZE;
-  return value;
-}
-
-/*
- * or_put_bigint - put bigint value to or buffer
- *    return: NO_ERROR or error code
+ * or_put_bigint - put bigint value to or buffer        
  *    buf(in/out): or buffer
  *    num(in): bigint value to put
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_bigint (OR_BUF * buf, DB_BIGINT num)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
@@ -1740,93 +1686,81 @@ or_put_bigint (OR_BUF * buf, DB_BIGINT num)
   assert (buf->ptr + OR_BIGINT_SIZE <= buf->endptr);
   OR_PUT_BIGINT (buf->ptr, &num);
   buf->ptr += OR_BIGINT_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_bigint - get bigint value from or buffer
  *    return: bigint value read
  *    buf(in/out): or buffer
- *    error(out): NO_ERROR or error code
  */
 STATIC_INLINE DB_BIGINT
-or_get_bigint (OR_BUF * buf, int *error)
+or_get_bigint (OR_BUF * buf)
 {
   DB_BIGINT value = 0;
 
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_BIGINT_SIZE <= buf->endptr);
 
   OR_GET_BIGINT (buf->ptr, &value);
   buf->ptr += OR_BIGINT_SIZE;
-  *error = NO_ERROR;
   return value;
 }
 
 /*
  * or_put_float - put a float value to or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    fnum(in): float value to put
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_float (OR_BUF * buf, float fnum)
 {
   ASSERT_ALIGN (buf->ptr, FLOAT_ALIGNMENT);
-
   assert (buf->ptr + OR_FLOAT_SIZE <= buf->endptr);
+
   OR_PUT_FLOAT (buf->ptr, fnum);
   buf->ptr += OR_FLOAT_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_float - read a float value from or buffer
  *    return: float value read
  *    buf(in/out): or buffer
- *    error(out): NO_ERROR or error code
  */
 STATIC_INLINE float
-or_get_float (OR_BUF * buf, int *error)
+or_get_float (OR_BUF * buf)
 {
   float value = 0.0;
 
   ASSERT_ALIGN (buf->ptr, FLOAT_ALIGNMENT);
-
   assert (buf->ptr + OR_FLOAT_SIZE <= buf->endptr);
 
   OR_GET_FLOAT (buf->ptr, &value);
   buf->ptr += OR_FLOAT_SIZE;
-  *error = NO_ERROR;
   return value;
 }
 
 /*
  * or_put_double - put a double value to or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    dnum(in): double value to put
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_double (OR_BUF * buf, double dnum)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_DOUBLE_SIZE <= buf->endptr);
+
   OR_PUT_DOUBLE (buf->ptr, dnum);
   buf->ptr += OR_DOUBLE_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_double - read a double value from or buffer
  *    return: double value read
  *    buf(in/out): or buffer
- *    error(out): NO_ERROR or error code
  */
 STATIC_INLINE double
-or_get_double (OR_BUF * buf, int *error)
+or_get_double (OR_BUF * buf)
 {
   double value = 0.0;
 
@@ -1835,7 +1769,6 @@ or_get_double (OR_BUF * buf, int *error)
 
   OR_GET_DOUBLE (buf->ptr, &value);
   buf->ptr += OR_DOUBLE_SIZE;
-  *error = NO_ERROR;
   return value;
 }
 
@@ -1847,61 +1780,55 @@ or_get_double (OR_BUF * buf, int *error)
 
 /*
  * or_put_time - write a DB_TIME to or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    timeval(in): time value to write
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_time (OR_BUF * buf, DB_TIME * timeval)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_TIME_SIZE <= buf->endptr);
+
   OR_PUT_TIME (buf->ptr, timeval);
   buf->ptr += OR_TIME_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_time - read a  DB_TIME from or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    timeval(out): pointer to DB_TIME value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_time (OR_BUF * buf, DB_TIME * timeval)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
   assert (buf->ptr + OR_TIME_SIZE <= buf->endptr);
+
   OR_GET_TIME (buf->ptr, timeval);
   buf->ptr += OR_TIME_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_put_utime - write a timestamp value to or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    timeval(in): pointer to timestamp value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_utime (OR_BUF * buf, DB_UTIME * timeval)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_UTIME_SIZE <= buf->endptr);
+
   OR_PUT_UTIME (buf->ptr, timeval);
   buf->ptr += OR_UTIME_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_utime - read a timestamp value from or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    timeval(out): pointer to timestamp value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_utime (OR_BUF * buf, DB_UTIME * timeval)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
@@ -1909,199 +1836,173 @@ or_get_utime (OR_BUF * buf, DB_UTIME * timeval)
 
   OR_GET_UTIME (buf->ptr, timeval);
   buf->ptr += OR_UTIME_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_put_timestamptz - write a timestamp with tz value to or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    ts_tz(in): pointer to DB_TIMESTAMPTZ value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_timestamptz (OR_BUF * buf, DB_TIMESTAMPTZ * ts_tz)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_TIMESTAMPTZ_SIZE <= buf->endptr);
+
   OR_PUT_TIMESTAMPTZ (buf->ptr, ts_tz);
   buf->ptr += OR_TIMESTAMPTZ_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_timestamptz - read a timestamp with tz value from or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    ts_tz(out): pointer to DB_TIMESTAMPTZ value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_timestamptz (OR_BUF * buf, DB_TIMESTAMPTZ * ts_tz)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_TIMESTAMPTZ_SIZE <= buf->endptr);
+
   OR_GET_TIMESTAMPTZ (buf->ptr, ts_tz);
   buf->ptr += OR_TIMESTAMPTZ_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_put_date - write a DB_DATE value to or_buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    date(in): pointer to DB_DATE value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_date (OR_BUF * buf, DB_DATE * date)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_DATE_SIZE <= buf->endptr);
+
   OR_PUT_DATE (buf->ptr, date);
   buf->ptr += OR_DATE_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_date - read a DB_DATE value from or_buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    date(out): pointer to DB_DATE value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_date (OR_BUF * buf, DB_DATE * date)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_DATE_SIZE <= buf->endptr);
+
   OR_GET_DATE (buf->ptr, date);
   buf->ptr += OR_DATE_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_put_datetime - write a datetime value to or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    datetimeval(in): pointer to datetime value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_datetime (OR_BUF * buf, DB_DATETIME * datetimeval)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_DATETIME_SIZE <= buf->endptr);
+
   OR_PUT_DATETIME (buf->ptr, datetimeval);
   buf->ptr += OR_DATETIME_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_datetime - read a DB_DATETIME value from or_buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    date(out): pointer to DB_DATETIME value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_datetime (OR_BUF * buf, DB_DATETIME * datetime)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_DATETIME_SIZE <= buf->endptr);
+
   OR_GET_DATETIME (buf->ptr, datetime);
   buf->ptr += OR_DATETIME_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_put_datetimetz - write a datetime with tz value to or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    datetimetz(in): pointer to DB_DATETIMETZ value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_datetimetz (OR_BUF * buf, DB_DATETIMETZ * datetimetz)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_DATETIMETZ_SIZE <= buf->endptr);
+
   OR_PUT_DATETIMETZ (buf->ptr, datetimetz);
   buf->ptr += OR_DATETIMETZ_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_datetimetz - read a datetime with tz value from or_buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    datetimetz(out): pointer to DB_DATETIMETZ value
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_datetimetz (OR_BUF * buf, DB_DATETIMETZ * datetimetz)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_DATETIMETZ_SIZE <= buf->endptr);
+
   OR_GET_DATETIMETZ (buf->ptr, datetimetz);
   buf->ptr += OR_DATETIMETZ_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_put_data - write an array of bytes to or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    data(in): pointer to data
  *    length(in): length in bytes
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_data (OR_BUF * buf, const char *data, int length)
 {
   assert (buf->ptr + length <= buf->endptr);
+
   (void) memcpy (buf->ptr, data, length);
   buf->ptr += length;
-  return NO_ERROR;
 }
 
 /*
  * or_get_data - read an array of bytes from or buffer for given length
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    data(in): pointer to buffer to read data into
  *    length(in): length of read data
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_data (OR_BUF * buf, char *data, int length)
 {
   assert (buf->ptr + length <= buf->endptr);
+
   (void) memcpy (data, buf->ptr, length);
   buf->ptr += length;
-  return NO_ERROR;
 }
 
 /*
  * or_get_varbit_length - get varbit length from or buffer
- *    return: length of varbit or 0 if error
  *    buf(in/out): or buffer
- *    rc(out): NO_ERROR or error code
  */
 STATIC_INLINE int
-or_get_varbit_length (OR_BUF * buf, int *rc)
+or_get_varbit_length (OR_BUF * buf)
 {
   int net_bitlen = 0, bitlen = 0;
 
   /* unpack the size prefix */
-  bitlen = or_get_byte (buf, rc);
-
-  if (*rc != NO_ERROR)
-    {
-      return bitlen;
-    }
+  bitlen = or_get_byte (buf);
 
   if (bitlen == 0xFF)
     {
-      *rc = or_get_data (buf, (char *) &net_bitlen, OR_INT_SIZE);
+      or_get_data (buf, (char *) &net_bitlen, OR_INT_SIZE);
       bitlen = OR_GET_INT (&net_bitlen);
     }
   return bitlen;
@@ -2111,14 +2012,13 @@ or_get_varbit_length (OR_BUF * buf, int *rc)
  * or_get_varchar_length - get varchar length from or buffer
  *    return: length of varchar or 0 if error.
  *    buf(in/out): or buffer
- *    rc(out): status code
  */
 STATIC_INLINE int
-or_get_varchar_length (OR_BUF * buf, int *rc)
+or_get_varchar_length (OR_BUF * buf)
 {
   int charlen, compressed_length = 0, decompressed_length = 0;
 
-  *rc = or_get_varchar_compression_lengths (buf, &compressed_length, &decompressed_length);
+  or_get_varchar_compression_lengths (buf, &compressed_length, &decompressed_length);
 
   if (compressed_length > 0)
     {
@@ -2135,46 +2035,31 @@ or_get_varchar_length (OR_BUF * buf, int *rc)
 /* or_get_varchar_compression_lengths() - Function to get the compressed length and the uncompressed length of
  *					  a compressed string.
  *
- * return                 : NO_ERROR or error_code.
  * buf(in)                : The buffer where the string is stored.
  * compressed_size(out)   : The compressed size of the string. Set to 0 if the string was not compressed.
  * decompressed_size(out) : The uncompressed size of the string.
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_varchar_compression_lengths (OR_BUF * buf, int *compressed_size, int *decompressed_size)
 {
-  int compressed_length = 0, decompressed_length = 0, rc = NO_ERROR, net_charlen = 0;
+  int compressed_length = 0, decompressed_length = 0, net_charlen = 0;
   int size_prefix = 0;
 
   /* Check if the string is compressed */
-  size_prefix = or_get_string_size_byte (buf, &rc);
-  if (rc != NO_ERROR)
-    {
-      assert (size_prefix == 0);
-      return rc;
-    }
-
+  size_prefix = or_get_string_size_byte (buf);
   if (size_prefix == OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION)
     {
       /* String was compressed */
       /* Get the compressed size */
-      rc = or_get_data (buf, (char *) &net_charlen, OR_INT_SIZE);
+      or_get_data (buf, (char *) &net_charlen, OR_INT_SIZE);
       compressed_length = OR_GET_INT ((char *) &net_charlen);
-      if (rc != NO_ERROR)
-	{
-	  return rc;
-	}
       *compressed_size = compressed_length;
 
       net_charlen = 0;
 
       /* Get the decompressed size */
-      rc = or_get_data (buf, (char *) &net_charlen, OR_INT_SIZE);
+      or_get_data (buf, (char *) &net_charlen, OR_INT_SIZE);
       decompressed_length = OR_GET_INT ((char *) &net_charlen);
-      if (rc != NO_ERROR)
-	{
-	  return rc;
-	}
       *decompressed_size = decompressed_length;
     }
   else
@@ -2183,13 +2068,10 @@ or_get_varchar_compression_lengths (OR_BUF * buf, int *compressed_size, int *dec
       *compressed_size = 0;
       *decompressed_size = size_prefix;
     }
-
-  return rc;
 }
 
 /*
  * or_put_string - write string to or buf
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    str(in): string to write
  *
@@ -2203,78 +2085,55 @@ or_get_varchar_compression_lengths (OR_BUF * buf, int *compressed_size, int *dec
  *    bytes with the string when it is brought in from disk even though
  *    the total length may be more than that returned by strlen.
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_string_aligned (OR_BUF * buf, char *str)
 {
   int len, bits, pad;
-  int rc = NO_ERROR;
 
-  if (str == NULL)
-    {
-      return rc;
-    }
+  assert (str != NULL);
   len = strlen (str) + 1;
-  rc = or_put_data (buf, str, len);
-  if (rc == NO_ERROR)
+  or_put_data (buf, str, len);
+  /* PAD */
+  bits = len & 3;
+  if (bits)
     {
-      /* PAD */
-      bits = len & 3;
-      if (bits)
-	{
-	  pad = 4 - bits;
-	  rc = or_pad (buf, pad);
-	}
+      pad = 4 - bits;
+      or_pad (buf, pad);
     }
-  return rc;
 }
 
 /*
  *  this function also adds
  *  the length of the string to the buffer
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_string_aligned_with_length (OR_BUF * buf, const char *str)
 {
   int len;
-  int rc = NO_ERROR;
 
-  if (str == NULL)
-    {
-      return rc;
-    }
+  assert (str != NULL);
   len = (int) strlen (str) + 1;
 
-  rc = or_put_int (buf, len);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
-
-  rc = or_put_data (buf, str, len);
-  if (rc == NO_ERROR)
-    {
-      or_align (buf, OR_INT_SIZE);
-    }
-  return rc;
+  or_put_int (buf, len);
+  or_put_data (buf, str, len);
+  or_align (buf, OR_INT_SIZE);
 }
 
 /*
  * or_get_string_size_byte - read string size byte value from or buffer
  *    return: byte value read
  *    buf(in/out): or buffer
- *    error(out): NO_ERROR or error code
  *
  * NOTE that it is really same as or_get_byte function. It is duplicated to inline the function for performance.
  */
 STATIC_INLINE int
-or_get_string_size_byte (OR_BUF * buf, int *error)
+or_get_string_size_byte (OR_BUF * buf)
 {
-  int size_prefix;
-
   assert (buf->ptr + OR_BYTE_SIZE <= buf->endptr);
+
+  int size_prefix;
   size_prefix = OR_GET_BYTE (buf->ptr);
   buf->ptr += OR_BYTE_SIZE;
-  *error = NO_ERROR;
   return size_prefix;
 }
 
@@ -2362,91 +2221,66 @@ or_varchar_length_internal (int charlen, int align)
 
 /*
  * or_skip_varbit - skip varbit in or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    align(in):
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_skip_varbit (OR_BUF * buf, int align)
 {
   int bitlen;
-  int rc = NO_ERROR;
 
-  bitlen = or_get_varbit_length (buf, &rc);
-  if (rc == NO_ERROR)
-    {
-      return (or_skip_varbit_remainder (buf, bitlen, align));
-    }
-  return rc;
+  bitlen = or_get_varbit_length (buf);
+  or_skip_varbit_remainder (buf, bitlen, align);
 }
 
 /*
  * or_skip_varchar - skip varchar field (length + data) from or buffer
- *    return: NO_ERROR or error code.
  *    buf(in/out): or buffer
  *    align(in):
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_skip_varchar (OR_BUF * buf, int align)
 {
-  int charlen, rc = NO_ERROR;
+  int charlen;
 
-  charlen = or_get_varchar_length (buf, &rc);
-
-  if (rc == NO_ERROR)
-    {
-      return (or_skip_varchar_remainder (buf, charlen, align));
-    }
-
-  return rc;
+  charlen = or_get_varchar_length (buf);
+  or_skip_varchar_remainder (buf, charlen, align);
 }
 
 /*
  * or_skip_varbit_remainder - skip varbit field of given length in or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    bitlen(in): bitlen to skip
  *    align(in):
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_skip_varbit_remainder (OR_BUF * buf, int bitlen, int align)
 {
-  int rc = NO_ERROR;
-
-  rc = or_advance (buf, BITS_TO_BYTES (bitlen));
-  if (rc == NO_ERROR && align == INT_ALIGNMENT)
+  or_advance (buf, BITS_TO_BYTES (bitlen));
+  if (align == INT_ALIGNMENT)
     {
-      rc = or_get_align32 (buf);
+      or_get_align32 (buf);
     }
-  return rc;
 }
 
 /*
  * or_skip_varchar_remainder - skip varchar field of given length
- *    return: NO_ERROR if successful, error code otherwise
  *    buf(in/out): or buffer
  *    charlen(in): length of varchar field to skip
  *    align(in):
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_skip_varchar_remainder (OR_BUF * buf, int charlen, int align)
 {
-  int rc = NO_ERROR;
-
   if (align == INT_ALIGNMENT)
     {
-      rc = or_advance (buf, charlen + 1);
-      if (rc == NO_ERROR)
-	{
-	  rc = or_get_align32 (buf);
-	}
+      or_advance (buf, charlen + 1);
+      or_get_align32 (buf);
     }
   else
     {
-      rc = or_advance (buf, charlen);
+      or_advance (buf, charlen);
     }
-
-  return rc;
 }
 
 /*
@@ -2456,11 +2290,10 @@ or_skip_varchar_remainder (OR_BUF * buf, int charlen, int align)
 
 /*
  * or_put_oid - write content of an OID structure from or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    oid(in): pointer to OID
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_oid (OR_BUF * buf, const OID * oid)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
@@ -2481,23 +2314,21 @@ or_put_oid (OR_BUF * buf, const OID * oid)
       OR_PUT_OID (buf->ptr, oid);
     }
   buf->ptr += OR_OID_SIZE;
-  return NO_ERROR;
 }
 
 /*
  * or_get_oid - read content of an OID structure from or buffer
- *    return: NO_ERROR or error code
  *    buf(in/out): or buffer
  *    oid(out): pointer to OID
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_oid (OR_BUF * buf, OID * oid)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
   assert (buf->ptr + OR_OID_SIZE <= buf->endptr);
+
   OR_GET_OID (buf->ptr, oid);
   buf->ptr += OR_OID_SIZE;
-  return NO_ERROR;
 }
 
 /*
@@ -2507,15 +2338,14 @@ or_get_oid (OR_BUF * buf, OID * oid)
  * buf (in)    : OR Buffer
  * mvccid (in) : MVCCID
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_mvccid (OR_BUF * buf, MVCCID mvccid)
 {
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
   assert (buf->ptr + OR_MVCCID_SIZE <= buf->endptr);
+
   OR_PUT_MVCCID (buf->ptr, &mvccid);
   buf->ptr += OR_MVCCID_SIZE;
-  return NO_ERROR;
 }
 
 /*
@@ -2523,80 +2353,79 @@ or_put_mvccid (OR_BUF * buf, MVCCID mvccid)
  *
  * return	: MVCCID
  * buf (in/out) : OR Buffer.
- * error (out)  : Error code.
  */
-STATIC_INLINE int
+STATIC_INLINE void
 or_get_mvccid (OR_BUF * buf, MVCCID * mvccid)
 {
   assert (mvccid != NULL);
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
+  assert (buf->ptr + OR_MVCCID_SIZE <= buf->endptr);
 
   *mvccid = MVCCID_NULL;
-  assert (buf->ptr + OR_MVCCID_SIZE <= buf->endptr);
+
   OR_GET_MVCCID (buf->ptr, mvccid);
   buf->ptr += OR_MVCCID_SIZE;
-  return NO_ERROR;
 }
 
 /* VARIABLE OFFSET TABLE ACCESSORS */
 
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_big_var_offset (OR_BUF * buf, int num)
 {
-  return or_put_int (buf, num);
+  or_put_int (buf, num);
 }
 
 STATIC_INLINE int
-or_get_big_var_offset (OR_BUF * buf, int *error)
+or_get_big_var_offset (OR_BUF * buf)
 {
-  return or_get_int (buf, error);
+  return or_get_int (buf);
 }
 
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_offset (OR_BUF * buf, int num)
 {
-  return or_put_big_var_offset (buf, num);
+  or_put_big_var_offset (buf, num);
 }
 
 STATIC_INLINE int
-or_get_offset (OR_BUF * buf, int *error)
+or_get_offset (OR_BUF * buf)
 {
-  return or_get_big_var_offset (buf, error);
+  return or_get_big_var_offset (buf);
 }
 
-STATIC_INLINE int
+STATIC_INLINE void
 or_put_offset_internal (OR_BUF * buf, int num, int offset_size)
 {
   if (offset_size == OR_BYTE_SIZE)
     {
-      return or_put_byte (buf, num);
+      or_put_byte (buf, num);
     }
   else if (offset_size == OR_SHORT_SIZE)
     {
-      return or_put_short (buf, num);
+      or_put_short (buf, num);
     }
   else
     {
       assert (offset_size == OR_INT_SIZE);
-      return or_put_int (buf, num);
+      or_put_int (buf, num);
     }
 }
 
 STATIC_INLINE int
-or_get_offset_internal (OR_BUF * buf, int *error, int offset_size)
+or_get_offset_internal (OR_BUF * buf, int offset_size)
 {
   if (offset_size == OR_BYTE_SIZE)
     {
-      return or_get_byte (buf, error);
+      return or_get_byte (buf);
     }
   else if (offset_size == OR_SHORT_SIZE)
     {
-      return or_get_short (buf, error);
+      return or_get_short (buf);
     }
   else
     {
       assert (offset_size == OR_INT_SIZE);
-      return or_get_int (buf, error);
+      return or_get_int (buf);
     }
 }
 
