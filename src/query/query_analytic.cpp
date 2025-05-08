@@ -226,11 +226,8 @@ qdata_evaluate_analytic_func (cubthread::entry *thread_p, ANALYTIC_TYPE *func_p,
 	{
 	  or_init (&buf, disk_repr_p, dbval_size);
 	  error = pr_type_p->data_writeval (&buf, &dbval);
-	  if (error != NO_ERROR)
+	  if (buf.ptr > buf.endptr)
 	    {
-	      /* ER_TF_BUFFER_OVERFLOW means that val_size or packing is bad. */
-	      assert (error != ER_TF_BUFFER_OVERFLOW);
-
 	      db_private_free_and_init (thread_p, disk_repr_p);
 	      error = ER_FAILED;
 	      goto exit;

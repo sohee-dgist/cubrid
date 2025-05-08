@@ -5377,7 +5377,7 @@ mr_data_readval_object (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int 
 	      db_make_object (value, ws_mop (&oid, NULL));
 	      if (db_get_object (value) == NULL)
 		{
-		  or_abort (buf);
+		  assert (false);
 		  return ER_FAILED;
 		}
 	    }
@@ -5993,7 +5993,9 @@ mr_data_readmem_elo (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size)
   elo = (DB_ELO *) db_private_alloc (NULL, sizeof (DB_ELO));
   if (elo == NULL)
     {
-      or_abort (buf);
+      rc = ER_OUT_OF_VIRTUAL_MEMORY;
+      assert (false);
+      return;
     }
   else
     {
@@ -6003,7 +6005,8 @@ mr_data_readmem_elo (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size)
       if (rc != NO_ERROR)
 	{
 	  db_private_free_and_init (NULL, elo);
-	  or_abort (buf);
+	  assert (false);
+	  return;
 	}
     }
 
@@ -7093,7 +7096,7 @@ mr_data_writeval_set (OR_BUF * buf, DB_VALUE * value)
 	  /* check for overflow */
 	  if ((((ptrdiff_t) (buf->endptr - buf->ptr)) < (ptrdiff_t) ref->disk_size))
 	    {
-	      return or_overflow (buf);
+	      return ER_TF_BUFFER_UNDERFLOW;
 	    }
 	  else
 	    {
@@ -7122,7 +7125,7 @@ mr_data_writeval_set (OR_BUF * buf, DB_VALUE * value)
 #if !defined (SERVER_MODE)
 		      (void) ws_pin (ref->owner, pin);
 #endif
-		      return or_overflow (buf);
+		      return ER_TF_BUFFER_UNDERFLOW;
 		    }
 		  else
 		    {
@@ -7175,7 +7178,9 @@ mr_data_readmem_set (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size)
 	    }
 	  else
 	    {
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+	      assert (false);
+	      return;
 	    }
 	}
     }
@@ -7201,7 +7206,7 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	    }
 	  else
 	    {
-	      or_abort (buf);
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	}
@@ -7236,7 +7241,7 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	  set = or_get_set (buf, domain);
 	  if (set == NULL)
 	    {
-	      or_abort (buf);
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -7244,7 +7249,7 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	      ref = setobj_get_reference (set);
 	      if (ref == NULL)
 		{
-		  or_abort (buf);
+		  assert (false);
 		  return ER_FAILED;
 		}
 	      else
@@ -7272,7 +7277,7 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	  ref = set_make_reference ();
 	  if (ref == NULL)
 	    {
-	      or_abort (buf);
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -7677,7 +7682,7 @@ mr_index_readval_midxkey (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	{
 	  /* need to be able to return errors ! */
 	  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	  or_abort (buf);
+	  assert (false);
 	  return ER_FAILED;
 	}
       else
@@ -8446,7 +8451,8 @@ mr_data_readmem_numeric (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
       if (size != OR_NUMERIC_SIZE (domain->precision))
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+	  assert (false);
+	  return;
 	}
       else
 	{
@@ -10345,7 +10351,6 @@ mr_data_readmem_string (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	  rc = or_get_varchar_compression_lengths (buf, &compressed_size, &len);
 	  if (rc != NO_ERROR)
 	    {
-	      or_abort (buf);
 	      return;
 	    }
 
@@ -10358,7 +10363,9 @@ mr_data_readmem_string (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	  new_ = (char *) db_private_alloc (NULL, mem_length);
 	  if (new_ == NULL)
 	    {
-	      or_abort (buf);
+	      assert (false);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, mem_length);
+	      return;
 	    }
 	  else
 	    {
@@ -10371,7 +10378,7 @@ mr_data_readmem_string (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	      if (rc != NO_ERROR)
 		{
 		  db_private_free (NULL, new_);
-		  or_abort (buf);
+		  assert (false);
 		  return;
 		}
 	      /* align like or_get_varchar */
@@ -10859,7 +10866,8 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 		{
 		  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
 		}
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (str_length + 1) * sizeof (char));
 	      return ER_FAILED;
 	    }
 	  else
@@ -11681,7 +11689,8 @@ mr_data_readmem_char (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
       if (size != -1 && mem_length > size)
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+	  assert (false);
+	  return;
 	}
       or_get_data (buf, (char *) mem, mem_length);
 
@@ -12004,8 +12013,9 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	      or_abort (buf);
-
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (mem_length + 1) * sizeof (char));
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -12041,7 +12051,7 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	   * smaller value.  Still the domain should match at this point.
 	   */
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+	  assert (false);
 	  return ER_FAILED;
 	}
 
@@ -12084,8 +12094,9 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), domain->precision, 0);
-	      or_abort (buf);
-
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (mem_length + 1) * sizeof (char));
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -12542,7 +12553,8 @@ mr_data_readmem_nchar (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
       if (size != -1 && mem_length > size)
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+	  assert (false);
+	  return;
 	}
       or_get_data (buf, (char *) mem, mem_length);
 
@@ -12927,8 +12939,9 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	      or_abort (buf);
-
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (mem_length + 1) * sizeof (char));
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -12960,8 +12973,7 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 	   * smaller value.  Still the domain should match at this point.
 	   */
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
-
+	  assert (false);
 	  return ER_FAILED;
 	}
 
@@ -13003,8 +13015,9 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), domain->precision, 0);
-	      or_abort (buf);
-
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (mem_length + 1) * sizeof (char));
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -13957,7 +13970,9 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 		{
 		  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
 		}
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (str_length + 1) * sizeof (char));
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -14557,7 +14572,8 @@ mr_data_readmem_bit (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
       if (size != -1 && mem_length > size)
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+	  assert (false);
+	  return;
 	}
       or_get_data (buf, (char *) mem, mem_length);
 
@@ -14870,8 +14886,10 @@ mr_readval_bit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	      or_abort (buf);
 
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (mem_length + 1) * sizeof (char));
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -14904,7 +14922,7 @@ mr_readval_bit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
 	   * smaller value.  Still the domain should match at this point.
 	   */
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+	  assert (false);
 
 	  return ER_FAILED;
 	}
@@ -14939,8 +14957,9 @@ mr_readval_bit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), domain->precision, 0);
-	      or_abort (buf);
-
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (mem_length + 1) * sizeof (char));
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -15349,7 +15368,10 @@ mr_data_readmem_varbit (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	  new_ = (char *) db_private_alloc (NULL, mem_length);
 	  if (new_ == NULL)
 	    {
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (mem_length + 1) * sizeof (char));
+	      assert (false);
+	      return;
 	    }
 	  else
 	    {
@@ -15638,7 +15660,9 @@ mr_readval_varbit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 		{
 		  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
 		}
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (str_length + 1) * sizeof (char));
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -16298,11 +16322,6 @@ cleanup:
       free_and_init (compressed_string);
     }
 
-  if (rc == ER_TF_BUFFER_OVERFLOW)
-    {
-      return or_overflow (buf);
-    }
-
   return rc;
 }
 
@@ -16932,7 +16951,7 @@ mr_data_writeval_json (OR_BUF * buf, DB_VALUE * value)
        * of buffer overflow, leaking memory in the process,
        * we need to take care of it here
        */
-      (void) or_overflow (buf);
+      return ER_TF_BUFFER_UNDERFLOW;
     }
 
 

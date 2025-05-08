@@ -525,7 +525,9 @@ tf_need_permanent_oid (or_buf * buf, DB_OBJECT * obj)
 
       if (tf_add_fixup (buf->fixups, obj, buf->ptr) != NO_ERROR)
 	{
-	  or_abort (buf);
+	  // already set error code in tf_add_fixup
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -547,7 +549,8 @@ tf_need_permanent_oid (or_buf * buf, DB_OBJECT * obj)
 	    }
 
 	  /* this is serious */
-	  or_abort (buf);
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -692,8 +695,6 @@ re_check:
 
 /*
  * put_attributes - Write the fixed and variable attribute values.
- *    return: on overflow, or_overflow will call longjmp and jump to the
- *    outer caller
  *    buf(in/out): translation buffer
  *    obj(in): instance memory
  *    class(in): class structure
@@ -728,7 +729,7 @@ put_attributes (OR_BUF * buf, char *obj, SM_CLASS * class_)
   else if (pad > class_->fixed_size)
     {				/* mismatched fixed block calculations */
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-      or_abort (buf);
+      return ER_SM_CORRUPTED;
     }
 
   /* write the bound bits */
@@ -926,7 +927,10 @@ get_current (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int bound_bit_flag
       vars = (int *) db_ws_alloc (sizeof (int) * class_->variable_count);
       if (vars == NULL)
 	{
-	  or_abort (buf);
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		  (size_t) (class_->variable_count * sizeof (int)));
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -955,7 +959,9 @@ get_current (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int bound_bit_flag
 	{
 	  db_ws_free (vars);
 	}
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, class_->object_size);
+      assert (false);
+      return NULL;
     }
   else
     {
@@ -1117,7 +1123,9 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 
       if (obj == NULL)
 	{
-	  or_abort (buf);
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, class_->object_size);
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -1131,7 +1139,9 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 	      vars = (int *) db_ws_alloc (sizeof (int) * oldrep->variable_count);
 	      if (vars == NULL)
 		{
-		  or_abort (buf);
+		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+			  (size_t) (oldrep->variable_count * sizeof (int)));
+		  assert (false);
 		  return NULL;
 		}
 	      else
@@ -1160,7 +1170,9 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 		    {
 		      db_ws_free (vars);
 		    }
-		  or_abort (buf);
+		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+			  (size_t) (total * sizeof (SM_ATTRIBUTE *)));
+		  assert (false);
 		  return NULL;
 		}
 	      else
@@ -1189,7 +1201,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 		      db_ws_free (vars);
 		    }
 
-		  or_abort (buf);
+		  assert (false);
 		  return NULL;
 		}
 
@@ -1220,10 +1232,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 	    {
 	      bits = buf->ptr;
 	      bytes = OR_BOUND_BIT_BYTES (oldrep->fixed_count);
-	      if ((buf->ptr + bytes) > buf->endptr)
-		{
-		  or_overflow (buf);
-		}
+	      assert (bytes <= (buf->endptr - buf->ptr));
 	      rat = oldrep->attributes;
 	      for (i = 0; i < oldrep->fixed_count && rat != NULL && attmap != NULL; i++, rat = rat->next)
 		{
@@ -1252,7 +1261,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 		      db_ws_free (attmap);
 		      db_ws_free (vars);
 
-		      or_abort (buf);
+		      assert (false);
 		      return NULL;
 		    }
 
@@ -1625,8 +1634,6 @@ or_pack_mop (OR_BUF * buf, MOP mop)
 /*
  * put_object_set - Translates a list objects into the disk representation of a
  * sequence of objects
- *    return: on overflow, or_overflow will call longjmp and jump to the outer
- *            caller
  *    buf(in/out): translation buffer
  *    list(in): object list
  */
@@ -1710,7 +1717,9 @@ get_object_set (OR_BUF * buf, int expected)
 	  if (ml_append (&list, op, NULL))
 	    {
 	      /* memory error */
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (DB_OBJLIST));
+	      assert (false);
+	      return NULL;
 	    }
 	}
     }
@@ -1866,7 +1875,7 @@ get_substructure_set (OR_BUF * buf, LREADER reader, int expected)
 	}
       else
 	{
-	  or_abort (buf);
+	  assert (false);
 	}
     }
   return (list);
@@ -1981,7 +1990,11 @@ get_property_list (OR_BUF * buf, int expected_size)
       tp_Sequence.data_readval (buf, &value, NULL, expected_size, true, NULL, 0);
       properties = db_get_set (&value);
       if (properties == NULL)
-	or_abort (buf);		/* trouble allocating a handle */
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+	  assert (false);
+	  return NULL;
+	}
       else
 	{
 	  max = set_size (properties);
@@ -2110,7 +2123,8 @@ disk_to_domain2 (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_domain.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
       return NULL;
     }
 
@@ -2120,7 +2134,8 @@ disk_to_domain2 (OR_BUF * buf)
   if (domain == NULL)
     {
       free_var_table (vars);
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (TP_DOMAIN));
+      assert (false);
       return NULL;
     }
 
@@ -2148,7 +2163,9 @@ disk_to_domain2 (OR_BUF * buf)
       if (domain->class_mop == NULL)
 	{
 	  free_var_table (vars);
-	  or_abort (buf);
+	  assert (false);
+	  /* error set in ws_mop */
+	  return NULL;
 	}
     }
   domain->setdomain = (TP_DOMAIN *) get_substructure_set (buf, (LREADER) disk_to_domain2,
@@ -2159,7 +2176,8 @@ disk_to_domain2 (OR_BUF * buf)
     {
       free_var_table (vars);
       tp_domain_free (domain);
-      or_abort (buf);
+      assert (false);
+      /* error set in get_enumeration */
       return NULL;
     }
 
@@ -2230,7 +2248,6 @@ disk_to_domain (OR_BUF * buf)
  *    arg(in): method argument
  * Note:
  *    Write the memory representation of a method argument to disk.
- *    On overflow, or_overflow will call longjmp and jump to the outer caller
  */
 static void
 metharg_to_disk (OR_BUF * buf, SM_METHOD_ARGUMENT * arg)
@@ -2302,14 +2319,17 @@ disk_to_metharg (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_metharg.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
       return NULL;
     }
 
   arg = classobj_make_method_arg (0);
   if (arg == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_METHOD_ARGUMENT));
+      assert (false);
+      return NULL;
     }
   else
     {
@@ -2336,9 +2356,7 @@ disk_to_metharg (OR_BUF * buf)
  *    return: void
  *    buf(in/out): translation buffer
  *    sig(in): signature
- * Note:
- * On overflow, or_overflow will call longjmp and jump to the outer caller
- *
+ * Note: overflow shouldn't be handled here
  */
 static int
 methsig_to_disk (OR_BUF * buf, SM_METHOD_SIGNATURE * sig)
@@ -2428,7 +2446,9 @@ disk_to_methsig (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_methsig.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return NULL;
     }
   else
     {
@@ -2436,7 +2456,9 @@ disk_to_methsig (OR_BUF * buf)
       sig = classobj_make_method_signature (NULL);
       if (sig == NULL)
 	{
-	  or_abort (buf);
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_METHOD_SIGNATURE));
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -2454,7 +2476,9 @@ disk_to_methsig (OR_BUF * buf)
 	      fix = ws_copy_string (fname + 1);
 	      if (fix == NULL)
 		{
-		  or_abort (buf);
+		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, strlen (fname) + 1);
+		  assert (false);
+		  return NULL;
 		}
 	      else
 		{
@@ -2483,8 +2507,7 @@ disk_to_methsig (OR_BUF * buf)
  *    return:
  *    buf(in/out): translation buffer
  *    method(in): method structure
- * Note:
- *    On overflow, or_overflow will call longjmp and jump to the outer caller
+ *    Note: overflow shouldn't be handled here
  */
 static int
 method_to_disk (OR_BUF * buf, SM_METHOD * method)
@@ -2578,7 +2601,9 @@ disk_to_method (OR_BUF * buf, SM_METHOD * method)
   vars = read_var_table (buf, tf_Metaclass_method.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return;
     }
   else
     {
@@ -2611,8 +2636,7 @@ disk_to_method (OR_BUF * buf, SM_METHOD * method)
  *    return: NO_ERROR, or error code
  *    buf(in/out): translation buffer
  *    file(in): method file
- * Note:
- *    on overflow, or_overflow will call longjmp and jump to the outer caller
+ * Note: overflow shouldn't be handled here
  */
 static int
 methfile_to_disk (OR_BUF * buf, SM_METHOD_FILE * file)
@@ -2699,14 +2723,18 @@ disk_to_methfile (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_methfile.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return NULL;
     }
   else
     {
       file = classobj_make_method_file (NULL);
       if (file == NULL)
 	{
-	  or_abort (buf);
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_METHOD_FILE));
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -2804,14 +2832,18 @@ disk_to_query_spec (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_query_spec.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return NULL;
     }
   else
     {
       statement = classobj_make_query_spec (NULL);
       if (statement == NULL)
 	{
-	  or_abort (buf);
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_QUERY_SPEC));
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -2825,11 +2857,9 @@ disk_to_query_spec (OR_BUF * buf)
 
 /*
  * attribute_to_disk - Write the disk representation of an attribute.
- *    return: on overflow, or_overflow will call longjmp and                        jump to the outer caller
  *    buf(in/out): translation buffer
  *    att(in): attribute
- * Note:
- *    On overflow, or_overflow will call longjmp and jump to the outer caller
+ *    Note: overflow shouldn't be handled here
  */
 static int
 attribute_to_disk (OR_BUF * buf, SM_ATTRIBUTE * att)
@@ -2982,7 +3012,9 @@ disk_to_attribute (OR_BUF * buf, SM_ATTRIBUTE * att)
   vars = read_var_table (buf, tf_Metaclass_attribute.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return;
     }
   else
     {
@@ -3236,7 +3268,9 @@ disk_to_resolution (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_resolution.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return NULL;
     }
   else
     {
@@ -3254,7 +3288,9 @@ disk_to_resolution (OR_BUF * buf)
 	  res = classobj_make_resolution (NULL, NULL, NULL, name_space);
 	  if (res == NULL)
 	    {
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_RESOLUTION));
+	      assert (false);
+	      return NULL;
 	    }
 	  else
 	    {
@@ -3275,8 +3311,7 @@ disk_to_resolution (OR_BUF * buf)
  *    return: NO_ERROR or error code
  *    buf(in): translation buffer
  *    rat(in): attribute
- * Note:
- *    On overflow, or_overflow will call longjmp and jump to the outer caller
+ * Note: overflow shouldn't be handled here
  */
 static int
 repattribute_to_disk (OR_BUF * buf, SM_REPR_ATTRIBUTE * rat)
@@ -3351,7 +3386,8 @@ disk_to_repattribute (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_repattribute.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
       return NULL;
     }
 
@@ -3361,7 +3397,8 @@ disk_to_repattribute (OR_BUF * buf)
   if (rat == NULL)
     {
       free_var_table (vars);
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_REPR_ATTRIBUTE));
+      assert (false);
       return NULL;
     }
 
@@ -3399,8 +3436,7 @@ representation_size (SM_REPRESENTATION * rep)
  *    return: NO_ERROR
  *    buf(in/out): translation buffer
  *    rep(in): representation
- * Note:
- *    On overflow, or_overflow will call longjmp and jump to the outer caller
+ *    Note: overflow shouldn't be handled here
  */
 static int
 representation_to_disk (OR_BUF * buf, SM_REPRESENTATION * rep)
@@ -3463,7 +3499,8 @@ disk_to_representation (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_representation.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
       return NULL;
     }
 
@@ -3472,7 +3509,8 @@ disk_to_representation (OR_BUF * buf)
   if (rep == NULL)
     {
       free_var_table (vars);
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_REPRESENTATION));
+      assert (false);
       return NULL;
     }
   else
@@ -3745,7 +3783,9 @@ class_to_disk (OR_BUF * buf, SM_CLASS * class_)
    * conversion routines */
   if (!check_class_structure (class_))
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return;
     }
   else
     {
@@ -3757,7 +3797,8 @@ class_to_disk (OR_BUF * buf, SM_CLASS * class_)
       if (start + offset + OR_NON_MVCC_HEADER_SIZE != buf->ptr)
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_OUT_OF_SYNC, 0);
-	  or_abort (buf);
+	  assert (false);
+	  return;
 	}
     }
 }
@@ -4273,7 +4314,9 @@ disk_to_root (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_root.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return NULL;
     }
   else
     {
@@ -4906,7 +4949,8 @@ disk_to_partition_info (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_partition.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
       return NULL;
     }
 
@@ -4915,7 +4959,9 @@ disk_to_partition_info (OR_BUF * buf)
   partition_info = classobj_make_partition_info ();
   if (partition_info == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_PARTITION));
+      assert (false);
+      return NULL;
     }
   else
     {

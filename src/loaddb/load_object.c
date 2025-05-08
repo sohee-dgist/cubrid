@@ -470,7 +470,6 @@ error:
     {
       free_and_init (bits);
     }
-  or_abort (buf);
 }
 
 /*
@@ -785,7 +784,7 @@ get_desc_old (OR_BUF * buf, SM_CLASS * class_, int repid, DESC_OBJ * obj, int bo
       bytes = OR_BOUND_BIT_BYTES (oldrep->fixed_count);
       if ((buf->ptr + bytes) > buf->endptr)
 	{
-	  or_overflow (buf);
+	  goto abort_on_error;
 	}
 
       rat = oldrep->attributes;
@@ -884,7 +883,7 @@ abort_on_error:
       free (vars);
     }
 
-  or_abort (buf);
+  assert (false);		// or abort do nothing here
 }
 
 /*
@@ -908,7 +907,6 @@ abort_on_error:
 int
 desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * obj, bool is_unloaddb)
 {
-  volatile int error = NO_ERROR;
   OR_BUF orep, *buf;
   int repid;
   unsigned int repid_bits;
@@ -973,6 +971,12 @@ desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * ob
     }
 
   pr_Inhibit_oid_promotion = save;
+
+  if (buf->ptr > buf->endptr)
+    {
+      return ER_TF_BUFFER_UNDERFLOW;
+    }
+
   return NO_ERROR;
 }
 
