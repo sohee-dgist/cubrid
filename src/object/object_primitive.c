@@ -16942,19 +16942,6 @@ mr_data_writeval_json (OR_BUF * buf, DB_VALUE * value)
       return ER_FAILED;
     }
 
-
-  int estimated_length = mr_data_lengthval_json (value, true);
-
-  if ((ptrdiff_t) estimated_length > ((ptrdiff_t) (buf->endptr - buf->ptr)))
-    {
-      /* this will make string_data_writeval jump because
-       * of buffer overflow, leaking memory in the process,
-       * we need to take care of it here
-       */
-      return ER_TF_BUFFER_UNDERFLOW;
-    }
-
-
   JSON_DOC *json_doc = db_get_json_document (value);
   rc = db_json_serialize (*json_doc, *buf);
   if (rc != NO_ERROR)
