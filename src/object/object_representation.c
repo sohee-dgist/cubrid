@@ -5077,8 +5077,8 @@ or_pack_mem_value (char *ptr, DB_VALUE * value, int *packed_len_except_alignment
 	}
 
 
-	  or_get_align64 (buf);
-	  rc = type->data_writeval (buf, value);
+      or_get_align64 (buf);
+      rc = type->data_writeval (buf, value);
     }
 
   if (rc == NO_ERROR)
