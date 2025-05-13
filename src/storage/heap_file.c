@@ -7737,21 +7737,11 @@ heap_get_mvcc_header (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context, MVCC_
 	  assert (false);
 	  return S_ERROR;
 	}
-      if (or_mvcc_get_header (&peek_recdes, mvcc_header) != NO_ERROR)
-	{
-	  /* Unexpected. */
-	  assert (false);
-	  return S_ERROR;
-	}
+      or_mvcc_get_header (&peek_recdes, mvcc_header);
       return S_SUCCESS;
     case REC_BIGONE:
       assert (forward_page != NULL);
-      if (heap_get_mvcc_rec_header_from_overflow (forward_page, mvcc_header, &peek_recdes) != NO_ERROR)
-	{
-	  /* Unexpected. */
-	  assert (false);
-	  return S_ERROR;
-	}
+      heap_get_mvcc_rec_header_from_overflow (forward_page, mvcc_header, &peek_recdes);
       return S_SUCCESS;
     case REC_RELOCATION:
       assert (forward_page != NULL);
@@ -7762,12 +7752,7 @@ heap_get_mvcc_header (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context, MVCC_
 	  assert (false);
 	  return S_ERROR;
 	}
-      if (or_mvcc_get_header (&peek_recdes, mvcc_header) != NO_ERROR)
-	{
-	  /* Unexpected. */
-	  assert (false);
-	  return S_ERROR;
-	}
+      or_mvcc_get_header (&peek_recdes, mvcc_header);
       return S_SUCCESS;
     default:
       /* Unexpected. */
@@ -14997,12 +14982,7 @@ heap_chkreloc_next (THREAD_ENTRY * thread_p, HEAP_CHKALL_RELOCOIDS * chk, PAGE_P
 		  chk->not_vacuumed_res = DISK_ERROR;
 		  return DISK_ERROR;
 		}
-	      if (heap_get_mvcc_rec_header_from_overflow (overflow_page, &rec_header, &recdes) != NO_ERROR)
-		{
-		  pgbuf_unfix_and_init (thread_p, overflow_page);
-		  chk->not_vacuumed_res = DISK_ERROR;
-		  return DISK_ERROR;
-		}
+	      heap_get_mvcc_rec_header_from_overflow (overflow_page, &rec_header, &recdes);
 	      pgbuf_unfix_and_init (thread_p, overflow_page);
 
 	      /* check header */
@@ -16261,11 +16241,7 @@ heap_rv_mvcc_undo_delete (THREAD_ENTRY * thread_p, LOG_RCV * rcv)
     }
   assert (rebuild_record.type == REC_HOME || rebuild_record.type == REC_NEWHOME);
 
-  if (or_mvcc_get_header (&rebuild_record, &mvcc_rec_header) != NO_ERROR)
-    {
-      assert_release (false);
-      return ER_FAILED;
-    }
+  or_mvcc_get_header (&rebuild_record, &mvcc_rec_header);
   assert (MVCC_IS_FLAG_SET (&mvcc_rec_header, OR_MVCC_FLAG_VALID_DELID));
   MVCC_CLEAR_FLAG_BITS (&mvcc_rec_header, OR_MVCC_FLAG_VALID_DELID);
 
@@ -16298,11 +16274,7 @@ heap_rv_mvcc_undo_delete_overflow (THREAD_ENTRY * thread_p, LOG_RCV * rcv)
 {
   MVCC_REC_HEADER mvcc_header;
 
-  if (heap_get_mvcc_rec_header_from_overflow (rcv->pgptr, &mvcc_header, NULL) != NO_ERROR)
-    {
-      assert_release (false);
-      return ER_FAILED;
-    }
+  heap_get_mvcc_rec_header_from_overflow (rcv->pgptr, &mvcc_header, NULL);
 
   /* All flags should be set. Overflow header should be set to maximum size */
   assert (MVCC_IS_FLAG_SET (&mvcc_header, OR_MVCC_FLAG_VALID_DELID));
@@ -16353,11 +16325,7 @@ heap_rv_mvcc_redo_delete_internal (THREAD_ENTRY * thread_p, PAGE_PTR page, PGSLO
     }
 
   /* Get MVCC header. */
-  if (or_mvcc_get_header (&rebuild_record, &mvcc_rec_header) != NO_ERROR)
-    {
-      assert_release (false);
-      return ER_FAILED;
-    }
+  or_mvcc_get_header (&rebuild_record, &mvcc_rec_header);
 
   /* Set delete MVCCID. */
   MVCC_SET_FLAG_BITS (&mvcc_rec_header, OR_MVCC_FLAG_VALID_DELID);
@@ -16442,11 +16410,7 @@ heap_rv_mvcc_redo_delete_overflow (THREAD_ENTRY * thread_p, LOG_RCV * rcv)
 
   assert (offset == rcv->length);
 
-  if (heap_get_mvcc_rec_header_from_overflow (rcv->pgptr, &mvcc_header, NULL) != NO_ERROR)
-    {
-      assert_release (false);
-      return ER_FAILED;
-    }
+  heap_get_mvcc_rec_header_from_overflow (rcv->pgptr, &mvcc_header, NULL);
   assert (MVCC_IS_FLAG_SET (&mvcc_header, OR_MVCC_FLAG_VALID_INSID));
 
   assert (MVCC_IS_FLAG_SET (&mvcc_header, OR_MVCC_FLAG_VALID_DELID));
@@ -19128,7 +19092,7 @@ heap_prev_record_info (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_o
  * MVCC_REC_HEADER * mvcc_header (in/out) : MVCC record header
  * recdes(in/out): if not NULL then receives first overflow page
  */
-int
+void
 heap_get_mvcc_rec_header_from_overflow (PAGE_PTR ovf_page, MVCC_REC_HEADER * mvcc_header, RECDES * peek_recdes)
 {
   RECDES ovf_recdes;
@@ -19143,7 +19107,7 @@ heap_get_mvcc_rec_header_from_overflow (PAGE_PTR ovf_page, MVCC_REC_HEADER * mvc
   peek_recdes->data = overflow_get_first_page_data (ovf_page);
   peek_recdes->length = OR_MVCC_MAX_HEADER_SIZE;
 
-  return or_mvcc_get_header (peek_recdes, mvcc_header);
+  or_mvcc_get_header (peek_recdes, mvcc_header);
 }
 
 /*
@@ -20187,10 +20151,7 @@ heap_insert_adjust_recdes_header (THREAD_ENTRY * thread_p, HEAP_OPERATION_CONTEX
     }
 
   /* read MVCC header from record */
-  if (or_mvcc_get_header (insert_context->recdes_p, &mvcc_rec_header) != NO_ERROR)
-    {
-      return ER_FAILED;
-    }
+  or_mvcc_get_header (insert_context->recdes_p, &mvcc_rec_header);
 
   if (insert_context->update_in_place != UPDATE_INPLACE_OLD_MVCCID)
     {
@@ -20341,10 +20302,7 @@ heap_update_adjust_recdes_header (THREAD_ENTRY * thread_p, HEAP_OPERATION_CONTEX
     }
 
   /* read MVCC header from record */
-  if (or_mvcc_get_header (update_context->recdes_p, &mvcc_rec_header) != NO_ERROR)
-    {
-      return ER_FAILED;
-    }
+  or_mvcc_get_header (update_context->recdes_p, &mvcc_rec_header);
 
   if (update_context->update_in_place != UPDATE_INPLACE_OLD_MVCCID)
     {
@@ -21048,11 +21006,7 @@ heap_delete_bigone (THREAD_ENTRY * thread_p, HEAP_OPERATION_CONTEXT * context, b
 #endif /* !NDEBUG */
 
       /* fetch header from overflow */
-      if (heap_get_mvcc_rec_header_from_overflow (context->overflow_page_watcher_p->pgptr, &overflow_header, NULL) !=
-	  NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+      heap_get_mvcc_rec_header_from_overflow (context->overflow_page_watcher_p->pgptr, &overflow_header, NULL);
       assert (mvcc_header_size_lookup[overflow_header.mvcc_flag] == OR_MVCC_MAX_HEADER_SIZE);
 
       HEAP_PERF_TRACK_EXECUTE (thread_p, context);
@@ -21340,10 +21294,7 @@ heap_delete_relocation (THREAD_ENTRY * thread_p, HEAP_OPERATION_CONTEXT * contex
 	   * Rare case - don't care to optimize it for now. Get the MVCC header, build adjusted record
 	   * header - slow operation.
 	   */
-	  if (or_mvcc_get_header (&forward_recdes, &forward_rec_header) != NO_ERROR)
-	    {
-	      return ER_FAILED;
-	    }
+	  or_mvcc_get_header (&forward_recdes, &forward_rec_header);
 	  assert (forward_rec_header.mvcc_flag == mvcc_flags);
 	  heap_delete_adjust_header (&forward_rec_header, mvcc_id, is_adjusted_size_big);
 	  or_mvcc_add_header (&new_forward_recdes, &forward_rec_header, OR_GET_BOUND_BIT_FLAG (forward_recdes.data),
@@ -21659,7 +21610,6 @@ static int
 heap_delete_home (THREAD_ENTRY * thread_p, HEAP_OPERATION_CONTEXT * context, bool is_mvcc_op)
 {
   int error_code = NO_ERROR;
-
   LOG_TDES *tdes = NULL;
 
   /* check input */
@@ -21787,12 +21737,7 @@ heap_delete_home (THREAD_ENTRY * thread_p, HEAP_OPERATION_CONTEXT * context, boo
 	   * Rare case - don't care to optimize it for now. Get the MVCC header, build adjusted record
 	   * header - slow operation.
 	   */
-	  error_code = or_mvcc_get_header (&context->home_recdes, &record_header);
-	  if (error_code != NO_ERROR)
-	    {
-	      ASSERT_ERROR ();
-	      return error_code;
-	    }
+	  or_mvcc_get_header (&context->home_recdes, &record_header);
 	  assert (record_header.mvcc_flag == mvcc_flags);
 
 	  heap_delete_adjust_header (&record_header, mvcc_id, is_adjusted_size_big);
@@ -21837,8 +21782,8 @@ heap_delete_home (THREAD_ENTRY * thread_p, HEAP_OPERATION_CONTEXT * context, boo
 	      forwarding_recdes.type = REC_BIGONE;
 	      if (heap_ovf_insert (thread_p, &context->hfid, &forward_oid, &built_recdes) == NULL)
 		{
-		  ASSERT_ERROR_AND_SET (error_code);
-		  return error_code;
+		  assert (false);
+		  return ER_FAILED;
 		}
 
 	      perfmon_inc_stat (thread_p, PSTAT_HEAP_HOME_TO_BIG_DELETES);
@@ -24987,12 +24932,7 @@ heap_get_visible_version_from_log (THREAD_ENTRY * thread_p, RECDES * recdes, LOG
 	    }
 	}
 
-      if (or_mvcc_get_header (recdes, &mvcc_header) != NO_ERROR)
-	{
-	  assert (false);
-	  er_set (ER_FATAL_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
-	  return S_ERROR;
-	}
+      or_mvcc_get_header (recdes, &mvcc_header);
       snapshot_res = scan_cache->mvcc_snapshot->snapshot_fnc (thread_p, &mvcc_header, scan_cache->mvcc_snapshot);
       if (snapshot_res == SNAPSHOT_SATISFIED)
 	{
@@ -25111,12 +25051,7 @@ heap_scan_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * c
       assert (recdes != NULL);
       assert (peeked_recdes != NULL);
 
-      if (or_mvcc_get_header (peeked_recdes, &mvcc_header) != NO_ERROR)
-	{
-	  /* Unexpected. */
-	  assert (false);
-	  return S_ERROR;
-	}
+      or_mvcc_get_header (peeked_recdes, &mvcc_header);
 
       if (class_oid != NULL)
 	{

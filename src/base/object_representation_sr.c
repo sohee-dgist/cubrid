@@ -4230,11 +4230,10 @@ or_replace_rep_id (RECDES * record, int repid)
  * record (in)		: Record descriptor.
  * mvcc_header (out)	: MVCC Record header.
  */
-int
+void
 or_mvcc_get_header (RECDES * record, MVCC_REC_HEADER * mvcc_header)
 {
   OR_BUF buf;
-  int rc = NO_ERROR;
   int repid_and_flag_bits;
 
   assert (record != NULL && record->data != NULL && record->length >= OR_MVCC_REP_SIZE && mvcc_header != NULL);
@@ -4254,8 +4253,6 @@ or_mvcc_get_header (RECDES * record, MVCC_REC_HEADER * mvcc_header)
   mvcc_header->mvcc_del_id = or_mvcc_get_delid (&buf, mvcc_header->mvcc_flag);
 
   or_mvcc_get_prev_version_lsa (&buf, mvcc_header->mvcc_flag, &(mvcc_header->prev_version_lsa));
-
-  return NO_ERROR;
 }
 
 /*

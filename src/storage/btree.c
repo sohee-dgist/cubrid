@@ -2282,7 +2282,7 @@ btree_leaf_get_vpid_for_overflow_oids (RECDES * rec, VPID * ovfl_vpid)
 
   ovfl_vpid->pageid = or_get_int (&buf);
   ovfl_vpid->volid = or_get_short (&buf);
-  
+
 }
 
 /*
@@ -22215,7 +22215,7 @@ btree_or_put_object (OR_BUF * buf, BTID_INT * btid_int, BTREE_NODE_TYPE node_typ
       else
 	{
 	  /* Add oid and class OID. */
-          or_put_oid (buf, &flagged_oid);
+	  or_put_oid (buf, &flagged_oid);
 	  or_put_oid (buf, &object_info->class_oid);
 	}
     }
@@ -22228,9 +22228,10 @@ btree_or_put_object (OR_BUF * buf, BTID_INT * btid_int, BTREE_NODE_TYPE node_typ
   /* Add MVCC info */
   btree_or_put_mvccinfo (buf, &object_info->mvcc_info);
 
-  if (buf->ptr > buf->endptr) {
-        return ER_TF_BUFFER_OVERFLOW;
-  }
+  if (buf->ptr > buf->endptr)
+    {
+      return ER_TF_BUFFER_OVERFLOW;
+    }
   return NO_ERROR;
 }
 
@@ -22426,7 +22427,7 @@ btree_check_valid_record (THREAD_ENTRY * thread_p, BTID_INT * btid, RECDES * rec
       if (mvcc_flags & BTREE_OID_HAS_MVCC_DELID)
 	{
 	  /* Get and check delete MVCCID */
-          or_get_mvccid (&buffer, &mvccid);
+	  or_get_mvccid (&buffer, &mvccid);
 	  if (mvccid != MVCCID_NULL && !MVCC_ID_PRECEDES (mvccid, log_Gl.hdr.mvcc_next_id)
 	      && !log_is_in_crash_recovery ())
 	    {
@@ -29939,15 +29940,9 @@ btree_rv_record_modify_internal (THREAD_ENTRY * thread_p, LOG_RCV * rcv, bool is
 #endif /* !NDEBUG */
 
   /* Apply changes. */
-  error_code =
-    log_rv_undoredo_record_partial_changes (thread_p, rcv_data_ptr,
-					    rcv->length - CAST_BUFLEN (rcv_data_ptr - rcv->data), &update_record,
-					    is_undo);
-  if (error_code != NO_ERROR)
-    {
-      ASSERT_ERROR ();
-      return error_code;
-    }
+  log_rv_undoredo_record_partial_changes (thread_p, rcv_data_ptr,
+					  rcv->length - CAST_BUFLEN (rcv_data_ptr - rcv->data), &update_record,
+					  is_undo);
   /* Changes applied successfully. */
 
 #if !defined (NDEBUG)

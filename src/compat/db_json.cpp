@@ -677,12 +677,12 @@ static int db_json_add_json_value_to_object (JSON_DOC &doc, const char *name, JS
 static int db_json_deserialize_doc_internal (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMPOOL &doc_allocator);
 
 static int db_json_or_buf_underflow (OR_BUF *buf, size_t length);
-static int db_json_unpack_string_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMPOOL &doc_allocator);
-static int db_json_unpack_int_to_value (OR_BUF *buf, JSON_VALUE &value);
-static int db_json_unpack_bigint_to_value (OR_BUF *buf, JSON_VALUE &value);
-static int db_json_unpack_bool_to_value (OR_BUF *buf, JSON_VALUE &value);
-static int db_json_unpack_object_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMPOOL &doc_allocator);
-static int db_json_unpack_array_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMPOOL &doc_allocator);
+static void db_json_unpack_string_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMPOOL &doc_allocator);
+static void db_json_unpack_int_to_value (OR_BUF *buf, JSON_VALUE &value);
+static void db_json_unpack_bigint_to_value (OR_BUF *buf, JSON_VALUE &value);
+static void db_json_unpack_bool_to_value (OR_BUF *buf, JSON_VALUE &value);
+static void db_json_unpack_object_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMPOOL &doc_allocator);
+static void db_json_unpack_array_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMPOOL &doc_allocator);
 
 static void db_json_add_element_to_array (JSON_DOC *doc, const JSON_VALUE *value);
 
@@ -4052,32 +4052,21 @@ db_json_serialize_length (const JSON_DOC &doc)
 static int
 db_json_or_buf_underflow (or_buf *buf, size_t length)
 {
+  if (buf->ptr + length > buf->endptr)
+    {
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
+      return ER_TF_BUFFER_OVERFLOW;
+    }
   assert (buf->ptr + length <= buf->endptr);
   return NO_ERROR;
 }
 
-static int
+static void
 db_json_unpack_string_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMPOOL &doc_allocator)
 {
   size_t str_length;
-  int rc = NO_ERROR;
-
   // get the string length
   str_length = or_get_int (buf);
-  if (rc != NO_ERROR)
-    {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
-      return rc;
-    }
-
-  rc = db_json_or_buf_underflow (buf, str_length);
-  if (rc != NO_ERROR)
-    {
-      // we need to assert error here because or_underflow sets the error unlike or_overflow
-      // which only returns the error code
-      ASSERT_ERROR ();
-      return rc;
-    }
 
   // set the string directly from the buffer to avoid additional copy
   value.SetString (buf->ptr, static_cast<rapidjson::SizeType> (str_length - 1), doc_allocator);
@@ -4086,16 +4075,9 @@ db_json_unpack_string_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEM
 
   // still need to take care of the alignment
   or_align (buf, INT_ALIGNMENT);
-
-  if (buf->ptr > buf->endptr)
-    {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
-      return ER_TF_BUFFER_OVERFLOW;
-    }
-  return NO_ERROR;
 }
 
-static int
+static void
 db_json_unpack_int_to_value (OR_BUF *buf, JSON_VALUE &value)
 {
   int int_value;
@@ -4114,10 +4096,9 @@ db_json_unpack_int_to_value (OR_BUF *buf, JSON_VALUE &value)
       value.SetInt (int_value);
     }
 
-  return NO_ERROR;
 }
 
-static int
+static void
 db_json_unpack_bigint_to_value (OR_BUF *buf, JSON_VALUE &value)
 {
   DB_BIGINT bigint_value;
@@ -4134,11 +4115,9 @@ db_json_unpack_bigint_to_value (OR_BUF *buf, JSON_VALUE &value)
     {
       value.SetInt64 (bigint_value);
     }
-
-  return NO_ERROR;
 }
 
-static int
+static void
 db_json_unpack_double_to_value (OR_BUF *buf, JSON_VALUE &value)
 {
   double double_value;
@@ -4148,10 +4127,9 @@ db_json_unpack_double_to_value (OR_BUF *buf, JSON_VALUE &value)
 
   value.SetDouble (double_value);
 
-  return NO_ERROR;
 }
 
-static int
+static void
 db_json_unpack_bool_to_value (OR_BUF *buf, JSON_VALUE &value)
 {
   int int_value;
@@ -4161,13 +4139,11 @@ db_json_unpack_bool_to_value (OR_BUF *buf, JSON_VALUE &value)
 
   value.SetBool (int_value == 1);
 
-  return NO_ERROR;
 }
 
-static int
+static void
 db_json_unpack_object_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMPOOL &doc_allocator)
 {
-  int rc = NO_ERROR;
   int size;
 
   value.SetObject ();
@@ -4183,59 +4159,40 @@ db_json_unpack_object_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEM
 
       // get the value
       JSON_VALUE child;
-      rc = db_json_deserialize_doc_internal (buf, child, doc_allocator);
-      if (rc != NO_ERROR)
-	{
-	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
-	  return rc;
-	}
+      // do not check error here, only check error at db_json_deserialize once
+      db_json_deserialize_doc_internal (buf, child, doc_allocator);
 
       value.AddMember (key, child, doc_allocator);
     }
 
-  return NO_ERROR;
 }
 
-static int
+static void
 db_json_unpack_array_to_value (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMPOOL &doc_allocator)
 {
-  int rc = NO_ERROR;
   int size;
 
   value.SetArray ();
 
   // get the member count of the array
   size = or_get_int (buf);
-  if (rc != NO_ERROR)
-    {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
-      return rc;
-    }
-
   // preallocate
   value.Reserve (size, doc_allocator);
   // for each member we need to deserialize it
   for (int i = 0; i < size; i++)
     {
       JSON_VALUE child;
-      rc = db_json_deserialize_doc_internal (buf, child, doc_allocator);
-      if (rc != NO_ERROR)
-	{
-	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
-	  return rc;
-	}
+      db_json_deserialize_doc_internal (buf, child, doc_allocator);
 
       value.PushBack (child, doc_allocator);
     }
-
-  return NO_ERROR;
 }
 
 /*
  * db_json_deserialize_doc_internal () - this is where the deserialization actually happens
  *
  * return             : error_code
- * buf (in)           : the buffer which contains the json serialized
+ *serialized
  * doc_allocator (in) : the allocator used to create json "tree"
  * value (in)         : the current value from the json document
  */
@@ -4243,7 +4200,6 @@ static int
 db_json_deserialize_doc_internal (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_MEMPOOL &doc_allocator)
 {
   DB_JSON_TYPE json_type;
-  int rc = NO_ERROR;
 
   // get the json scalar value
   json_type = static_cast<DB_JSON_TYPE> (or_get_int (buf));
@@ -4251,23 +4207,23 @@ db_json_deserialize_doc_internal (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_M
   switch (json_type)
     {
     case DB_JSON_INT:
-      rc = db_json_unpack_int_to_value (buf, value);
+      db_json_unpack_int_to_value (buf, value);
       break;
 
     case DB_JSON_BIGINT:
-      rc = db_json_unpack_bigint_to_value (buf, value);
+      db_json_unpack_bigint_to_value (buf, value);
       break;
 
     case DB_JSON_DOUBLE:
-      rc = db_json_unpack_double_to_value (buf, value);
+      db_json_unpack_double_to_value (buf, value);
       break;
 
     case DB_JSON_STRING:
-      rc = db_json_unpack_string_to_value (buf, value, doc_allocator);
+      db_json_unpack_string_to_value (buf, value, doc_allocator);
       break;
 
     case DB_JSON_BOOL:
-      rc = db_json_unpack_bool_to_value (buf, value);
+      db_json_unpack_bool_to_value (buf, value);
       break;
 
     case DB_JSON_NULL:
@@ -4275,11 +4231,11 @@ db_json_deserialize_doc_internal (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_M
       break;
 
     case DB_JSON_OBJECT:
-      rc = db_json_unpack_object_to_value (buf, value, doc_allocator);
+      db_json_unpack_object_to_value (buf, value, doc_allocator);
       break;
 
     case DB_JSON_ARRAY:
-      rc = db_json_unpack_array_to_value (buf, value, doc_allocator);
+      db_json_unpack_array_to_value (buf, value, doc_allocator);
       break;
 
     default:
@@ -4288,12 +4244,13 @@ db_json_deserialize_doc_internal (OR_BUF *buf, JSON_VALUE &value, JSON_PRIVATE_M
       return ER_FAILED;
     }
 
-  if (rc != NO_ERROR)
+  /* check buffer here once */
+  if (buf->ptr > buf->endptr)
     {
-      ASSERT_ERROR ();
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
+      return ER_TF_BUFFER_OVERFLOW;
     }
-
-  return rc;
+  return NO_ERROR;
 }
 
 /*

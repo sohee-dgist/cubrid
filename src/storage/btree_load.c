@@ -3293,10 +3293,7 @@ btree_sort_get_next (THREAD_ENTRY * thread_p, RECDES * temp_recdes, void *arg)
        */
 
       /* filter out dead records before any more checks */
-      if (or_mvcc_get_header (&sort_args->in_recdes, &mvcc_header) != NO_ERROR)
-	{
-	  return SORT_ERROR_OCCURRED;
-	}
+      or_mvcc_get_header (&sort_args->in_recdes, &mvcc_header);
       if (MVCC_IS_HEADER_DELID_VALID (&mvcc_header) && MVCC_GET_DELID (&mvcc_header) < sort_args->oldest_visible_mvccid)
 	{
 	  continue;

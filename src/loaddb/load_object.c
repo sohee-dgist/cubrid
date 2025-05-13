@@ -557,7 +557,6 @@ get_desc_current (OR_BUF * buf, SM_CLASS * class_, DESC_OBJ * obj, int bound_bit
   int *vars = NULL;
   int i, j, offset, offset2, pad;
   char *bits, *start;
-  int rc = NO_ERROR;
   bool do_copy = is_unloaddb ? false : true;
   int zvar[32];
 
@@ -697,7 +696,6 @@ get_desc_old (OR_BUF * buf, SM_CLASS * class_, int repid, DESC_OBJ * obj, int bo
   int i, offset, offset2, total, bytes, att_index, padded_size, fixed_size;
   SM_ATTRIBUTE **attmap = NULL;
   char *bits, *start;
-  int rc = NO_ERROR;
   int storage_order;
   bool do_copy = is_unloaddb ? false : true;
   int zvar[32];
@@ -905,7 +903,6 @@ desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * ob
   int bound_bit_flag;
   int save;
   int i;
-  int rc = NO_ERROR;
   int offset_size;
   if (obj == NULL)
     {

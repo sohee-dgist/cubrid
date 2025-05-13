@@ -2032,12 +2032,7 @@ retry_prepare:
 	}
 
       /* Get MVCC header to check whether the record can be vacuumed. */
-      error_code = or_mvcc_get_header (&helper->record, &helper->mvcc_header);
-      if (error_code != NO_ERROR)
-	{
-	  assert_release (false);
-	  return error_code;
-	}
+      or_mvcc_get_header (&helper->record, &helper->mvcc_header);
       return NO_ERROR;
 
     case REC_BIGONE:
@@ -2111,14 +2106,7 @@ retry_prepare:
 	}
 
       /* Read MVCC header from first overflow page. */
-      error_code = heap_get_mvcc_rec_header_from_overflow (helper->forward_page, &helper->mvcc_header, NULL);
-      if (error_code != NO_ERROR)
-	{
-	  ASSERT_ERROR ();
-	  vacuum_er_log_error (VACUUM_ER_LOG_HEAP,
-			       "Failed to get MVCC header from overflow page %d|%d.", VPID_AS_ARGS (&forward_vpid));
-	  return error_code;
-	}
+      heap_get_mvcc_rec_header_from_overflow (helper->forward_page, &helper->mvcc_header, NULL);
       break;
 
     case REC_HOME:
@@ -2141,12 +2129,7 @@ retry_prepare:
 	}
 
       /* Get MVCC header to check whether the record can be vacuumed. */
-      error_code = or_mvcc_get_header (&helper->record, &helper->mvcc_header);
-      if (error_code != NO_ERROR)
-	{
-	  assert_release (false);
-	  return ER_FAILED;
-	}
+      or_mvcc_get_header (&helper->record, &helper->mvcc_header);
       break;
 
     default:
@@ -2857,11 +2840,7 @@ vacuum_rv_redo_remove_ovf_insid (THREAD_ENTRY * thread_p, LOG_RCV * rcv)
   MVCC_REC_HEADER rec_header;
   int error = NO_ERROR;
 
-  error = heap_get_mvcc_rec_header_from_overflow (rcv->pgptr, &rec_header, NULL);
-  if (error != NO_ERROR)
-    {
-      return error;
-    }
+  heap_get_mvcc_rec_header_from_overflow (rcv->pgptr, &rec_header, NULL);
 
   MVCC_SET_INSID (&rec_header, MVCCID_ALL_VISIBLE);
   LSA_SET_NULL (&rec_header.prev_version_lsa);
@@ -7299,10 +7278,7 @@ vacuum_check_not_vacuumed_recdes (THREAD_ENTRY * thread_p, OID * oid, OID * clas
 {
   MVCC_REC_HEADER rec_header;
 
-  if (or_mvcc_get_header (recdes, &rec_header) != NO_ERROR)
-    {
-      return DISK_ERROR;
-    }
+  or_mvcc_get_header (recdes, &rec_header);
 
   return vacuum_check_not_vacuumed_rec_header (thread_p, oid, class_oid, &rec_header, btree_node_type);
 }
@@ -7574,11 +7550,7 @@ vacuum_rv_check_at_undo (THREAD_ENTRY * thread_p, PAGE_PTR pgptr, INT16 slotid, 
   /* get record header according to record type */
   if (rec_type == REC_BIGONE)
     {
-      if (heap_get_mvcc_rec_header_from_overflow (pgptr, &rec_header, &recdes) != NO_ERROR)
-	{
-	  assert_release (false);
-	  return ER_FAILED;
-	}
+      heap_get_mvcc_rec_header_from_overflow (pgptr, &rec_header, &recdes);
       recdes.type = REC_BIGONE;
     }
   else
@@ -7591,11 +7563,7 @@ vacuum_rv_check_at_undo (THREAD_ENTRY * thread_p, PAGE_PTR pgptr, INT16 slotid, 
 	  return ER_FAILED;
 	}
 
-      if (or_mvcc_get_header (&recdes, &rec_header) != NO_ERROR)
-	{
-	  assert_release (false);
-	  return ER_FAILED;
-	}
+      or_mvcc_get_header (&recdes, &rec_header);
     }
 
   assert (recdes.type == rec_type);
