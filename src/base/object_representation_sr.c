@@ -4456,10 +4456,8 @@ or_mvcc_get_insid (OR_BUF * buf, int mvcc_flags)
     }
   else
     {
-      assert (buf->ptr + OR_MVCCID_SIZE <= buf->endptr);
       MVCCID insert_id = 0;
-      OR_GET_BIGINT (buf->ptr, &insert_id);
-      buf->ptr += OR_MVCCID_SIZE;
+      insert_id = or_get_bigint (buf);
       return insert_id;
     }
 }
@@ -4523,11 +4521,7 @@ or_mvcc_get_chn (OR_BUF * buf)
   int chn = NULL_CHN;
 
   assert (buf != NULL);
-  ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-  assert (buf->ptr + OR_INT_SIZE <= buf->endptr);
-
-  chn = OR_GET_INT (buf->ptr);
-  buf->ptr += OR_INT_SIZE;
+  chn = or_get_int (buf);
 
   return chn;
 }
