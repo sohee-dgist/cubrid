@@ -5708,7 +5708,7 @@ locator_update_force (THREAD_ENTRY * thread_p, HFID * hfid, OID * class_oid, OID
 
       /* There will be no pruning after this point so we should reset op_type to a non pruning operation */
 
-      if (!local_scan_cache->mvcc_disabled_class)
+      if (!mvcc_is_mvcc_disabled_class (class_oid))
 	{
 	  if (oldrecdes == NULL)
 	    {

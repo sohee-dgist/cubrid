@@ -7909,11 +7909,12 @@ heap_next_internal (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid,
 
   hfid = &scan_cache->node.hfid;
 
-  PGBUF_INIT_WATCHER (&old_page_watcher, PGBUF_ORDERED_HEAP_NORMAL, hfid);
   if (!OID_ISNULL (&scan_cache->node.class_oid))
     {
       class_oid = &scan_cache->node.class_oid;
     }
+
+  PGBUF_INIT_WATCHER (&old_page_watcher, PGBUF_ORDERED_HEAP_NORMAL, hfid);
 
   if (OID_ISNULL (next_oid))
     {
@@ -8150,7 +8151,6 @@ heap_next_internal (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid,
 	   */
 	  if (class_oid == NULL || OID_ISNULL (class_oid) || !OID_IS_ROOTOID (&oid))
 	    {
-	      //assert (!OID_IS_ROOTOID(&oid));
 	      /* stop */
 	      *next_oid = oid;
 	      break;
