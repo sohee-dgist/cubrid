@@ -5276,7 +5276,7 @@ scan_next_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 		{
 		  sp_scan =
 		    heap_next (thread_p, &hsidp->hfid, &hsidp->cls_oid, &hsidp->curr_oid, &recdes,
-			       &hsidp->scan_cache, is_peeking, &hsidp->scan_cache.mvcc_disabled_class);
+			       &hsidp->scan_cache, is_peeking);
 		}
 	      else if (scan_id->type == S_HEAP_SAMPLING_SCAN)
 		{

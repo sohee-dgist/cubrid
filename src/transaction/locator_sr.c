@@ -300,8 +300,7 @@ locator_initialize (THREAD_ENTRY * thread_p)
 
   OID_SET_NULL (&class_oid);
 
-  while (heap_next (thread_p, &root_hfid, NULL, &class_oid, &peek, &scan_cache, PEEK, scan_cache.mvcc_disabled_class) ==
-	 S_SUCCESS)
+  while (heap_next (thread_p, &root_hfid, NULL, &class_oid, &peek, &scan_cache, PEEK) == S_SUCCESS)
     {
       assert (!OID_ISNULL (&class_oid));
 
@@ -1973,7 +1972,7 @@ locator_check_class_names (THREAD_ENTRY * thread_p)
   class_oid.slotid = NULL_SLOTID;
 
   isvalid = DISK_VALID;
-  while (heap_next (thread_p, &root_hfid, oid_Root_class_oid, &class_oid, &peek, &scan_cache, PEEK, true) == S_SUCCESS)
+  while (heap_next (thread_p, &root_hfid, oid_Root_class_oid, &class_oid, &peek, &scan_cache, PEEK) == S_SUCCESS)
     {
       classname = or_class_name (&peek);
       assert (classname != NULL);
@@ -2905,9 +2904,7 @@ xlocator_fetch_all (THREAD_ENTRY * thread_p, const HFID * hfid, LOCK * lock, LC_
       mobjs->num_objs = 0;
       offset = 0;
 
-      while ((scan =
-	      heap_next (thread_p, hfid, class_oid, &oid, &recdes, &scan_cache, COPY,
-			 scan_cache.mvcc_disabled_class)) == S_SUCCESS)
+      while ((scan = heap_next (thread_p, hfid, class_oid, &oid, &recdes, &scan_cache, COPY)) == S_SUCCESS)
 	{
 	  mobjs->num_objs++;
 	  COPY_OID (&obj->class_oid, class_oid);
@@ -8992,8 +8989,7 @@ xlocator_remove_class_from_index (THREAD_ENTRY * thread_p, OID * class_oid, BTID
 	  dbvalue_ptr = NULL;
 	}
 
-      scan =
-	heap_next (thread_p, hfid, class_oid, &inst_oid, &copy_rec, &scan_cache, COPY, scan_cache.mvcc_disabled_class);
+      scan = heap_next (thread_p, hfid, class_oid, &inst_oid, &copy_rec, &scan_cache, COPY);
       if (scan != S_SUCCESS)
 	{
 	  if (scan != S_DOESNT_FIT)
@@ -9447,9 +9443,7 @@ locator_check_btree_entries (THREAD_ENTRY * thread_p, BTID * btid, HFID * hfid, 
   inst_oid.pageid = NULL_PAGEID;
   inst_oid.slotid = NULL_SLOTID;
 
-  while ((scan =
-	  heap_next (thread_p, hfid, class_oid, &inst_oid, &record, &scan_cache, COPY,
-		     scan_cache.mvcc_disabled_class)) == S_SUCCESS)
+  while ((scan = heap_next (thread_p, hfid, class_oid, &inst_oid, &record, &scan_cache, COPY)) == S_SUCCESS)
     {
       num_heap_oids++;
 
@@ -9903,9 +9897,7 @@ locator_check_unique_btree_entries (THREAD_ENTRY * thread_p, BTID * btid, OID * 
       inst_oid.pageid = NULL_PAGEID;
       inst_oid.slotid = NULL_SLOTID;
 
-      while ((scan =
-	      heap_next (thread_p, hfid, class_oid, &inst_oid, &peek, &scan_cache[j], PEEK,
-			 scan_cache[j].mvcc_disabled_class)) == S_SUCCESS)
+      while ((scan = heap_next (thread_p, hfid, class_oid, &inst_oid, &peek, &scan_cache[j], PEEK)) == S_SUCCESS)
 	{
 	  num_heap_oids++;
 
@@ -10618,7 +10610,7 @@ locator_check_all_entries_of_all_btrees (THREAD_ENTRY * thread_p, bool repair)
   while (isallvalid != DISK_ERROR)
     {
       copy_rec.data = NULL;
-      code = heap_next (thread_p, &root_hfid, oid_Root_class_oid, &oid, &copy_rec, &scan, COPY, true);
+      code = heap_next (thread_p, &root_hfid, oid_Root_class_oid, &oid, &copy_rec, &scan, COPY);
       if (code != S_SUCCESS)
 	{
 	  break;
@@ -11805,8 +11797,7 @@ xlocator_check_fk_validity (THREAD_ENTRY * thread_p, OID * cls_oid, HFID * hfid,
   oid.volid = hfid->vfid.volid;
 
   copy_recdes.data = NULL;
-  while (heap_next (thread_p, hfid, NULL, &oid, &copy_recdes, &scan_cache, COPY, scan_cache.mvcc_disabled_class) ==
-	 S_SUCCESS)
+  while (heap_next (thread_p, hfid, NULL, &oid, &copy_recdes, &scan_cache, COPY) == S_SUCCESS)
     {
       key_val =
 	heap_attrinfo_generate_key (thread_p, n_attrs, attr_ids, NULL, &attr_info, &copy_recdes, &tmpval,
@@ -11955,8 +11946,7 @@ xlocator_lock_and_fetch_all (THREAD_ENTRY * thread_p, const HFID * hfid, LOCK * 
 	    {
 	      int lock_result = 0;
 
-	      scan =
-		heap_next (thread_p, hfid, class_oid, &oid, &recdes, &scan_cache, COPY, scan_cache.mvcc_disabled_class);
+	      scan = heap_next (thread_p, hfid, class_oid, &oid, &recdes, &scan_cache, COPY);
 	      if (scan != S_SUCCESS)
 		{
 		  break;
@@ -11989,8 +11979,7 @@ xlocator_lock_and_fetch_all (THREAD_ENTRY * thread_p, const HFID * hfid, LOCK * 
 	    }
 	  else
 	    {
-	      scan =
-		heap_next (thread_p, hfid, class_oid, &oid, &recdes, &scan_cache, COPY, scan_cache.mvcc_disabled_class);
+	      scan = heap_next (thread_p, hfid, class_oid, &oid, &recdes, &scan_cache, COPY);
 	      if (scan != S_SUCCESS)
 		{
 		  break;
