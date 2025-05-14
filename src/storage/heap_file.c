@@ -8211,8 +8211,7 @@ heap_first (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * o
   OID_SET_NULL (oid);
   oid->volid = hfid->vfid.volid;
 
-  return heap_next (thread_p, hfid, class_oid, oid, recdes, scan_cache, ispeeking,
-		    mvcc_is_mvcc_disabled_class (GET_MVCC_CHECK_CLASS_OID (class_oid, scan_cache)));
+  return heap_next (thread_p, hfid, class_oid, oid, recdes, scan_cache, ispeeking, scan_cache->mvcc_disabled_class);
 }
 
 /*
@@ -8412,7 +8411,7 @@ heap_scanrange_to_following (THREAD_ENTRY * thread_p, HEAP_SCANRANGE * scan_rang
 		  scan =
 		    heap_next (thread_p, &scan_range->scan_cache.node.hfid, &scan_range->scan_cache.node.class_oid,
 			       &scan_range->first_oid, &recdes, &scan_range->scan_cache, PEEK,
-			       mvcc_is_mvcc_disabled_class (&scan_range->scan_cache.node.class_oid));
+			       scan_range->scan_cache.mvcc_disabled_class);
 		  if (scan != S_SUCCESS)
 		    {
 		      return scan;
@@ -8618,8 +8617,7 @@ heap_scanrange_next (THREAD_ENTRY * thread_p, OID * next_oid, RECDES * recdes, H
 	{
 	  scan =
 	    heap_next (thread_p, &scan_range->scan_cache.node.hfid, &scan_range->scan_cache.node.class_oid, next_oid,
-		       recdes, &scan_range->scan_cache, ispeeking,
-		       mvcc_is_mvcc_disabled_class (&scan_range->scan_cache.node.class_oid));
+		       recdes, &scan_range->scan_cache, ispeeking, scan_range->scan_cache.mvcc_disabled_class);
 	}
       /* Make sure that we did not go overboard */
       if (scan == S_SUCCESS && OID_GT (next_oid, &scan_range->last_oid))
@@ -19033,13 +19031,8 @@ heap_next_sampling (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid,
     {
       class_oid = &scan_cache->node.class_oid;
     }
-  if (class_oid == NULL)
-    {
-      return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL,
-				 sampling, false);
-    }
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL, sampling,
-			     mvcc_is_mvcc_disabled_class (class_oid));
+			     scan_cache->mvcc_disabled_class);
 }
 
 /*
@@ -19069,13 +19062,8 @@ heap_next_record_info (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_o
     {
       class_oid = &scan_cache->node.class_oid;
     }
-  if (class_oid == NULL)
-    {
-      return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false,
-				 cache_recordinfo, NULL, false);
-    }
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false,
-			     cache_recordinfo, NULL, mvcc_is_mvcc_disabled_class (class_oid));
+			     cache_recordinfo, NULL, scan_cache->mvcc_disabled_class);
 }
 
 /*
@@ -25147,7 +25135,7 @@ heap_scan_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * c
 
       if (class_oid != NULL)
 	{
-          assert (mvcc_is_mvcc_disabled_class(class_oid) == mvcc_disabled_class);
+	  assert (mvcc_is_mvcc_disabled_class (class_oid) == mvcc_disabled_class);
 	  if (!mvcc_disabled_class)
 	    {
 	      if (scan_cache->mvcc_snapshot != NULL && scan_cache->mvcc_snapshot->snapshot_fnc != NULL)
@@ -25224,8 +25212,7 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
 	  || (!OID_ISNULL (&context->forward_oid) && context->fwd_page_watcher.pgptr != NULL));
 
   if (context->scan_cache != NULL && context->scan_cache->mvcc_snapshot != NULL
-      && context->scan_cache->mvcc_snapshot->snapshot_fnc != NULL
-      && !mvcc_is_mvcc_disabled_class (context->class_oid_p))
+      && context->scan_cache->mvcc_snapshot->snapshot_fnc != NULL && !context->scan_cache->mvcc_disabled_class)
     {
       mvcc_snapshot = context->scan_cache->mvcc_snapshot;
     }

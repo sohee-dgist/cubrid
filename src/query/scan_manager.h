@@ -347,7 +347,6 @@ struct scan_id_struct
   SCAN_DIRECTION direction;	/* Forward/Backward Direction */
   bool mvcc_select_lock_needed;	/* true if lock at scanning needed in mvcc */
   SCAN_OPERATION_TYPE scan_op_type;	/* SELECT, DELETE, UPDATE */
-  bool mvcc_disabled_class; /* true if mvcc is disabled for the class */
 
   int fixed;			/* if true, pages containing scan items in a group keep fixed */
   int grouped;			/* if true, the scan items are accessed group by group, instead of a whole single scan

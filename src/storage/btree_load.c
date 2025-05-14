@@ -3283,8 +3283,7 @@ btree_sort_get_next (THREAD_ENTRY * thread_p, RECDES * temp_recdes, void *arg)
 	heap_next (thread_p, &sort_args->hfids[cur_class], &sort_args->class_ids[cur_class], &sort_args->cur_oid,
 		   &sort_args->in_recdes, &sort_args->hfscan_cache,
 		   sort_args->hfscan_cache.cache_last_fix_page ? PEEK : COPY,
-		   mvcc_is_mvcc_disabled_class (GET_MVCC_CHECK_CLASS_OID
-						(&sort_args->class_ids[cur_class], &sort_args->hfscan_cache)));
+		   sort_args->hfscan_cache.mvcc_disabled_class);
 
       switch (scan_result)
 	{

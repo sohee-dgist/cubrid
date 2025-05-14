@@ -2757,7 +2757,7 @@ exit_on_error:
  * Note: If you feel the need
  */
 static void
-scan_init_scan_id (SCAN_ID * scan_id, bool mvcc_select_lock_needed, bool mvcc_disabled_class,
+scan_init_scan_id (SCAN_ID * scan_id, bool mvcc_select_lock_needed,
 		   SCAN_OPERATION_TYPE scan_op_type, int fixed, int grouped, QPROC_SINGLE_FETCH single_fetch,
 		   DB_VALUE * join_dbval, val_list_node * val_list, VAL_DESCR * vd)
 {
@@ -2766,7 +2766,6 @@ scan_init_scan_id (SCAN_ID * scan_id, bool mvcc_select_lock_needed, bool mvcc_di
   scan_id->direction = S_FORWARD;
 
   scan_id->mvcc_select_lock_needed = mvcc_select_lock_needed;
-  scan_id->mvcc_disabled_class = mvcc_disabled_class;
   scan_id->scan_op_type = scan_op_type;
   scan_id->fixed = fixed;
 
@@ -2834,8 +2833,7 @@ scan_open_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   scan_id->type = scan_type;
 
   /* initialize SCAN_ID structure */
-  bool mvcc_disabled_class = mvcc_is_mvcc_disabled_class (cls_oid);
-  scan_init_scan_id (scan_id, mvcc_select_lock_needed, mvcc_disabled_class, scan_op_type, fixed, grouped, single_fetch,
+  scan_init_scan_id (scan_id, mvcc_select_lock_needed, scan_op_type, fixed, grouped, single_fetch,
 		     join_dbval, val_list, vd);
 
   /* initialize HEAP_SCAN_ID structure */
@@ -2913,9 +2911,7 @@ scan_open_heap_page_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   DB_TYPE single_node_type = DB_TYPE_NULL;
 
   scan_id->type = scan_type;
-  bool mvcc_disabled_class = mvcc_is_mvcc_disabled_class (cls_oid);
-  scan_init_scan_id (scan_id, true, mvcc_disabled_class, S_SELECT, true, false, QPROC_NO_SINGLE_INNER, NULL, val_list,
-		     vd);
+  scan_init_scan_id (scan_id, true, S_SELECT, true, false, QPROC_NO_SINGLE_INNER, NULL, val_list, vd);
 
   hpsidp = &scan_id->s.hpsid;
 
@@ -2970,9 +2966,7 @@ scan_open_class_attr_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
 
   /* initialize SCAN_ID structure */
   /* mvcc_select_lock_needed = false, fixed = true */
-  bool mvcc_disabled_class = mvcc_is_mvcc_disabled_class (cls_oid);
-  scan_init_scan_id (scan_id, false, mvcc_disabled_class, S_SELECT, true, grouped, single_fetch, join_dbval, val_list,
-		     vd);
+  scan_init_scan_id (scan_id, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
 
   /* initialize HEAP_SCAN_ID structure */
   hsidp = &scan_id->s.hsid;
@@ -3071,8 +3065,7 @@ scan_open_index_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   scan_id->type = S_INDX_SCAN;
 
   /* initialize SCAN_ID structure */
-  bool mvcc_disabled_class = mvcc_is_mvcc_disabled_class (cls_oid);
-  scan_init_scan_id (scan_id, mvcc_select_lock_needed, mvcc_disabled_class, scan_op_type, fixed, grouped, single_fetch,
+  scan_init_scan_id (scan_id, mvcc_select_lock_needed, scan_op_type, fixed, grouped, single_fetch,
 		     join_dbval, val_list, vd);
 
   /* read Root page header info */
@@ -3413,9 +3406,7 @@ scan_open_index_key_info_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   scan_id->type = S_INDX_KEY_INFO_SCAN;
 
   /* initialize SCAN_ID structure */
-  bool mvcc_disabled_class = mvcc_is_mvcc_disabled_class (cls_oid);
-  scan_init_scan_id (scan_id, 1, mvcc_disabled_class, S_SELECT, false, false, QPROC_NO_SINGLE_INNER, NULL, val_list,
-		     vd);
+  scan_init_scan_id (scan_id, 1, S_SELECT, false, false, QPROC_NO_SINGLE_INNER, NULL, val_list, vd);
 
   /* read root_page page header info */
   btid = &indx_info->btid;
@@ -3618,7 +3609,7 @@ scan_open_index_node_info_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   scan_id->type = S_INDX_NODE_INFO_SCAN;
 
   /* initialize SCAN_ID structure */
-  scan_init_scan_id (scan_id, 1, false, S_SELECT, false, false, QPROC_NO_SINGLE_INNER, NULL, val_list, vd);
+  scan_init_scan_id (scan_id, 1, S_SELECT, false, false, QPROC_NO_SINGLE_INNER, NULL, val_list, vd);
 
   idx_nsid_p = &scan_id->s.insid;
   idx_nsid_p->indx_info = indx_info;
@@ -3689,7 +3680,7 @@ scan_open_list_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
 
   /* initialize SCAN_ID structure */
   /* mvcc_select_lock_needed = false, fixed = true */
-  scan_init_scan_id (scan_id, false, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
+  scan_init_scan_id (scan_id, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
 
   /* initialize LLIST_SCAN_ID structure */
   llsidp = &scan_id->s.llsid;
@@ -3824,7 +3815,7 @@ scan_open_showstmt_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
 
   /* initialize SCAN_ID structure */
   /* readonly_scan = true, fixed = true */
-  scan_init_scan_id (scan_id, true, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
+  scan_init_scan_id (scan_id, true, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
 
   /* initialize SHOWSTMT_SCAN_ID structure */
   stsidp = &scan_id->s.stsid;
@@ -3927,7 +3918,7 @@ scan_open_values_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
 
   /* initialize SCAN_ID structure */
   /* mvcc_select_lock_needed = false, fixed = true */
-  scan_init_scan_id (scan_id, false, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
+  scan_init_scan_id (scan_id, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
 
   rvsidp = &scan_id->s.rvsid;
   rvsidp->regu_list = valptr_list->valptrp;
@@ -3965,7 +3956,7 @@ scan_open_set_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
 
   /* initialize SCAN_ID structure */
   /* mvcc_select_lock_needed = false, fixed = true */
-  scan_init_scan_id (scan_id, false, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
+  scan_init_scan_id (scan_id, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
 
   /* initialize SET_SCAN_ID structure */
   ssidp = &scan_id->s.ssid;
@@ -4000,7 +3991,7 @@ scan_open_json_table_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id, int group
 
   /* initialize SCAN_ID structure */
   /* mvcc_select_lock_needed = false, fixed = true */
-  scan_init_scan_id (scan_id, false, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
+  scan_init_scan_id (scan_id, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
 
   // scan_init_scan_pred
   scan_init_scan_pred (&scan_id->s.jtid.get_predicate (), NULL, pr,
@@ -4037,7 +4028,7 @@ scan_open_method_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
 
   /* initialize SCAN_ID structure */
   /* mvcc_select_lock_needed = false, fixed = true */
-  scan_init_scan_id (scan_id, false, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
+  scan_init_scan_id (scan_id, false, S_SELECT, true, grouped, single_fetch, join_dbval, val_list, vd);
 
   int error = scan_id->s.msid.init (thread_p, sig_array, list_id);
   if (error == NO_ERROR)
@@ -4073,7 +4064,7 @@ scan_open_dblink_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   scan_id->type = S_DBLINK_SCAN;
 
   /* initialize SCAN_ID structure */
-  scan_init_scan_id (scan_id, false, false, S_SELECT, true, 0, spec->single_fetch, NULL, val_list, vd);
+  scan_init_scan_id (scan_id, false, S_SELECT, true, 0, spec->single_fetch, NULL, val_list, vd);
 
   /* scan predicates */
   scan_init_scan_pred (&dblid->scan_pred, NULL, spec->where_pred,
@@ -5285,7 +5276,7 @@ scan_next_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 		{
 		  sp_scan =
 		    heap_next (thread_p, &hsidp->hfid, &hsidp->cls_oid, &hsidp->curr_oid, &recdes,
-				   &hsidp->scan_cache, is_peeking, scan_id->mvcc_disabled_class);
+			       &hsidp->scan_cache, is_peeking, &hsidp->scan_cache.mvcc_disabled_class);
 		}
 	      else if (scan_id->type == S_HEAP_SAMPLING_SCAN)
 		{
@@ -5421,7 +5412,7 @@ scan_next_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 	    }
 	}
 
-      if (scan_id->mvcc_disabled_class)
+      if (&hsidp->scan_cache.mvcc_disabled_class)
 	{
 	  LOCK lock = NULL_LOCK;
 	  int tran_index = LOG_FIND_THREAD_TRAN_INDEX (thread_p);
@@ -6270,7 +6261,7 @@ scan_next_index_lookup_heap (THREAD_ENTRY * thread_p, SCAN_ID * scan_id, INDX_SC
       return S_ERROR;
     }
 
-  if (!scan_id->mvcc_select_lock_needed && mvcc_is_mvcc_disabled_class (&isidp->cls_oid))
+  if (!scan_id->mvcc_select_lock_needed && isidp->scan_cache.mvcc_disabled_class)
     {
       /* Data filter passed. If object should be locked and is not locked yet, lock it. */
       LOCK lock = NULL_LOCK;
