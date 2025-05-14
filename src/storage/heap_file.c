@@ -7909,6 +7909,10 @@ heap_next_internal (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid,
   hfid = &scan_cache->node.hfid;
 
   PGBUF_INIT_WATCHER (&old_page_watcher, PGBUF_ORDERED_HEAP_NORMAL, hfid);
+  if (!OID_ISNULL (&scan_cache->node.class_oid))
+    {
+      class_oid = &scan_cache->node.class_oid;
+    }
 
   if (OID_ISNULL (next_oid))
     {
@@ -19000,10 +19004,6 @@ SCAN_CODE
 heap_next (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid, RECDES * recdes,
 	   HEAP_SCANCACHE * scan_cache, int ispeeking, bool mvcc_disabled_class)
 {
-  if (!OID_ISNULL (&scan_cache->node.class_oid))
-    {
-      class_oid = &scan_cache->node.class_oid;
-    }
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL, NULL,
 			     mvcc_disabled_class);
 }
@@ -19027,10 +19027,6 @@ SCAN_CODE
 heap_next_sampling (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid, RECDES * recdes,
 		    HEAP_SCANCACHE * scan_cache, int ispeeking, sampling_info * sampling)
 {
-  if (!OID_ISNULL (&scan_cache->node.class_oid))
-    {
-      class_oid = &scan_cache->node.class_oid;
-    }
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL, sampling,
 			     scan_cache->mvcc_disabled_class);
 }
@@ -19058,10 +19054,6 @@ SCAN_CODE
 heap_next_record_info (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid, RECDES * recdes,
 		       HEAP_SCANCACHE * scan_cache, int ispeeking, DB_VALUE ** cache_recordinfo)
 {
-  if (!OID_ISNULL (&scan_cache->node.class_oid))
-    {
-      class_oid = &scan_cache->node.class_oid;
-    }
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false,
 			     cache_recordinfo, NULL, scan_cache->mvcc_disabled_class);
 }
@@ -19085,15 +19077,6 @@ SCAN_CODE
 heap_prev (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid, RECDES * recdes,
 	   HEAP_SCANCACHE * scan_cache, int ispeeking)
 {
-  if (!OID_ISNULL (&scan_cache->node.class_oid))
-    {
-      class_oid = &scan_cache->node.class_oid;
-    }
-  if (class_oid == NULL)
-    {
-      return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, true, NULL, NULL,
-				 false);
-    }
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, true, NULL, NULL,
 			     mvcc_is_mvcc_disabled_class (class_oid));
 }
@@ -19121,15 +19104,6 @@ SCAN_CODE
 heap_prev_record_info (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid, RECDES * recdes,
 		       HEAP_SCANCACHE * scan_cache, int ispeeking, DB_VALUE ** cache_recordinfo)
 {
-  if (!OID_ISNULL (&scan_cache->node.class_oid))
-    {
-      class_oid = &scan_cache->node.class_oid;
-    }
-  if (class_oid == NULL)
-    {
-      return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, true,
-				 cache_recordinfo, NULL, false);
-    }
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, true, cache_recordinfo,
 			     NULL, mvcc_is_mvcc_disabled_class (class_oid));
 }
