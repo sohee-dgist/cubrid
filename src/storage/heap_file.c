@@ -7913,6 +7913,10 @@ heap_next_internal (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid,
     {
       class_oid = &scan_cache->node.class_oid;
     }
+    else if (class_oid)
+    {
+        mvcc_disabled_class = mvcc_is_mvcc_disabled_class(class_oid);
+    }
 
   PGBUF_INIT_WATCHER (&old_page_watcher, PGBUF_ORDERED_HEAP_NORMAL, hfid);
 
