@@ -1,0 +1,2511 @@
+
+Time: 05/14/25 16:20:43.272 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1704207) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 16:20:44.633 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 2
+Syntax: before '  order by 1; '
+Unknown class "public.x". select x.a, x.b.c from [public.x] order by 1
+
+Time: 05/14/25 16:20:44.633 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 3
+before '  order by 1; '
+Unknown class "public.x".
+
+Time: 05/14/25 16:20:59.772 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 4
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:20:59.808 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 5
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:20:59.809 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 6
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:20:59.813 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 7
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:20:59.814 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 8
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:20:59.815 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 9
+Semantic: before '  y); '
+The class 'public.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [public.x] ( a integer, b [public.y] )  reuse_oid 
+
+Time: 05/14/25 16:20:59.815 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 10
+before '  y); '
+The class 'public.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:20:59.816 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 11
+Syntax: before '  values (1, :y1); '
+Unknown class "public.x". insert into [public.x] values (1, :y1)
+
+Time: 05/14/25 16:20:59.816 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 12
+before '  values (1, :y1); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:20:59.816 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 13
+Syntax: before '  values (2, NULL); '
+Unknown class "public.x". insert into [public.x] values (2, null)
+
+Time: 05/14/25 16:20:59.816 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 14
+before '  values (2, NULL); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:20:59.817 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 15
+Syntax: before '  values (3, :ys1); '
+Unknown class "public.x". insert into [public.x] values (3, :ys1)
+
+Time: 05/14/25 16:20:59.817 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 16
+before '  values (3, :ys1); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:20:59.817 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 17
+Syntax: before '  values (4, :y2); '
+Unknown class "public.x". insert into [public.x] values (4, :y2)
+
+Time: 05/14/25 16:20:59.817 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 18
+before '  values (4, :y2); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:20:59.818 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 19
+Syntax: before '  values (5, :ys2); '
+Unknown class "public.x". insert into [public.x] values (5, :ys2)
+
+Time: 05/14/25 16:20:59.818 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 20
+before '  values (5, :ys2); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:20:59.819 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 21
+Syntax: before '   order by 1; '
+Unknown class "public.x". select x.a, x.b.c from [public.x] order by 1
+
+Time: 05/14/25 16:20:59.819 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 22
+before '   order by 1; '
+Unknown class "public.x".
+
+Time: 05/14/25 16:20:59.819 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 23
+Syntax: before '  order by 1; '
+Unknown class "public.x". select x.a, x.b {y}.c from [public.x], [public.y] order by 1
+
+Time: 05/14/25 16:20:59.819 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 24
+before '  order by 1; '
+Unknown class "public.x".
+
+Time: 05/14/25 16:20:59.822 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 25
+Semantic: before '  ; '
+Query yields no result, so variable 'y2' is not set. delete [public.y] from [public.y] [public.y] where [public.y...
+
+Time: 05/14/25 16:20:59.822 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 26
+before '  ; '
+Query yields no result, so variable 'y2' is not set.
+
+Time: 05/14/25 16:20:59.828 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 27
+Semantic: before '  ; '
+Query yields no result, so variable 'ys2' is not set. delete [public.ys] from [public.ys] [public.ys] where [publi...
+
+Time: 05/14/25 16:20:59.828 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 28
+before '  ; '
+Query yields no result, so variable 'ys2' is not set.
+
+Time: 05/14/25 16:20:59.828 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 29
+Syntax: before '  order by 1;	 '
+Unknown class "public.x". select x.a, x.b.c from [public.x] order by 1
+
+Time: 05/14/25 16:20:59.828 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 30
+before '  order by 1;	 '
+Unknown class "public.x".
+
+Time: 05/14/25 16:20:59.832 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 31
+Syntax: before '  order by 1; '
+Unknown class "public.x". select x.a, x.b {y}.c from [public.x], [public.y] order by 1
+
+Time: 05/14/25 16:20:59.832 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 32
+before '  order by 1; '
+Unknown class "public.x".
+
+Time: 05/14/25 16:21:09.203 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 33
+Semantic: before '  y); '
+The class 'public.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [public.x] ( a integer, b [public.y] )  reuse_oid 
+
+Time: 05/14/25 16:21:09.203 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 34
+before '  y); '
+The class 'public.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 16:21:18.192 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1704460) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 16:21:25.260 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:21:25.266 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 3
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:21:25.271 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 4
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:21:25.276 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 5
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:21:25.281 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 6
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:21:25.771 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 7
+Semantic: before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.x] ( a integer, b [dba.y] )  reuse_oid 
+
+Time: 05/14/25 16:21:25.771 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 8
+before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:21:55.338 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 9
+Semantic: before '  (c string); '
+Class dba.y already exists. create class [dba.y] ( c varchar )  reuse_oid 
+
+Time: 05/14/25 16:21:55.338 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 10
+before '  (c string); '
+Class dba.y already exists.
+
+Time: 05/14/25 16:22:00.199 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 11
+Semantic: before '  as subclass of y; '
+Class dba.ys already exists. create class [dba.ys] under [dba.y] reuse_oid 
+
+Time: 05/14/25 16:22:00.199 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 12
+before '  as subclass of y; '
+Class dba.ys already exists.
+
+Time: 05/14/25 16:22:05.265 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 13
+Semantic: before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.x] ( a integer, b [dba.y] )  reuse_oid 
+
+Time: 05/14/25 16:22:05.265 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 14
+before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 16:24:02.964 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1646
+trying to connect 'demodb@localhost'
+
+Time: 05/14/25 16:24:02.964 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1668
+ping server with handshake
+
+Time: 05/14/25 16:24:02.964 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1711480) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 16:24:02.965 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1132
+boot_restart_client: register client { type 2 db demodb user PUBLIC password (null) program csql login cubrid host sohee pid 1711480 }
+
+Time: 05/14/25 16:24:03.511 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:24:03.525 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 3
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:24:03.526 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 4
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:24:03.536 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 5
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:24:03.537 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 6
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:24:09.197 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 7
+Semantic: before '  y); '
+The class 'public.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [public.x] ( a integer, b [public.y] )  reuse_oid 
+
+Time: 05/14/25 16:24:09.197 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 8
+before '  y); '
+The class 'public.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:26:22.231 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 9
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:26:22.233 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 10
+Semantic: before '  (c string); '
+Class public.y already exists. create class [public.y] ( c varchar )  reuse_oid 
+
+Time: 05/14/25 16:26:22.233 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 11
+before '  (c string); '
+Class public.y already exists.
+
+Time: 05/14/25 16:26:22.237 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 12
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:22.242 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 13
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:22.244 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 14
+Semantic: before '  as subclass of y; '
+Class public.ys already exists. create class [public.ys] under [public.y] reuse_oid 
+
+Time: 05/14/25 16:26:22.244 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 15
+before '  as subclass of y; '
+Class public.ys already exists.
+
+Time: 05/14/25 16:26:22.247 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 16
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:22.252 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 17
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:22.257 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 18
+Semantic: before '  y); '
+The class 'public.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [public.x] ( a integer, b [public.y] )  reuse_oid 
+
+Time: 05/14/25 16:26:22.257 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 19
+before '  y); '
+The class 'public.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:26:22.258 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 20
+Syntax: before '  values (1, :y1); '
+Unknown class "public.x". insert into [public.x] values (1, :y1)
+
+Time: 05/14/25 16:26:22.258 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 21
+before '  values (1, :y1); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:26:22.261 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 22
+Syntax: before '  values (2, NULL); '
+Unknown class "public.x". insert into [public.x] values (2, null)
+
+Time: 05/14/25 16:26:22.261 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 23
+before '  values (2, NULL); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:26:22.267 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 24
+Syntax: before '  values (3, :ys1); '
+Unknown class "public.x". insert into [public.x] values (3, :ys1)
+
+Time: 05/14/25 16:26:22.267 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 25
+before '  values (3, :ys1); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:26:22.267 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 26
+Syntax: before '  values (4, :y2); '
+Unknown class "public.x". insert into [public.x] values (4, :y2)
+
+Time: 05/14/25 16:26:22.267 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 27
+before '  values (4, :y2); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:26:22.271 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 28
+Syntax: before '  values (5, :ys2); '
+Unknown class "public.x". insert into [public.x] values (5, :ys2)
+
+Time: 05/14/25 16:26:22.271 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 29
+before '  values (5, :ys2); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:26:22.277 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 30
+Syntax: before '   order by 1; '
+Unknown class "public.x". select x.a, x.b.c from [public.x] order by 1
+
+Time: 05/14/25 16:26:22.277 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 31
+before '   order by 1; '
+Unknown class "public.x".
+
+Time: 05/14/25 16:26:22.278 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 32
+Syntax: before '  order by 1; '
+Unknown class "public.x". select x.a, x.b {y}.c from [public.x], [public.y] order by 1
+
+Time: 05/14/25 16:26:22.278 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 33
+before '  order by 1; '
+Unknown class "public.x".
+
+Time: 05/14/25 16:26:22.282 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 34
+Semantic: before '  ; '
+Query yields no result, so variable 'y2' is not set. delete [public.y] from [public.y] [public.y] where [public.y...
+
+Time: 05/14/25 16:26:22.282 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 35
+before '  ; '
+Query yields no result, so variable 'y2' is not set.
+
+Time: 05/14/25 16:26:22.288 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 36
+Semantic: before '  ; '
+Query yields no result, so variable 'ys2' is not set. delete [public.ys] from [public.ys] [public.ys] where [publi...
+
+Time: 05/14/25 16:26:22.288 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 37
+before '  ; '
+Query yields no result, so variable 'ys2' is not set.
+
+Time: 05/14/25 16:26:22.289 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 38
+Syntax: before '  order by 1;	 '
+Unknown class "public.x". select x.a, x.b.c from [public.x] order by 1
+
+Time: 05/14/25 16:26:22.289 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 39
+before '  order by 1;	 '
+Unknown class "public.x".
+
+Time: 05/14/25 16:26:22.293 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 40
+Syntax: before '  order by 1; '
+Unknown class "public.x". select x.a, x.b {y}.c from [public.x], [public.y] order by 1
+
+Time: 05/14/25 16:26:22.293 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 41
+before '  order by 1; '
+Unknown class "public.x".
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 16:26:29.082 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1646
+trying to connect 'demodb@localhost'
+
+Time: 05/14/25 16:26:29.082 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1668
+ping server with handshake
+
+Time: 05/14/25 16:26:29.082 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1711769) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 16:26:29.082 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1132
+boot_restart_client: register client { type 2 db demodb user dba password (null) program csql login cubrid host sohee pid 1711769 }
+
+Time: 05/14/25 16:26:29.559 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:26:29.567 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 3
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:29.569 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 4
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:29.578 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 5
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:29.579 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 6
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:29.585 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 7
+Semantic: before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.x] ( a integer, b [dba.y] )  reuse_oid 
+
+Time: 05/14/25 16:26:29.585 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 8
+before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:26:29.586 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 9
+Syntax: before '  values (1, :y1); '
+Unknown class "dba.x". insert into [dba.x] values (1, :y1)
+
+Time: 05/14/25 16:26:29.586 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 10
+before '  values (1, :y1); '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:26:29.590 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 11
+Syntax: before '  values (2, NULL); '
+Unknown class "dba.x". insert into [dba.x] values (2, null)
+
+Time: 05/14/25 16:26:29.590 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 12
+before '  values (2, NULL); '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:26:29.595 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 13
+Syntax: before '  values (3, :ys1); '
+Unknown class "dba.x". insert into [dba.x] values (3, :ys1)
+
+Time: 05/14/25 16:26:29.595 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 14
+before '  values (3, :ys1); '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:26:29.596 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 15
+Syntax: before '  values (4, :y2); '
+Unknown class "dba.x". insert into [dba.x] values (4, :y2)
+
+Time: 05/14/25 16:26:29.596 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 16
+before '  values (4, :y2); '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:26:29.600 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 17
+Syntax: before '  values (5, :ys2); '
+Unknown class "dba.x". insert into [dba.x] values (5, :ys2)
+
+Time: 05/14/25 16:26:29.600 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 18
+before '  values (5, :ys2); '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:26:29.605 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 19
+Syntax: before '   order by 1; '
+Unknown class "dba.x". select x.a, x.b.c from [dba.x] order by 1
+
+Time: 05/14/25 16:26:29.605 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 20
+before '   order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:26:29.606 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 21
+Syntax: before '  order by 1; '
+Unknown class "dba.x". select x.a, x.b {y}.c from [dba.x], [dba.y] order by 1
+
+Time: 05/14/25 16:26:29.606 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 22
+before '  order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:26:29.611 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 23
+Semantic: before '  ; '
+Query yields no result, so variable 'y2' is not set. delete [dba.y] from [dba.y] [dba.y] where [dba.y]=:y2
+
+Time: 05/14/25 16:26:29.611 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 24
+before '  ; '
+Query yields no result, so variable 'y2' is not set.
+
+Time: 05/14/25 16:26:29.616 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 25
+Semantic: before '  ; '
+Query yields no result, so variable 'ys2' is not set. delete [dba.ys] from [dba.ys] [dba.ys] where [dba.ys]=:ys2
+
+Time: 05/14/25 16:26:29.616 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 26
+before '  ; '
+Query yields no result, so variable 'ys2' is not set.
+
+Time: 05/14/25 16:26:29.617 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 27
+Syntax: before '  order by 1;	 '
+Unknown class "dba.x". select x.a, x.b.c from [dba.x] order by 1
+
+Time: 05/14/25 16:26:29.617 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 28
+before '  order by 1;	 '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:26:29.621 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 29
+Syntax: before '  order by 1; '
+Unknown class "dba.x". select x.a, x.b {y}.c from [dba.x], [dba.y] order by 1
+
+Time: 05/14/25 16:26:29.621 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 30
+before '  order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:26:37.207 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 31
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:26:37.208 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 32
+Semantic: before '  (c string); '
+Class dba.y already exists. create class [dba.y] ( c varchar )  reuse_oid 
+
+Time: 05/14/25 16:26:37.208 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 33
+before '  (c string); '
+Class dba.y already exists.
+
+Time: 05/14/25 16:26:37.213 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 34
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:37.218 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 35
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:37.219 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 36
+Semantic: before '  as subclass of y; '
+Class dba.ys already exists. create class [dba.ys] under [dba.y] reuse_oid 
+
+Time: 05/14/25 16:26:37.219 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 37
+before '  as subclass of y; '
+Class dba.ys already exists.
+
+Time: 05/14/25 16:26:37.224 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 38
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:37.229 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 39
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:38.304 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 40
+Semantic: before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.x] ( a integer, b [dba.y] )  reuse_oid 
+
+Time: 05/14/25 16:26:38.304 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 41
+before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:26:41.414 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 42
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:26:41.415 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 43
+Semantic: before '  (c string); '
+Class dba.y already exists. create class [dba.y] ( c varchar )  reuse_oid 
+
+Time: 05/14/25 16:26:41.415 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 44
+before '  (c string); '
+Class dba.y already exists.
+
+Time: 05/14/25 16:26:41.420 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 45
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:41.426 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 46
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:41.427 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 47
+Semantic: before '  as subclass of y; '
+Class dba.ys already exists. create class [dba.ys] under [dba.y] reuse_oid 
+
+Time: 05/14/25 16:26:41.427 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 48
+before '  as subclass of y; '
+Class dba.ys already exists.
+
+Time: 05/14/25 16:26:41.431 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 49
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:41.436 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 50
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:26:42.308 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 51
+Semantic: before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.x] ( a integer, b [dba.y] )  reuse_oid 
+
+Time: 05/14/25 16:26:42.308 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 52
+before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 16:32:44.028 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1720634) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 16:33:31.046 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1720865) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 16:33:31.450 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:33:31.455 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 3
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:33:31.460 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 4
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:33:31.465 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 5
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:33:31.470 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 6
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:33:31.476 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 7
+Semantic: before '  y); '
+The class 'public.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [public.x] ( a integer, b [public.y] )  reuse_oid 
+
+Time: 05/14/25 16:33:31.476 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 8
+before '  y); '
+The class 'public.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:33:31.477 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 9
+Syntax: before '  values (1, :y1); '
+Unknown class "public.x". insert into [public.x] values (1, :y1)
+
+Time: 05/14/25 16:33:31.477 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 10
+before '  values (1, :y1); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:33:31.481 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 11
+Syntax: before '  values (2, NULL); '
+Unknown class "public.x". insert into [public.x] values (2, null)
+
+Time: 05/14/25 16:33:31.481 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 12
+before '  values (2, NULL); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:33:31.486 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 13
+Syntax: before '  values (3, :ys1); '
+Unknown class "public.x". insert into [public.x] values (3, :ys1)
+
+Time: 05/14/25 16:33:31.486 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 14
+before '  values (3, :ys1); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:33:31.487 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 15
+Syntax: before '  values (4, :y2); '
+Unknown class "public.x". insert into [public.x] values (4, :y2)
+
+Time: 05/14/25 16:33:31.487 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 16
+before '  values (4, :y2); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:33:31.491 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 17
+Syntax: before '  values (5, :ys2); '
+Unknown class "public.x". insert into [public.x] values (5, :ys2)
+
+Time: 05/14/25 16:33:31.492 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 18
+before '  values (5, :ys2); '
+Unknown class "public.x".
+
+Time: 05/14/25 16:33:31.497 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 19
+Syntax: before '   order by 1; '
+Unknown class "public.x". select x.a, x.b.c from [public.x] order by 1
+
+Time: 05/14/25 16:33:31.497 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 20
+before '   order by 1; '
+Unknown class "public.x".
+
+Time: 05/14/25 16:33:31.497 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 21
+Syntax: before '  order by 1; '
+Unknown class "public.x". select x.a, x.b {y}.c from [public.x], [public.y] order by 1
+
+Time: 05/14/25 16:33:31.497 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 22
+before '  order by 1; '
+Unknown class "public.x".
+
+Time: 05/14/25 16:33:31.501 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 23
+Semantic: before '  ; '
+Query yields no result, so variable 'y2' is not set. delete [public.y] from [public.y] [public.y] where [public.y...
+
+Time: 05/14/25 16:33:31.501 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 24
+before '  ; '
+Query yields no result, so variable 'y2' is not set.
+
+Time: 05/14/25 16:33:31.506 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 25
+Semantic: before '  ; '
+Query yields no result, so variable 'ys2' is not set. delete [public.ys] from [public.ys] [public.ys] where [publi...
+
+Time: 05/14/25 16:33:31.506 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 26
+before '  ; '
+Query yields no result, so variable 'ys2' is not set.
+
+Time: 05/14/25 16:33:31.507 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 27
+Syntax: before '  order by 1;	 '
+Unknown class "public.x". select x.a, x.b.c from [public.x] order by 1
+
+Time: 05/14/25 16:33:31.507 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 28
+before '  order by 1;	 '
+Unknown class "public.x".
+
+Time: 05/14/25 16:33:31.512 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 29
+Syntax: before '  order by 1; '
+Unknown class "public.x". select x.a, x.b {y}.c from [public.x], [public.y] order by 1
+
+Time: 05/14/25 16:33:31.512 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 30
+before '  order by 1; '
+Unknown class "public.x".
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 16:33:42.633 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1720997) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 16:33:43.116 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:33:43.122 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 3
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:33:43.127 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 4
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:33:43.132 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 5
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:33:43.138 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 6
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:33:43.143 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 7
+Semantic: before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.x] ( a integer, b [dba.y] )  reuse_oid 
+
+Time: 05/14/25 16:33:43.143 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 8
+before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:33:43.143 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 9
+Syntax: before '  values (1, :y1); '
+Unknown class "dba.x". insert into [dba.x] values (1, :y1)
+
+Time: 05/14/25 16:33:43.143 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 10
+before '  values (1, :y1); '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:33:43.147 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 11
+Syntax: before '  values (2, NULL); '
+Unknown class "dba.x". insert into [dba.x] values (2, null)
+
+Time: 05/14/25 16:33:43.147 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 12
+before '  values (2, NULL); '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:33:43.152 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 13
+Syntax: before '  values (3, :ys1); '
+Unknown class "dba.x". insert into [dba.x] values (3, :ys1)
+
+Time: 05/14/25 16:33:43.152 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 14
+before '  values (3, :ys1); '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:33:43.153 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 15
+Syntax: before '  values (4, :y2); '
+Unknown class "dba.x". insert into [dba.x] values (4, :y2)
+
+Time: 05/14/25 16:33:43.153 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 16
+before '  values (4, :y2); '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:33:43.157 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 17
+Syntax: before '  values (5, :ys2); '
+Unknown class "dba.x". insert into [dba.x] values (5, :ys2)
+
+Time: 05/14/25 16:33:43.157 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 18
+before '  values (5, :ys2); '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:33:43.162 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 19
+Syntax: before '   order by 1; '
+Unknown class "dba.x". select x.a, x.b.c from [dba.x] order by 1
+
+Time: 05/14/25 16:33:43.162 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 20
+before '   order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:33:43.163 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 21
+Syntax: before '  order by 1; '
+Unknown class "dba.x". select x.a, x.b {y}.c from [dba.x], [dba.y] order by 1
+
+Time: 05/14/25 16:33:43.163 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 22
+before '  order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:33:43.168 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 23
+Semantic: before '  ; '
+Query yields no result, so variable 'y2' is not set. delete [dba.y] from [dba.y] [dba.y] where [dba.y]=:y2
+
+Time: 05/14/25 16:33:43.168 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 24
+before '  ; '
+Query yields no result, so variable 'y2' is not set.
+
+Time: 05/14/25 16:33:43.173 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 25
+Semantic: before '  ; '
+Query yields no result, so variable 'ys2' is not set. delete [dba.ys] from [dba.ys] [dba.ys] where [dba.ys]=:ys2
+
+Time: 05/14/25 16:33:43.173 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 26
+before '  ; '
+Query yields no result, so variable 'ys2' is not set.
+
+Time: 05/14/25 16:33:43.173 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 27
+Syntax: before '  order by 1;	 '
+Unknown class "dba.x". select x.a, x.b.c from [dba.x] order by 1
+
+Time: 05/14/25 16:33:43.173 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 28
+before '  order by 1;	 '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:33:43.177 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 29
+Syntax: before '  order by 1; '
+Unknown class "dba.x". select x.a, x.b {y}.c from [dba.x], [dba.y] order by 1
+
+Time: 05/14/25 16:33:43.177 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 30
+before '  order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 16:34:10.171 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 31
+Syntax: before ' ; '
+Unknown class "dba.fpart". select * from [dba.fpart]
+
+Time: 05/14/25 16:34:10.171 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 32
+before ' ; '
+Unknown class "dba.fpart".
+
+Time: 05/14/25 16:34:23.105 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 33
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:34:23.110 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 34
+Semantic: before '  set(conn)); '
+The class 'dba.conn' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.fpart] ( a integer, b set([dba.conn]) )  r...
+
+Time: 05/14/25 16:34:23.110 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 35
+before '  set(conn)); '
+The class 'dba.conn' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:34:23.115 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 36
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:34:23.120 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 37
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:34:23.125 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 38
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:34:23.130 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 39
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:34:23.135 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 40
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:34:23.140 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 41
+Syntax: before '  values(1, {obj1, obj2, obj3, obj4, obj5}); '
+Unknown class "dba.fpart". insert into [dba.fpart] values (1, {obj1, obj2, obj3, obj4, ...
+
+Time: 05/14/25 16:34:23.140 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 42
+before '  values(1, {obj1, obj2, obj3, obj4, obj5}); '
+Unknown class "dba.fpart".
+
+Time: 05/14/25 16:34:23.146 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 43
+Syntax: before ' ; '
+Unknown class "dba.fpart". select * from [dba.fpart]
+
+Time: 05/14/25 16:34:23.146 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 44
+before ' ; '
+Unknown class "dba.fpart".
+
+Time: 05/14/25 16:34:23.146 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 45
+Syntax: before ' ; '
+Unknown class "dba.fpart". select c.num from [dba.fpart], table(b) t (c)
+
+Time: 05/14/25 16:34:23.146 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 46
+before ' ; '
+Unknown class "dba.fpart".
+
+Time: 05/14/25 16:34:28.314 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 47
+Semantic: before '  (num int); '
+Class dba.conn already exists. create class [dba.conn] ( num integer )  reuse_oid 
+
+Time: 05/14/25 16:34:28.314 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 48
+before '  (num int); '
+Class dba.conn already exists.
+
+Time: 05/14/25 16:34:29.454 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 49
+Semantic: before '  set(conn)); '
+The class 'dba.conn' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.fpart] ( a integer, b set([dba.conn]) )  r...
+
+Time: 05/14/25 16:34:29.455 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 50
+before '  set(conn)); '
+The class 'dba.conn' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:36:28.231 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 51
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:36:28.232 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 52
+Semantic: before '  (num int); '
+Class dba.conn already exists. create class [dba.conn] ( num integer )  reuse_oid 
+
+Time: 05/14/25 16:36:28.232 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 53
+before '  (num int); '
+Class dba.conn already exists.
+
+Time: 05/14/25 16:36:28.237 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 54
+Semantic: before '  set(conn)); '
+The class 'dba.conn' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.fpart] ( a integer, b set([dba.conn]) )  r...
+
+Time: 05/14/25 16:36:28.237 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 55
+before '  set(conn)); '
+The class 'dba.conn' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:36:28.242 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 56
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:36:28.247 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 57
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:36:28.252 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 58
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:36:28.257 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 59
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:36:28.262 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 60
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:36:28.267 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 61
+Syntax: before '  values(1, {obj1, obj2, obj3, obj4, obj5}); '
+Unknown class "dba.fpart". insert into [dba.fpart] values (1, {obj1, obj2, obj3, obj4, ...
+
+Time: 05/14/25 16:36:28.267 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 62
+before '  values(1, {obj1, obj2, obj3, obj4, obj5}); '
+Unknown class "dba.fpart".
+
+Time: 05/14/25 16:36:28.272 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 63
+Syntax: before ' ; '
+Unknown class "dba.fpart". select * from [dba.fpart]
+
+Time: 05/14/25 16:36:28.272 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 64
+before ' ; '
+Unknown class "dba.fpart".
+
+Time: 05/14/25 16:36:28.273 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 65
+Syntax: before ' ; '
+Unknown class "dba.fpart". select c.num from [dba.fpart], table(b) t (c)
+
+Time: 05/14/25 16:36:28.273 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 66
+before ' ; '
+Unknown class "dba.fpart".
+
+Time: 05/14/25 16:36:38.416 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 67
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:36:38.417 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 68
+Semantic: before '  (num int); '
+Class dba.conn already exists. create class [dba.conn] ( num integer )  reuse_oid 
+
+Time: 05/14/25 16:36:38.417 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 69
+before '  (num int); '
+Class dba.conn already exists.
+
+Time: 05/14/25 16:36:39.709 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 70
+Semantic: before '  set(conn)); '
+The class 'dba.conn' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.fpart] ( a integer, b set([dba.conn]) )  r...
+
+Time: 05/14/25 16:36:39.709 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 71
+before '  set(conn)); '
+The class 'dba.conn' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 16:38:41.469 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1132
+boot_restart_client: register client { type 2 db demodb user dba password (null) program csql login cubrid host sohee pid 1729706 }
+
+Time: 05/14/25 16:38:41.471 - DEBUG *** file /home/cubrid/dev/cubrid/src/sp/pl_connection.cpp, line 185
+pl_connection_pool: connection retire (0)
+
+Time: 05/14/25 16:38:41.472 - ERROR *** file /home/cubrid/dev/cubrid/src/storage/file_io.c, line 1306 ERROR CODE = -11, Tran = -1, EID = 1
+Unable to mount disk volume "/home/cubrid/debug/CUBRID-/databases/demodb/log/demodb_lgat". The database "/home/cubrid/debug/CUBRID-/databases/demodb/demodb", to which the disk volume belongs, is in use by user cubrid on process 1729303 of host sohee since Wed May 14 16:38:27 2025.
+
+Time: 05/14/25 16:38:41.472 - ERROR *** file /home/cubrid/dev/cubrid/src/transaction/boot_sr.c, line 2812 ERROR CODE = -113, Tran = -1, EID = 2
+Unable to restart/initialize the database server. Unable to mount disk volume "/home/cubrid/debug/CUBRID-/databases/demodb/log/demodb_lgat". The database "/home/cubrid/debug/CUBRID-/databases/demodb/demodb", to which the disk volume belongs, is in use by user cubrid on process 1729303 of host sohee since Wed May 14 16:38:27 2025.
+
+Time: 05/14/25 16:38:41.472 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_sr.c, line 239  CODE = -973, Tran = -1, EID = 3
+Server status is DOWN.
+
+Time: 05/14/25 16:38:41.472 - DEBUG *** file /home/cubrid/dev/cubrid/src/query/partition.c, line 752
+deleting partition cache
+
+Time: 05/14/25 16:38:50.412 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1646
+trying to connect 'demodb@localhost'
+
+Time: 05/14/25 16:38:50.413 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1668
+ping server with handshake
+
+Time: 05/14/25 16:38:50.413 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1729750) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 16:38:50.413 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1132
+boot_restart_client: register client { type 2 db demodb user dba password (null) program csql login cubrid host sohee pid 1729750 }
+
+Time: 05/14/25 16:38:52.120 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:38:52.131 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 3
+Semantic: before '  set(conn)); '
+The class 'dba.conn' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.fpart] ( a integer, b set([dba.conn]) )  r...
+
+Time: 05/14/25 16:38:52.131 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 4
+before '  set(conn)); '
+The class 'dba.conn' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 16:38:52.132 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 5
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:38:52.136 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 6
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:38:52.141 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 7
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:38:52.147 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 8
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:38:52.151 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 9
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 16:38:52.157 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 10
+Syntax: before '  values(1, {obj1, obj2, obj3, obj4, obj5}); '
+Unknown class "dba.fpart". insert into [dba.fpart] values (1, {obj1, obj2, obj3, obj4, ...
+
+Time: 05/14/25 16:38:52.157 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 11
+before '  values(1, {obj1, obj2, obj3, obj4, obj5}); '
+Unknown class "dba.fpart".
+
+Time: 05/14/25 16:38:52.158 - DEBUG *** file /home/cubrid/dev/cubrid/src/communication/network_interface_cl.c, line 7209
+qmgr_execute_query requested: EXECUTION_WITH_AUTOCOMMIT
+
+Time: 05/14/25 16:38:52.161 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 12
+Syntax: before ' ; '
+Unknown class "dba.fpart". select * from [dba.fpart]
+
+Time: 05/14/25 16:38:52.161 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 13
+before ' ; '
+Unknown class "dba.fpart".
+
+Time: 05/14/25 16:38:52.162 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 14
+Syntax: before ' ; '
+Unknown class "dba.fpart". select c.num from [dba.fpart], table(b) t (c)
+
+Time: 05/14/25 16:38:52.162 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 15
+before ' ; '
+Unknown class "dba.fpart".
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 16:47:37.911 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1738906) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 16:47:38.748 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 2, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:47:39.841 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 3
+In line 2, column 1 before ' on; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 16:47:57.929 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 4
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 17:02:26.570 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1740177) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 17:06:06.452 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:06:06.701 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 3
+Semantic: before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'public.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [public.foo_foo] ( fshort_attr smallint, fint_a...
+
+Time: 05/14/25 17:06:06.701 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 4
+before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'public.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:06:06.717 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 5
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:06:06.733 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 6
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:06:06.753 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 7
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:06:06.768 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 8
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:06:06.790 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 9
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:06:06.801 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 10
+Syntax: before '  values (1, 10, 11.1, 111.11,'foo string 1', TIME '08:01:00',...'
+Unknown class "public.foo_foo". insert into [public.foo_foo] values (1, 10, 11.1, 111.11, 'f...
+
+Time: 05/14/25 17:06:06.801 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 11
+before '  values (1, 10, 11.1, 111.11,'foo string 1', TIME '08:01:00',...'
+Unknown class "public.foo_foo".
+
+Time: 05/14/25 17:06:06.816 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 12
+Syntax: before '  values (2, 20, 22.2, 222.22,'foo string 2', TIME '08:02:00',...'
+Unknown class "public.foo_foo". insert into [public.foo_foo] values (2, 20, 22.2, 222.22, 'f...
+
+Time: 05/14/25 17:06:06.816 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 13
+before '  values (2, 20, 22.2, 222.22,'foo string 2', TIME '08:02:00',...'
+Unknown class "public.foo_foo".
+
+Time: 05/14/25 17:06:06.831 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 14
+Syntax: before '  values (3, 30, 33.3, 333.33,'foo string 3', TIME '08:03:00',...'
+Unknown class "public.foo_foo". insert into [public.foo_foo] values (3, 30, 33.3, 333.33, 'f...
+
+Time: 05/14/25 17:06:06.831 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 15
+before '  values (3, 30, 33.3, 333.33,'foo string 3', TIME '08:03:00',...'
+Unknown class "public.foo_foo".
+
+Time: 05/14/25 17:06:08.838 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 16
+Syntax: before ' ; '
+Unknown class "public.foo_foo". select fshort_attr, add_short(one_foo, one_foo.short_attr, f...
+
+Time: 05/14/25 17:06:08.838 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 17
+before ' ; '
+Unknown class "public.foo_foo".
+
+Time: 05/14/25 17:06:24.221 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 18
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:06:24.343 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 19
+Semantic: before '  (
+           short_attr  short, 
+           int_attr int,
+  ...'
+Class public.foo already exists. create class [public.foo] ( short_attr smallint, int_attr in...
+
+Time: 05/14/25 17:06:24.343 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 20
+before '  (
+           short_attr  short, 
+           int_attr int,
+  ...'
+Class public.foo already exists.
+
+Time: 05/14/25 17:06:24.965 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 21
+Semantic: before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'public.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [public.foo_foo] ( fshort_attr smallint, fint_a...
+
+Time: 05/14/25 17:06:24.965 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 22
+before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'public.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:06:47.006 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_admin.c, line 2868 ERROR CODE = -140, Tran = 1, EID = 23
+Operation "db_set_system_parameters" can only be performed by the DBA or a DBA group member.
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 17:06:54.166 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1740654) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 17:07:00.997 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:07:01.238 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 3
+Semantic: before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.foo_foo] ( fshort_attr smallint, fint_attr...
+
+Time: 05/14/25 17:07:01.238 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 4
+before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:07:01.254 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 5
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:07:01.269 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 6
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:07:01.290 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 7
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:07:01.305 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 8
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:07:01.325 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 9
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:07:01.335 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 10
+Syntax: before '  values (1, 10, 11.1, 111.11,'foo string 1', TIME '08:01:00',...'
+Unknown class "dba.foo_foo". insert into [dba.foo_foo] values (1, 10, 11.1, 111.11, 'foo ...
+
+Time: 05/14/25 17:07:01.335 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 11
+before '  values (1, 10, 11.1, 111.11,'foo string 1', TIME '08:01:00',...'
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:07:01.350 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 12
+Syntax: before '  values (2, 20, 22.2, 222.22,'foo string 2', TIME '08:02:00',...'
+Unknown class "dba.foo_foo". insert into [dba.foo_foo] values (2, 20, 22.2, 222.22, 'foo ...
+
+Time: 05/14/25 17:07:01.350 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 13
+before '  values (2, 20, 22.2, 222.22,'foo string 2', TIME '08:02:00',...'
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:07:01.365 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 14
+Syntax: before '  values (3, 30, 33.3, 333.33,'foo string 3', TIME '08:03:00',...'
+Unknown class "dba.foo_foo". insert into [dba.foo_foo] values (3, 30, 33.3, 333.33, 'foo ...
+
+Time: 05/14/25 17:07:01.365 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 15
+before '  values (3, 30, 33.3, 333.33,'foo string 3', TIME '08:03:00',...'
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:07:01.376 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 16
+Syntax: before ' ; '
+Unknown class "dba.foo_foo". select fshort_attr, add_short(one_foo, one_foo.short_attr, f...
+
+Time: 05/14/25 17:07:01.376 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 17
+before ' ; '
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:07:11.430 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 18
+Semantic: before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.foo_foo] ( fshort_attr smallint, fint_attr...
+
+Time: 05/14/25 17:07:11.430 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 19
+before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:07:33.411 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 20
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:07:33.656 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 21
+Semantic: before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.foo_foo] ( fshort_attr smallint, fint_attr...
+
+Time: 05/14/25 17:07:33.656 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 22
+before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:07:33.672 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 23
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:07:33.688 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 24
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:07:33.707 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 25
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:07:33.723 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 26
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:07:33.743 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 27
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:07:33.753 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 28
+Syntax: before '  values (1, 10, 11.1, 111.11,'foo string 1', TIME '08:01:00',...'
+Unknown class "dba.foo_foo". insert into [dba.foo_foo] values (1, 10, 11.1, 111.11, 'foo ...
+
+Time: 05/14/25 17:07:33.753 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 29
+before '  values (1, 10, 11.1, 111.11,'foo string 1', TIME '08:01:00',...'
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:07:33.768 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 30
+Syntax: before '  values (2, 20, 22.2, 222.22,'foo string 2', TIME '08:02:00',...'
+Unknown class "dba.foo_foo". insert into [dba.foo_foo] values (2, 20, 22.2, 222.22, 'foo ...
+
+Time: 05/14/25 17:07:33.768 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 31
+before '  values (2, 20, 22.2, 222.22,'foo string 2', TIME '08:02:00',...'
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:07:33.783 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 32
+Syntax: before '  values (3, 30, 33.3, 333.33,'foo string 3', TIME '08:03:00',...'
+Unknown class "dba.foo_foo". insert into [dba.foo_foo] values (3, 30, 33.3, 333.33, 'foo ...
+
+Time: 05/14/25 17:07:33.783 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 33
+before '  values (3, 30, 33.3, 333.33,'foo string 3', TIME '08:03:00',...'
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:07:33.794 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 34
+Syntax: before ' ; '
+Unknown class "dba.foo_foo". select fshort_attr, add_short(one_foo, one_foo.short_attr, f...
+
+Time: 05/14/25 17:07:33.794 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 35
+before ' ; '
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:08:28.729 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 36
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:08:28.853 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 37
+Semantic: before '  (
+           short_attr  short, 
+           int_attr int,
+  ...'
+Class dba.foo already exists. create class [dba.foo] ( short_attr smallint, int_attr integ...
+
+Time: 05/14/25 17:08:28.853 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 38
+before '  (
+           short_attr  short, 
+           int_attr int,
+  ...'
+Class dba.foo already exists.
+
+Time: 05/14/25 17:08:28.969 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 39
+Semantic: before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.foo_foo] ( fshort_attr smallint, fint_attr...
+
+Time: 05/14/25 17:08:28.969 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 40
+before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:08:28.984 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 41
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:08:28.999 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 42
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:08:29.020 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 43
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:08:29.036 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 44
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:08:29.055 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 45
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:08:29.066 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 46
+Syntax: before '  values (1, 10, 11.1, 111.11,'foo string 1', TIME '08:01:00',...'
+Unknown class "dba.foo_foo". insert into [dba.foo_foo] values (1, 10, 11.1, 111.11, 'foo ...
+
+Time: 05/14/25 17:08:29.066 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 47
+before '  values (1, 10, 11.1, 111.11,'foo string 1', TIME '08:01:00',...'
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:08:29.082 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 48
+Syntax: before '  values (2, 20, 22.2, 222.22,'foo string 2', TIME '08:02:00',...'
+Unknown class "dba.foo_foo". insert into [dba.foo_foo] values (2, 20, 22.2, 222.22, 'foo ...
+
+Time: 05/14/25 17:08:29.082 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 49
+before '  values (2, 20, 22.2, 222.22,'foo string 2', TIME '08:02:00',...'
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:08:29.098 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 50
+Syntax: before '  values (3, 30, 33.3, 333.33,'foo string 3', TIME '08:03:00',...'
+Unknown class "dba.foo_foo". insert into [dba.foo_foo] values (3, 30, 33.3, 333.33, 'foo ...
+
+Time: 05/14/25 17:08:29.098 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 51
+before '  values (3, 30, 33.3, 333.33,'foo string 3', TIME '08:03:00',...'
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:08:29.108 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 52
+Syntax: before ' ; '
+Unknown class "dba.foo_foo". select fshort_attr, add_short(one_foo, one_foo.short_attr, f...
+
+Time: 05/14/25 17:08:29.108 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 53
+before ' ; '
+Unknown class "dba.foo_foo".
+
+Time: 05/14/25 17:08:37.073 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 54
+Semantic: before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.foo_foo] ( fshort_attr smallint, fint_attr...
+
+Time: 05/14/25 17:08:37.073 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 55
+before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:09:27.305 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 56
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:09:28.061 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 57
+Semantic: before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.foo_foo] ( fshort_attr smallint, fint_attr...
+
+Time: 05/14/25 17:09:28.061 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 58
+before '  foo)
+   	method  get_cur_obj() foo_foo
+               functi...'
+The class 'dba.foo' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:09:44.449 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 59
+Semantic: before '  (
+           short_attr  short, 
+           int_attr int,
+  ...'
+Class dba.foo already exists. create class [dba.foo] ( short_attr smallint, int_attr integ...
+
+Time: 05/14/25 17:09:44.449 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 60
+before '  (
+           short_attr  short, 
+           int_attr int,
+  ...'
+Class dba.foo already exists.
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 17:11:58.318 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1749439) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 17:12:01.296 - ERROR *** file Unknown from server, line -1 ERROR CODE = -176, Tran = 1, EID = 2
+Conversion error in date format.
+
+Time: 05/14/25 17:12:01.302 - ERROR *** file Unknown from server, line -1 ERROR CODE = -176, Tran = 1, EID = 3
+Conversion error in date format.
+
+Time: 05/14/25 17:12:01.306 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 4
+Semantic: Cannot coerce [dba.t1].c to type varchar. create index [i_t1_a2o] on [dba.t1] (c) 
+
+Time: 05/14/25 17:12:01.306 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 5
+Cannot coerce [dba.t1].c to type varchar.
+
+Time: 05/14/25 17:12:01.317 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 6
+Semantic: Cannot coerce [dba.t1].d to type varchar. create index [i_t1_a2n] on [dba.t1] (d) 
+
+Time: 05/14/25 17:12:01.317 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 7
+Cannot coerce [dba.t1].d to type varchar.
+
+Time: 05/14/25 17:12:01.322 - ERROR *** file Unknown from server, line -1 ERROR CODE = -176, Tran = 1, EID = 8
+Conversion error in date format.
+
+Time: 05/14/25 17:12:01.326 - ERROR *** file Unknown from server, line -1 ERROR CODE = -176, Tran = 1, EID = 9
+Conversion error in date format.
+
+Time: 05/14/25 17:12:01.332 - ERROR *** file Unknown from server, line -1 ERROR CODE = -176, Tran = 1, EID = 10
+Conversion error in date format.
+
+Time: 05/14/25 17:12:01.337 - ERROR *** file Unknown from server, line -1 ERROR CODE = -176, Tran = 1, EID = 11
+Conversion error in date format.
+
+Time: 05/14/25 17:12:01.347 - ERROR *** file Unknown from server, line -1 ERROR CODE = -176, Tran = 1, EID = 12
+Conversion error in date format.
+
+Time: 05/14/25 17:12:01.353 - ERROR *** file Unknown from server, line -1 ERROR CODE = -176, Tran = 1, EID = 13
+Conversion error in date format.
+
+Time: 05/14/25 17:12:01.358 - ERROR *** file Unknown from server, line -1 ERROR CODE = -176, Tran = 1, EID = 14
+Conversion error in date format.
+
+Time: 05/14/25 17:12:01.363 - ERROR *** file Unknown from server, line -1 ERROR CODE = -176, Tran = 1, EID = 15
+Conversion error in date format.
+
+Time: 05/14/25 17:12:01.368 - ERROR *** file Unknown from server, line -1 ERROR CODE = -176, Tran = 1, EID = 16
+Conversion error in date format.
+
+Time: 05/14/25 17:12:01.393 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 17
+invalid create statement
+
+Time: 05/14/25 17:12:01.413 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 18
+invalid create statement
+
+Time: 05/14/25 17:12:01.429 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 19
+In line 1, column 1 before ' t1; '
+Syntax error: unexpected 'table', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:13:14.381 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 20
+System error (update_object_by_oid failed to lock object.) in /home/cubrid/dev/cubrid/src/query/execute_statement.c (line: 7660)
+
+Time: 05/14/25 17:13:14.381 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 21
+Accessing deleted object 0|4609|2.
+
+Time: 05/14/25 17:13:17.594 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 22
+System error (update_object_by_oid failed to lock object.) in /home/cubrid/dev/cubrid/src/query/execute_statement.c (line: 7660)
+
+Time: 05/14/25 17:13:17.594 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 23
+Accessing deleted object 0|4609|2.
+
+Time: 05/14/25 17:14:01.134 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 24
+In line 1, column 1 before ' tpr promote partition p20; '
+Syntax error: unexpected 'table', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:14:01.135 - ERROR *** file /home/cubrid/dev/cubrid/src/query/execute_schema.c, line 2464 ERROR CODE = -899, Tran = 1, EID = 25
+Invalid partition requests.
+
+Time: 05/14/25 17:14:01.140 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 26
+In line 1, column 1 before ' v1 set i=i+1 where i>12 and i<19; '
+Syntax error: unexpected 'ate', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:14:34.538 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 27
+In line 1, column 1 before ' tpr promote partition p20; '
+Syntax error: unexpected 'table', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:14:34.539 - ERROR *** file /home/cubrid/dev/cubrid/src/query/execute_schema.c, line 2464 ERROR CODE = -899, Tran = 1, EID = 28
+Invalid partition requests.
+
+Time: 05/14/25 17:14:34.544 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 29
+In line 1, column 1 before ' v1 set i=i+1 where i>12 and i<19; '
+Syntax error: unexpected 'ate', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:14:34.568 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 30
+Semantic: before ' (i int) partition by list (i)(
+	partition p0 values in (1,2,3...'
+Class dba.t already exists. create class [dba.t] ( i integer )  dont_reuse_oid  partitio...
+
+Time: 05/14/25 17:14:34.568 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 31
+before ' (i int) partition by list (i)(
+	partition p0 values in (1,2,3...'
+Class dba.t already exists.
+
+Time: 05/14/25 17:14:34.578 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 32
+Semantic: before ' (col t); '
+Class dba.a already exists. create class [dba.a] ( col [dba.t] )  dont_reuse_oid 
+
+Time: 05/14/25 17:14:34.578 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 33
+before ' (col t); '
+Class dba.a already exists.
+
+Time: 05/14/25 17:14:34.589 - ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 3765 ERROR CODE = -505, Tran = 1, EID = 34
+A trigger with the name "dba.trg_bef_update_t" already exists.
+
+Time: 05/14/25 17:14:34.599 - ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 3765 ERROR CODE = -505, Tran = 1, EID = 35
+A trigger with the name "dba.trg_after_update_t" already exists.
+
+Time: 05/14/25 17:14:42.090 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 36
+In line 1, column 1 before ' tpr promote partition p20; '
+Syntax error: unexpected 'table', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:14:42.090 - ERROR *** file /home/cubrid/dev/cubrid/src/query/execute_schema.c, line 2464 ERROR CODE = -899, Tran = 1, EID = 37
+Invalid partition requests.
+
+Time: 05/14/25 17:14:42.096 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 38
+In line 1, column 1 before ' v1 set i=i+1 where i>12 and i<19; '
+Syntax error: unexpected 'ate', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:14:42.119 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 39
+Semantic: before ' (i int) partition by list (i)(
+	partition p0 values in (1,2,3...'
+Class dba.t already exists. create class [dba.t] ( i integer )  dont_reuse_oid  partitio...
+
+Time: 05/14/25 17:14:42.119 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 40
+before ' (i int) partition by list (i)(
+	partition p0 values in (1,2,3...'
+Class dba.t already exists.
+
+Time: 05/14/25 17:14:42.130 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 41
+Semantic: before ' (col t); '
+Class dba.a already exists. create class [dba.a] ( col [dba.t] )  dont_reuse_oid 
+
+Time: 05/14/25 17:14:42.130 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 42
+before ' (col t); '
+Class dba.a already exists.
+
+Time: 05/14/25 17:14:42.139 - ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 3765 ERROR CODE = -505, Tran = 1, EID = 43
+A trigger with the name "dba.trg_bef_update_t" already exists.
+
+Time: 05/14/25 17:14:42.150 - ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 3765 ERROR CODE = -505, Tran = 1, EID = 44
+A trigger with the name "dba.trg_after_update_t" already exists.
+
+Time: 05/14/25 17:14:42.164 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 45
+In line 1, column 1 before ' table t; '
+Syntax error: unexpected 'rop', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:14:42.181 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 46
+Semantic: before ' (i int) partition by list (i)(
+	partition p0 values in (1,2,3...'
+Class dba.t already exists. create class [dba.t] ( i integer )  dont_reuse_oid  partitio...
+
+Time: 05/14/25 17:14:42.181 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 47
+before ' (i int) partition by list (i)(
+	partition p0 values in (1,2,3...'
+Class dba.t already exists.
+
+Time: 05/14/25 17:14:42.201 - ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 3765 ERROR CODE = -505, Tran = 1, EID = 48
+A trigger with the name "dba.trg_bef_update_t" already exists.
+
+Time: 05/14/25 17:14:42.206 - ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 3765 ERROR CODE = -505, Tran = 1, EID = 49
+A trigger with the name "dba.trg_after_update_t" already exists.
+
+Time: 05/14/25 17:14:42.211 - ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 5348 ERROR CODE = -452, Tran = 1, EID = 50
+Invalid XASL tree node content.
+
+Time: 05/14/25 17:14:42.212 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 1692 ERROR CODE = -540, Tran = 1, EID = 51
+before ' ) values ([new])'
+Attribute "col" was not found..
+
+Time: 05/14/25 17:14:42.212 - ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 1697 ERROR CODE = -526, Tran = 1, EID = 52
+Error compiling action for "dba.trg_bef_update_t", before ' ) values ([new])'
+Attribute "col" was not found.
+
+Time: 05/14/25 17:14:42.212 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 53
+Error compiling action for "dba.trg_bef_update_t", before ' ) values ([new])'
+Attribute "col" was not found.
+
+Time: 05/14/25 17:14:42.218 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 1692 ERROR CODE = -540, Tran = 1, EID = 54
+before ' ) values ([new])'
+Attribute "col" was not found..
+
+Time: 05/14/25 17:14:42.218 - ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 1697 ERROR CODE = -526, Tran = 1, EID = 55
+Error compiling action for "dba.trg_bef_update_t", before ' ) values ([new])'
+Attribute "col" was not found.
+
+Time: 05/14/25 17:14:42.218 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 56
+Error compiling action for "dba.trg_bef_update_t", before ' ) values ([new])'
+Attribute "col" was not found.
+
+Time: 05/14/25 17:14:43.303 - ERROR *** file Unknown from server, line -1 ERROR CODE = -891, Tran = 1, EID = 57
+Appropriate partition does not exist.
+
+Time: 05/14/25 17:14:43.303 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 58
+Appropriate partition does not exist.
+
+Time: 05/14/25 17:14:54.130 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 59
+In line 1, column 1 before ' tpr promote partition p20; '
+Syntax error: unexpected 'table', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:14:54.130 - ERROR *** file /home/cubrid/dev/cubrid/src/query/execute_schema.c, line 2464 ERROR CODE = -899, Tran = 1, EID = 60
+Invalid partition requests.
+
+Time: 05/14/25 17:14:54.135 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 61
+In line 1, column 1 before ' v1 set i=i+1 where i>12 and i<19; '
+Syntax error: unexpected 'ate', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:15:09.162 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 62
+In line 1, column 1 before ' tpr promote partition p20; '
+Syntax error: unexpected 'table', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:15:09.162 - ERROR *** file /home/cubrid/dev/cubrid/src/query/execute_schema.c, line 2464 ERROR CODE = -899, Tran = 1, EID = 63
+Invalid partition requests.
+
+Time: 05/14/25 17:15:09.167 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 64
+In line 1, column 1 before ' v1 set i=i+1 where i>12 and i<19; '
+Syntax error: unexpected 'ate', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:15:09.191 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 65
+Semantic: before ' (i int) partition by list (i)(
+	partition p0 values in (1,2,3...'
+Class dba.t already exists. create class [dba.t] ( i integer )  dont_reuse_oid  partitio...
+
+Time: 05/14/25 17:15:09.191 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 66
+before ' (i int) partition by list (i)(
+	partition p0 values in (1,2,3...'
+Class dba.t already exists.
+
+Time: 05/14/25 17:15:09.201 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 67
+Semantic: before ' (col t); '
+Class dba.a already exists. create class [dba.a] ( col [dba.t] )  dont_reuse_oid 
+
+Time: 05/14/25 17:15:09.201 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 68
+before ' (col t); '
+Class dba.a already exists.
+
+Time: 05/14/25 17:15:09.211 - ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 3765 ERROR CODE = -505, Tran = 1, EID = 69
+A trigger with the name "dba.trg_bef_update_t" already exists.
+
+Time: 05/14/25 17:15:09.221 - ERROR *** file /home/cubrid/dev/cubrid/src/object/trigger_manager.c, line 3765 ERROR CODE = -505, Tran = 1, EID = 70
+A trigger with the name "dba.trg_after_update_t" already exists.
+
+Time: 05/14/25 17:20:16.117 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 71
+In line 1, column 1 before '> select attr_name, class_name, domain_class_name
+csql> from  ...'
+Syntax error: unexpected 'csql', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:22:31.219 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 72
+before ' 
+csql> from   db_attribute
+csql> where  class_name = 'test_cl...'
+invalid relational operator
+
+Time: 05/14/25 17:22:31.220 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 73
+In line 2, column 5 before ' from   db_attribute
+csql> where  class_name = 'test_class' or...'
+Syntax error: unexpected '>', expecting ';'
+
+Time: 05/14/25 17:22:43.583 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 74
+Syntax: before ' ; '
+Unknown class "dba.domain_class_name". select * from [dba.domain_class_name]
+
+Time: 05/14/25 17:22:43.583 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 75
+before ' ; '
+Unknown class "dba.domain_class_name".
+
+Time: 05/14/25 17:24:47.196 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 76
+Semantic: before '  (col1 integer, col2 test_ob_class); '
+Class dba.test_class already exists. create class [dba.test_class] ( col1 integer, col2 [dba.test...
+
+Time: 05/14/25 17:24:47.196 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 77
+before '  (col1 integer, col2 test_ob_class); '
+Class dba.test_class already exists.
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 17:33:40.218 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1646
+trying to connect 'demodb@localhost'
+
+Time: 05/14/25 17:33:40.218 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1668
+ping server with handshake
+
+Time: 05/14/25 17:33:40.218 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1761455) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 17:33:40.218 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1132
+boot_restart_client: register client { type 2 db demodb user PUBLIC password (null) program csql login cubrid host sohee pid 1761455 }
+
+Time: 05/14/25 17:39:53.266 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1768926) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 17:42:13.797 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1646
+trying to connect 'demodb@localhost'
+
+Time: 05/14/25 17:42:13.797 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1668
+ping server with handshake
+
+Time: 05/14/25 17:42:13.797 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1770954) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 17:42:13.798 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1132
+boot_restart_client: register client { type 2 db demodb user PUBLIC password (null) program csql login cubrid host sohee pid 1770954 }
+
+Time: 05/14/25 17:42:15.924 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 2, column 1 before '  '
+Syntax error: unexpected 'mvcc_disabled_class', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:42:22.345 - DEBUG *** file /home/cubrid/dev/cubrid/src/communication/network_interface_cl.c, line 7213
+qmgr_execute_query requested: EXECUTION_WITHOUT_AUTOCOMMIT
+
+Time: 05/14/25 17:42:24.161 - DEBUG *** file /home/cubrid/dev/cubrid/src/communication/network_interface_cl.c, line 7213
+qmgr_execute_query requested: EXECUTION_WITHOUT_AUTOCOMMIT
+
+Time: 05/14/25 17:42:25.541 - DEBUG *** file /home/cubrid/dev/cubrid/src/communication/network_interface_cl.c, line 7213
+qmgr_execute_query requested: EXECUTION_WITHOUT_AUTOCOMMIT
+
+Time: 05/14/25 17:42:35.013 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1646
+trying to connect 'demodb@localhost'
+
+Time: 05/14/25 17:42:35.013 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1668
+ping server with handshake
+
+Time: 05/14/25 17:42:35.013 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1771089) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 17:42:35.014 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1132
+boot_restart_client: register client { type 2 db demodb user dba password (null) program csql login cubrid host sohee pid 1771089 }
+
+Time: 05/14/25 17:42:35.693 - DEBUG *** file /home/cubrid/dev/cubrid/src/communication/network_interface_cl.c, line 7213
+qmgr_execute_query requested: EXECUTION_WITHOUT_AUTOCOMMIT
+
+Time: 05/14/25 17:42:36.365 - DEBUG *** file /home/cubrid/dev/cubrid/src/communication/network_interface_cl.c, line 7213
+qmgr_execute_query requested: EXECUTION_WITHOUT_AUTOCOMMIT
+
+Time: 05/14/25 17:42:39.760 - DEBUG *** file /home/cubrid/dev/cubrid/src/communication/network_interface_cl.c, line 7213
+qmgr_execute_query requested: EXECUTION_WITHOUT_AUTOCOMMIT
+
+Time: 05/14/25 17:42:54.336 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 2
+Semantic: before ' ; '
+Unknown class "dba.test_ob_class". drop [dba.test_ob_class]
+
+Time: 05/14/25 17:42:54.336 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 3
+before ' ; '
+Unknown class "dba.test_ob_class".
+
+Time: 05/14/25 17:42:56.003 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 4
+Semantic: before ' ; '
+Unknown class "dba.test_ob_class". drop [dba.test_ob_class]
+
+Time: 05/14/25 17:42:56.004 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 5
+before ' ; '
+Unknown class "dba.test_ob_class".
+
+Time: 05/14/25 17:42:57.104 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 6
+Semantic: before ' ; '
+Unknown class "dba.test_ob_class". drop [dba.test_ob_class]
+
+Time: 05/14/25 17:42:57.104 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 7
+before ' ; '
+Unknown class "dba.test_ob_class".
+
+Time: 05/14/25 17:43:02.534 - DEBUG *** file /home/cubrid/dev/cubrid/src/communication/network_interface_cl.c, line 7213
+qmgr_execute_query requested: EXECUTION_WITHOUT_AUTOCOMMIT
+
+Time: 05/14/25 17:54:00.804 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1780762) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 17:54:04.655 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:54:04.660 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 3
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:54:04.665 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 4
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:54:04.670 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 5
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:54:04.675 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 6
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:54:04.680 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 7
+Semantic: before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.x] ( a integer, b [dba.y] )  reuse_oid 
+
+Time: 05/14/25 17:54:04.680 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 8
+before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:54:04.681 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 9
+Syntax: before '  values (1, :y1); '
+Unknown class "dba.x". insert into [dba.x] values (1, :y1)
+
+Time: 05/14/25 17:54:04.681 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 10
+before '  values (1, :y1); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:54:04.685 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 11
+Syntax: before '  values (2, NULL); '
+Unknown class "dba.x". insert into [dba.x] values (2, null)
+
+Time: 05/14/25 17:54:04.685 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 12
+before '  values (2, NULL); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:54:04.690 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 13
+Syntax: before '  values (3, :ys1); '
+Unknown class "dba.x". insert into [dba.x] values (3, :ys1)
+
+Time: 05/14/25 17:54:04.690 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 14
+before '  values (3, :ys1); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:54:04.691 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 15
+Syntax: before '  values (4, :y2); '
+Unknown class "dba.x". insert into [dba.x] values (4, :y2)
+
+Time: 05/14/25 17:54:04.691 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 16
+before '  values (4, :y2); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:54:04.695 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 17
+Syntax: before '  values (5, :ys2); '
+Unknown class "dba.x". insert into [dba.x] values (5, :ys2)
+
+Time: 05/14/25 17:54:04.695 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 18
+before '  values (5, :ys2); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:54:04.700 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 19
+Syntax: before '   order by 1; '
+Unknown class "dba.x". select x.a, x.b.c from [dba.x] order by 1
+
+Time: 05/14/25 17:54:04.700 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 20
+before '   order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:54:04.701 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 21
+Syntax: before '  order by 1; '
+Unknown class "dba.x". select x.a, x.b {y}.c from [dba.x], [dba.y] order by 1
+
+Time: 05/14/25 17:54:04.701 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 22
+before '  order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:54:04.706 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 23
+Semantic: before '  ; '
+Query yields no result, so variable 'y2' is not set. delete [dba.y] from [dba.y] [dba.y] where [dba.y]=:y2
+
+Time: 05/14/25 17:54:04.706 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 24
+before '  ; '
+Query yields no result, so variable 'y2' is not set.
+
+Time: 05/14/25 17:54:04.712 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 25
+Semantic: before '  ; '
+Query yields no result, so variable 'ys2' is not set. delete [dba.ys] from [dba.ys] [dba.ys] where [dba.ys]=:ys2
+
+Time: 05/14/25 17:54:04.712 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 26
+before '  ; '
+Query yields no result, so variable 'ys2' is not set.
+
+Time: 05/14/25 17:54:04.713 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 27
+Syntax: before '  order by 1;	 '
+Unknown class "dba.x". select x.a, x.b.c from [dba.x] order by 1
+
+Time: 05/14/25 17:54:04.713 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 28
+before '  order by 1;	 '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:54:04.718 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 29
+Syntax: before '  order by 1; '
+Unknown class "dba.x". select x.a, x.b {y}.c from [dba.x], [dba.y] order by 1
+
+Time: 05/14/25 17:54:04.718 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 30
+before '  order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:54:56.782 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 31
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:54:56.788 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 32
+Semantic: before '  mother ); '
+The class 'dba.mother' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.mother] ( myself [dba.mother] )  reuse_oid 
+
+Time: 05/14/25 17:54:56.788 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 33
+before '  mother ); '
+The class 'dba.mother' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:54:56.793 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 34
+Semantic: before '  son ); '
+The class 'dba.son' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.son] under [dba.mother] ( myself [dba.son]...
+
+Time: 05/14/25 17:54:56.793 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 35
+before '  son ); '
+The class 'dba.son' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:54:56.793 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 36
+before '  ( myself son ); '
+Super class dba.mother in 'create class [dba.son] under [dba.mother] ( myself [dba.son]...' does not exist.
+
+Time: 05/14/25 17:54:56.794 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 37
+Semantic: before ' , mother; '
+Unknown class "dba.son". drop [dba.son], [dba.mother]
+
+Time: 05/14/25 17:54:56.794 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 38
+before ' , mother; '
+Unknown class "dba.son".
+
+Time: 05/14/25 17:54:56.794 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 39
+before ' ; '
+Unknown class "dba.mother".
+
+Time: 05/14/25 17:55:42.349 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 40
+Semantic: before '  son ); '
+The class 'dba.son' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.son] under [dba.mother] ( myself [dba.son]...
+
+Time: 05/14/25 17:55:42.350 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 41
+before '  son ); '
+The class 'dba.son' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:55:42.350 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 42
+before '  ( myself son ); '
+Super class dba.mother in 'create class [dba.son] under [dba.mother] ( myself [dba.son]...' does not exist.
+
+Time: 05/14/25 17:55:42.994 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 43
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:55:48.226 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 44
+Semantic: before '  as subclass of a; '
+Class dba.b already exists. create class [dba.b] under [dba.a] reuse_oid 
+
+Time: 05/14/25 17:55:48.226 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 45
+before '  as subclass of a; '
+Class dba.b already exists.
+
+Time: 05/14/25 17:56:00.649 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 46
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:56:11.073 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 47
+Semantic: before '  (a1 object, a2 object); '
+Class dba.a already exists. create class [dba.a] ( a1 object, a2 object )  reuse_oid 
+
+Time: 05/14/25 17:56:11.073 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 48
+before '  (a1 object, a2 object); '
+Class dba.a already exists.
+
+Time: 05/14/25 17:56:11.785 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 49
+Semantic: before '  as subclass of a; '
+Class dba.b already exists. create class [dba.b] under [dba.a] reuse_oid 
+
+Time: 05/14/25 17:56:11.785 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 50
+before '  as subclass of a; '
+Class dba.b already exists.
+
+Time: 05/14/25 17:56:22.359 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 51
+Semantic: before '  (a1 object, a2 object); '
+Class dba.a already exists. create class [dba.a] ( a1 object, a2 object )  reuse_oid 
+
+Time: 05/14/25 17:56:22.359 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 52
+before '  (a1 object, a2 object); '
+Class dba.a already exists.
+
+Time: 05/14/25 17:56:35.900 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 53
+Semantic: before '  (c string); '
+Class dba.y already exists. create class [dba.y] ( c varchar )  reuse_oid 
+
+Time: 05/14/25 17:56:35.900 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 54
+before '  (c string); '
+Class dba.y already exists.
+
+Time: 05/14/25 17:56:35.905 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 55
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:56:35.906 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 56
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:56:35.910 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 57
+Semantic: before '  as subclass of y; '
+Class dba.ys already exists. create class [dba.ys] under [dba.y] reuse_oid 
+
+Time: 05/14/25 17:56:35.910 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 58
+before '  as subclass of y; '
+Class dba.ys already exists.
+
+Time: 05/14/25 17:56:35.915 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 59
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:56:35.920 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 60
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:56:35.921 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 61
+Semantic: before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.x] ( a integer, b [dba.y] )  reuse_oid 
+
+Time: 05/14/25 17:56:35.921 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 62
+before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:56:35.925 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 63
+Syntax: before '  values (1, :y1); '
+Unknown class "dba.x". insert into [dba.x] values (1, :y1)
+
+Time: 05/14/25 17:56:35.925 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 64
+before '  values (1, :y1); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:56:35.930 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 65
+Syntax: before '  values (2, NULL); '
+Unknown class "dba.x". insert into [dba.x] values (2, null)
+
+Time: 05/14/25 17:56:35.930 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 66
+before '  values (2, NULL); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:56:35.930 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 67
+Syntax: before '  values (3, :ys1); '
+Unknown class "dba.x". insert into [dba.x] values (3, :ys1)
+
+Time: 05/14/25 17:56:35.930 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 68
+before '  values (3, :ys1); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:56:35.935 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 69
+Syntax: before '  values (4, :y2); '
+Unknown class "dba.x". insert into [dba.x] values (4, :y2)
+
+Time: 05/14/25 17:56:35.935 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 70
+before '  values (4, :y2); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:56:35.941 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 71
+Syntax: before '  values (5, :ys2); '
+Unknown class "dba.x". insert into [dba.x] values (5, :ys2)
+
+Time: 05/14/25 17:56:35.941 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 72
+before '  values (5, :ys2); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:56:35.941 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 73
+Syntax: before '   order by 1; '
+Unknown class "dba.x". select x.a, x.b.c from [dba.x] order by 1
+
+Time: 05/14/25 17:56:35.941 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 74
+before '   order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:56:35.945 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 75
+Syntax: before '  order by 1; '
+Unknown class "dba.x". select x.a, x.b {y}.c from [dba.x], [dba.y] order by 1
+
+Time: 05/14/25 17:56:35.945 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 76
+before '  order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:56:35.950 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 77
+Semantic: before '  ; '
+Query yields no result, so variable 'y2' is not set. delete [dba.y] from [dba.y] [dba.y] where [dba.y]=:y2
+
+Time: 05/14/25 17:56:35.950 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 78
+before '  ; '
+Query yields no result, so variable 'y2' is not set.
+
+Time: 05/14/25 17:56:35.951 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 79
+Semantic: before '  ; '
+Query yields no result, so variable 'ys2' is not set. delete [dba.ys] from [dba.ys] [dba.ys] where [dba.ys]=:ys2
+
+Time: 05/14/25 17:56:35.951 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 80
+before '  ; '
+Query yields no result, so variable 'ys2' is not set.
+
+Time: 05/14/25 17:56:35.955 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 81
+Syntax: before '  order by 1;	 '
+Unknown class "dba.x". select x.a, x.b.c from [dba.x] order by 1
+
+Time: 05/14/25 17:56:35.955 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 82
+before '  order by 1;	 '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:56:37.417 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 83
+Syntax: before '  order by 1; '
+Unknown class "dba.x". select x.a, x.b {y}.c from [dba.x], [dba.y] order by 1
+
+Time: 05/14/25 17:56:37.417 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 84
+before '  order by 1; '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:56:43.163 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 85
+Semantic: before '  (c string); '
+Class dba.y already exists. create class [dba.y] ( c varchar )  reuse_oid 
+
+Time: 05/14/25 17:56:43.163 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 86
+before '  (c string); '
+Class dba.y already exists.
+
+Time: 05/14/25 17:56:43.168 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 87
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:56:44.096 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 88
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:57:18.208 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 89
+Semantic: before '  as subclass of y; '
+Class dba.ys already exists. create class [dba.ys] under [dba.y] reuse_oid 
+
+Time: 05/14/25 17:57:18.208 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 90
+before '  as subclass of y; '
+Class dba.ys already exists.
+
+Time: 05/14/25 17:57:24.200 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 91
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:57:25.379 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 92
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:57:47.490 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 93
+Semantic: before '  ; '
+Query yields no result, so variable 'y2' is not set. delete [dba.y] from [dba.y] [dba.y] where [dba.y]=:y2
+
+Time: 05/14/25 17:57:47.490 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 94
+before '  ; '
+Query yields no result, so variable 'y2' is not set.
+
+Time: 05/14/25 17:57:48.271 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 95
+Semantic: before '  ; '
+Query yields no result, so variable 'ys2' is not set. delete [dba.ys] from [dba.ys] [dba.ys] where [dba.ys]=:ys2
+
+Time: 05/14/25 17:57:48.271 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 96
+before '  ; '
+Query yields no result, so variable 'ys2' is not set.
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 17:59:20.305 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1646
+trying to connect 'demodb@localhost'
+
+Time: 05/14/25 17:59:20.305 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1668
+ping server with handshake
+
+Time: 05/14/25 17:59:20.305 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1788779) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 17:59:20.306 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1132
+boot_restart_client: register client { type 2 db demodb user dba password (null) program csql login cubrid host sohee pid 1788779 }
+
+Time: 05/14/25 17:59:33.398 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' off; '
+Syntax error: unexpected 'autocommit', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 17:59:33.408 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 3
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:59:33.409 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 4
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:59:33.416 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 5
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:59:33.418 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 6
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:59:33.423 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 7
+Semantic: before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.x] ( a integer, b [dba.y] )  reuse_oid 
+
+Time: 05/14/25 17:59:33.423 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 8
+before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 17:59:33.424 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 9
+Syntax: before '  values (1, :y1); '
+Unknown class "dba.x". insert into [dba.x] values (1, :y1)
+
+Time: 05/14/25 17:59:33.424 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 10
+before '  values (1, :y1); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:59:33.429 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 11
+Syntax: before '  values (2, NULL); '
+Unknown class "dba.x". insert into [dba.x] values (2, null)
+
+Time: 05/14/25 17:59:33.429 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 12
+before '  values (2, NULL); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:59:33.433 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 13
+Syntax: before '  values (3, :ys1); '
+Unknown class "dba.x". insert into [dba.x] values (3, :ys1)
+
+Time: 05/14/25 17:59:33.434 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 14
+before '  values (3, :ys1); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:59:33.434 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 15
+Syntax: before '  values (4, :y2); '
+Unknown class "dba.x". insert into [dba.x] values (4, :y2)
+
+Time: 05/14/25 17:59:33.434 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 16
+before '  values (4, :y2); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:59:34.858 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 17
+Syntax: before '  values (5, :ys2); '
+Unknown class "dba.x". insert into [dba.x] values (5, :ys2)
+
+Time: 05/14/25 17:59:34.858 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 18
+before '  values (5, :ys2); '
+Unknown class "dba.x".
+
+Time: 05/14/25 17:59:38.801 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 19
+Semantic: before '  as subclass of y; '
+Class dba.ys already exists. create class [dba.ys] under [dba.y] reuse_oid 
+
+Time: 05/14/25 17:59:38.801 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 20
+before '  as subclass of y; '
+Class dba.ys already exists.
+
+Time: 05/14/25 17:59:43.593 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 21
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:59:44.566 - ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_obj.c, line 723 ERROR CODE = -983, Tran = 1, EID = 22
+Instances of a reusable OID class are non-referable. This operation is not permitted on non-referable instances.
+
+Time: 05/14/25 17:59:47.668 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 377 ERROR CODE = -494, Tran = 1, EID = 23
+Semantic: before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned. create class [dba.x] ( a integer, b [dba.y] )  reuse_oid 
+
+Time: 05/14/25 17:59:47.668 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 24
+before '  y); '
+The class 'dba.y' is marked as REUSE_OID and is non-referable. Non-referable classes can't be the domain of an attribute and their instances' OIDs cannot be returned.
+
+Time: 05/14/25 18:02:04.460 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:02:09.465 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:02:14.471 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:02:19.472 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:02:24.477 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:02:29.482 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:02:34.487 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:02:39.492 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:02:44.497 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:02:49.502 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:02:54.507 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:02:59.512 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:03:04.517 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:03:09.522 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:03:14.527 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:03:19.532 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:03:24.538 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:03:29.543 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:03:34.548 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:03:39.553 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:04:23.451 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:04:28.456 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:04:33.461 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:04:38.462 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:04:43.463 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:04:48.468 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:04:53.469 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:04:58.473 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:05:03.477 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:08:13.434 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:08:18.438 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:08:23.441 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:08:28.447 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:08:33.452 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:08:38.457 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:08:43.462 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:08:48.463 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:08:53.468 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:08:58.470 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:03.474 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:08.474 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:13.479 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:18.483 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:23.485 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:28.487 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:33.492 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:38.497 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:43.502 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:48.507 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:53.512 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:09:58.517 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:03.522 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:08.528 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:13.533 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:18.538 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:23.540 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:28.544 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:33.549 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:38.550 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:43.555 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:48.561 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:53.566 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:10:58.570 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:03.574 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:08.579 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:13.584 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:18.589 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:23.594 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:28.599 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:33.604 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:38.609 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:43.615 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:48.620 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:53.625 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:11:58.630 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:12:03.635 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:13:29.452 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1794938) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 18:16:02.841 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' x.a, x.b{y}.c from x,y order by 1; '
+Syntax error: unexpected 'elect', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 18:16:03.444 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 3
+In line 1, column 1 before ' x.a, x.b{y}.c from x,y order by 1; '
+Syntax error: unexpected 'elect', expecting SELECT or VALUE or VALUES or '('
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 18:20:27.182 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1807591) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 18:24:05.048 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1816500) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+*** The previous error message is the last one. ***
+
+
+Time: 05/14/25 18:26:30.199 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1646
+trying to connect 'demodb@localhost'
+
+Time: 05/14/25 18:26:30.199 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1668
+ping server with handshake
+
+Time: 05/14/25 18:26:30.200 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1818869) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+Time: 05/14/25 18:26:30.200 - DEBUG *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1132
+boot_restart_client: register client { type 2 db demodb user PUBLIC password (null) program csql login cubrid host sohee pid 1818869 }
+
+Time: 05/14/25 18:26:40.905 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 2
+In line 1, column 1 before ' table t111 (col1 int, col2 int, col3 int, col4 varchar(20), c...'
+Syntax error: unexpected 'mvcc_is_mvcc_disabled_clascreate', expecting SELECT or VALUE or VALUES or '('
+
+Time: 05/14/25 18:26:42.490 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/parser/query_result.c, line 372 ERROR CODE = -493, Tran = 1, EID = 3
+Syntax: before ' 
+select
+  rownum,
+  rownum / 20,
+  1,
+  lpad (to_char (rownum...'
+Unknown class "public.t111". insert into [public.t111] select rownum, rownum/20, 1,  lpad...
+
+Time: 05/14/25 18:26:42.490 - SYNTAX ERROR *** file /home/cubrid/dev/cubrid/src/compat/db_vdb.c, line 1051 ERROR CODE = -492, Tran = 1, EID = 4
+before ' 
+select
+  rownum,
+  rownum / 20,
+  1,
+  lpad (to_char (rownum...'
+Unknown class "public.t111".
+
+Time: 05/14/25 18:26:43.827 - DEBUG *** file /home/cubrid/dev/cubrid/src/communication/network_interface_cl.c, line 7209
+qmgr_execute_query requested: EXECUTION_WITH_AUTOCOMMIT
+
+Time: 05/14/25 18:27:23.198 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:27:28.203 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:27:33.208 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:27:38.406 - DEBUG *** file /home/cubrid/dev/cubrid/src/communication/network_interface_cl.c, line 7209
+qmgr_execute_query requested: EXECUTION_WITH_AUTOCOMMIT
+
+Time: 05/14/25 18:27:50.256 - DEBUG *** file /home/cubrid/dev/cubrid/src/connection/tcp.c, line 1467
+The css_peer_alive() is calling.
+Time: 05/14/25 18:27:50.326 - DEBUG *** file /home/cubrid/dev/cubrid/src/communication/network_interface_cl.c, line 7209
+qmgr_execute_query requested: EXECUTION_WITH_AUTOCOMMIT
+
+Time: 05/14/25 18:28:43.481 - NOTIFICATION *** file /home/cubrid/dev/cubrid/src/transaction/boot_cl.c, line 1082  CODE = -971, Tran = -1, EID = 1
+Program 'csql' (pid 1821187) connected to database server 'demodb' on the host 'localhost' (port 1523).
+
+*** The previous error message is the last one. ***
+

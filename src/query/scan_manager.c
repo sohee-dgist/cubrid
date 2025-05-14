@@ -5414,7 +5414,6 @@ scan_next_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 
       if (&hsidp->scan_cache.mvcc_disabled_class)
 	{
-	  assert_release(mvcc_is_mvcc_disabled_class (&hsidp->cls_oid) == mvcc_is_mvcc_disabled_class (&hsidp->cls_oid));
 	  LOCK lock = NULL_LOCK;
 	  int tran_index = LOG_FIND_THREAD_TRAN_INDEX (thread_p);
 	  TRAN_ISOLATION tran_isolation = logtb_find_isolation (tran_index);
@@ -6264,7 +6263,6 @@ scan_next_index_lookup_heap (THREAD_ENTRY * thread_p, SCAN_ID * scan_id, INDX_SC
 
   if (!scan_id->mvcc_select_lock_needed && isidp->scan_cache.mvcc_disabled_class)
     {
-      assert_release(mvcc_is_mvcc_disabled_class (&isidp->cls_oid) == isidp->scan_cache.mvcc_disabled_class);
       /* Data filter passed. If object should be locked and is not locked yet, lock it. */
       LOCK lock = NULL_LOCK;
       int tran_index = LOG_FIND_THREAD_TRAN_INDEX (thread_p);
