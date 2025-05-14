@@ -627,6 +627,8 @@ mvcc_satisfies_dirty (THREAD_ENTRY * thread_p, MVCC_REC_HEADER * rec_header, MVC
 bool
 mvcc_is_mvcc_disabled_class (const OID * class_oid)
 {
+  assert (class_oid != NULL);
+
   if (OID_ISNULL (class_oid) || OID_IS_ROOTOID (class_oid))
     {
       /* MVCC is disabled for root class */

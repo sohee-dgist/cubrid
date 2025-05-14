@@ -211,7 +211,8 @@ namespace cubload
 
     while (true)
       {
-	scan_code = heap_next (&thread_ref, &hfid, NULL, &inst_oid, &recdes, &scan_cache, PEEK);
+	// mvcc_disabled_class is false because the class is db_user and mvcc is not disabled for the class
+	scan_code = heap_next (&thread_ref, &hfid, NULL, &inst_oid, &recdes, &scan_cache, PEEK, false);
 	if (scan_code == S_SUCCESS)
 	  {
 	    error = heap_attrinfo_read_dbvalues (&thread_ref, &inst_oid, &recdes, &attr_info);

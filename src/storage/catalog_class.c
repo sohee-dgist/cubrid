@@ -4628,7 +4628,8 @@ catcls_get_server_compat_info (THREAD_ENTRY * thread_p, INTL_CODESET * charset_i
     }
   scan_cache_inited = true;
 
-  while (heap_next (thread_p, &hfid, NULL, &inst_oid, &recdes, &scan_cache, PEEK) == S_SUCCESS)
+  while (heap_next (thread_p, &hfid, NULL, &inst_oid, &recdes, &scan_cache, PEEK, scan_cache.mvcc_disabled_class) ==
+	 S_SUCCESS)
     {
       HEAP_ATTRVALUE *heap_value = NULL;
 
@@ -5080,7 +5081,8 @@ catcls_get_db_collation (THREAD_ENTRY * thread_p, LANG_COLL_COMPAT ** db_collati
     }
 
   *coll_cnt = 0;
-  while (heap_next (thread_p, &hfid, NULL, &inst_oid, &recdes, &scan_cache, PEEK) == S_SUCCESS)
+  while (heap_next (thread_p, &hfid, NULL, &inst_oid, &recdes, &scan_cache, PEEK, scan_cache.mvcc_disabled_class) ==
+	 S_SUCCESS)
     {
       HEAP_ATTRVALUE *heap_value = NULL;
       LANG_COLL_COMPAT *curr_coll;
@@ -5291,7 +5293,8 @@ catcls_get_apply_info_log_record_time (THREAD_ENTRY * thread_p, time_t * log_rec
     }
   scan_cache_inited = true;
 
-  while (heap_next (thread_p, &hfid, NULL, &inst_oid, &recdes, &scan_cache, PEEK) == S_SUCCESS)
+  while (heap_next (thread_p, &hfid, NULL, &inst_oid, &recdes, &scan_cache, PEEK, scan_cache.mvcc_disabled_class) ==
+	 S_SUCCESS)
     {
       HEAP_ATTRVALUE *heap_value = NULL;
 
