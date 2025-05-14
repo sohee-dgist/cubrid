@@ -7080,12 +7080,13 @@ heap_scancache_reset_modify (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_cach
 	    }
 	  assert (HFID_EQ (&scan_cache->node.hfid, hfid));
 	  scan_cache->node.class_oid = *class_oid;
+	  scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (class_oid);
 	}
     }
   else
     {
       OID_SET_NULL (&scan_cache->node.class_oid);
-
+      scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (&scan_cache->node.class_oid);
       if (!HFID_EQ (&scan_cache->node.hfid, hfid))
 	{
 	  scan_cache->node.hfid.vfid.volid = hfid->vfid.volid;
@@ -8642,8 +8643,7 @@ heap_scanrange_next (THREAD_ENTRY * thread_p, OID * next_oid, RECDES * recdes, H
 	{
 	  scan =
 	    heap_next (thread_p, &scan_range->scan_cache.node.hfid, &scan_range->scan_cache.node.class_oid, next_oid,
-		       recdes, &scan_range->scan_cache, ispeeking,
-		       mvcc_is_mvcc_disabled_class (&scan_range->scan_cache.node.class_oid));
+		       recdes, &scan_range->scan_cache, ispeeking, scan_range->scan_cache.mvcc_disabled_class);
 	  /* Make sure that we did not go overboard */
 	  if (scan == S_SUCCESS && OID_GT (next_oid, &scan_range->last_oid))
 	    {
@@ -19078,7 +19078,7 @@ heap_prev (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * ne
 	   HEAP_SCANCACHE * scan_cache, int ispeeking)
 {
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, true, NULL, NULL,
-			     mvcc_is_mvcc_disabled_class (class_oid));
+			     scan_cache->mvcc_disabled_class);
 }
 
 /*
@@ -19105,7 +19105,7 @@ heap_prev_record_info (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_o
 		       HEAP_SCANCACHE * scan_cache, int ispeeking, DB_VALUE ** cache_recordinfo)
 {
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, true, cache_recordinfo,
-			     NULL, mvcc_is_mvcc_disabled_class (class_oid));
+			     NULL, scan_cache->mvcc_disabled_class);
 }
 
 /*
