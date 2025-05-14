@@ -2757,9 +2757,9 @@ exit_on_error:
  * Note: If you feel the need
  */
 static void
-scan_init_scan_id (SCAN_ID * scan_id, bool mvcc_select_lock_needed,
-		   SCAN_OPERATION_TYPE scan_op_type, int fixed, int grouped, QPROC_SINGLE_FETCH single_fetch,
-		   DB_VALUE * join_dbval, val_list_node * val_list, VAL_DESCR * vd)
+scan_init_scan_id (SCAN_ID * scan_id, bool mvcc_select_lock_needed, SCAN_OPERATION_TYPE scan_op_type, int fixed,
+		   int grouped, QPROC_SINGLE_FETCH single_fetch, DB_VALUE * join_dbval, val_list_node * val_list,
+		   VAL_DESCR * vd)
 {
   scan_id->status = S_OPENED;
   scan_id->position = S_BEFORE;
@@ -2833,8 +2833,8 @@ scan_open_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   scan_id->type = scan_type;
 
   /* initialize SCAN_ID structure */
-  scan_init_scan_id (scan_id, mvcc_select_lock_needed, scan_op_type, fixed, grouped, single_fetch,
-		     join_dbval, val_list, vd);
+  scan_init_scan_id (scan_id, mvcc_select_lock_needed, scan_op_type, fixed, grouped, single_fetch, join_dbval, val_list,
+		     vd);
 
   /* initialize HEAP_SCAN_ID structure */
   hsidp = &scan_id->s.hsid;
@@ -2911,6 +2911,7 @@ scan_open_heap_page_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   DB_TYPE single_node_type = DB_TYPE_NULL;
 
   scan_id->type = scan_type;
+
   scan_init_scan_id (scan_id, true, S_SELECT, true, false, QPROC_NO_SINGLE_INNER, NULL, val_list, vd);
 
   hpsidp = &scan_id->s.hpsid;
@@ -3065,8 +3066,8 @@ scan_open_index_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   scan_id->type = S_INDX_SCAN;
 
   /* initialize SCAN_ID structure */
-  scan_init_scan_id (scan_id, mvcc_select_lock_needed, scan_op_type, fixed, grouped, single_fetch,
-		     join_dbval, val_list, vd);
+  scan_init_scan_id (scan_id, mvcc_select_lock_needed, scan_op_type, fixed, grouped, single_fetch, join_dbval, val_list,
+		     vd);
 
   /* read Root page header info */
   btid = &indx_info->btid;
@@ -5275,8 +5276,8 @@ scan_next_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 	      if (scan_id->type == S_HEAP_SCAN)
 		{
 		  sp_scan =
-		    heap_next (thread_p, &hsidp->hfid, &hsidp->cls_oid, &hsidp->curr_oid, &recdes,
-			       &hsidp->scan_cache, is_peeking);
+		    heap_next (thread_p, &hsidp->hfid, &hsidp->cls_oid, &hsidp->curr_oid, &recdes, &hsidp->scan_cache,
+			       is_peeking);
 		}
 	      else if (scan_id->type == S_HEAP_SAMPLING_SCAN)
 		{
