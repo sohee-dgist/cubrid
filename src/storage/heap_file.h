@@ -102,6 +102,9 @@ class record_descriptor;
 /* A good space to accept insertions */
 #define HEAP_DROP_FREE_SPACE (int)(DB_PAGESIZE * 0.3)
 
+#define GET_MVCC_CHECK_CLASS_OID(class_oid_ptr, scan_cache_ptr) \
+    ((class_oid_ptr) && !OID_ISNULL(class_oid_ptr) ? (class_oid_ptr) : &(scan_cache_ptr)->node.class_oid)
+
 /*
  * Heap scan structures
  */
@@ -157,7 +160,7 @@ struct heap_scancache
     MVCC_SNAPSHOT *mvcc_snapshot;	/* mvcc snapshot */
     HEAP_SCANCACHE_NODE_LIST *partition_list;	/* list holding the heap file information for partition nodes involved
 						 * in the scan */
-
+    bool mvcc_disabled_class;	/* Indicates if the class is MVCC disabled */
 
     void start_area ();
     void end_area ();
@@ -681,7 +684,7 @@ extern SCAN_CODE heap_get_visible_version (THREAD_ENTRY * thread_p, const OID * 
 					   HEAP_SCANCACHE * scan_cache, int ispeeking, int old_chn);
 extern SCAN_CODE heap_scan_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * class_oid,
 						RECDES * recdes, RECDES * forward_recdes, HEAP_SCANCACHE * scan_cache,
-						int ispeeking, int old_chn);
+						int ispeeking, int old_chn, bool mvcc_disabled_class);
 extern SCAN_CODE heap_get_last_version (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context);
 extern void heap_clean_get_context (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context);
 extern void heap_init_get_context (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context, const OID * oid,
