@@ -14539,7 +14539,7 @@ do_prepare_select (PARSER_CONTEXT * parser, PT_NODE * statement)
 
   PT_NODE_PRINT_TO_ALIAS (parser, statement,
 			  (PT_CONVERT_RANGE | PT_PRINT_QUOTES | PT_PRINT_DIFFERENT_SYSTEM_PARAMETERS | PT_PRINT_USER |
-			   PT_PRINT_HOST_VAR_COUNT));
+			   PT_PRINT_HOST_VAR_COUNT | PT_PRINT_LOWER));
 
   contextp->sql_hash_text = (char *) statement->alias_print;
   err =
