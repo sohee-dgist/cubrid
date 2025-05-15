@@ -13891,7 +13891,7 @@ pt_print_name (PARSER_CONTEXT * parser, PT_NODE * p)
       q = pt_append_nulstring (parser, q, p->alias_print);
       q = pt_append_nulstring (parser, q, "]");
     }
-  else if ((parser->custom_print & PT_PRINT_LOWER) != 0)
+  else if (q && (parser->custom_print & PT_PRINT_LOWER) != 0)
     {
       for (int i = 0; i < q->length; ++i)
 	{
