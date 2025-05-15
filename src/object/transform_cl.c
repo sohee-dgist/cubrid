@@ -525,7 +525,9 @@ tf_need_permanent_oid (or_buf * buf, DB_OBJECT * obj)
 
       if (tf_add_fixup (buf->fixups, obj, buf->ptr) != NO_ERROR)
 	{
-	  or_abort (buf);
+	  // already set error code in tf_add_fixup
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -547,7 +549,8 @@ tf_need_permanent_oid (or_buf * buf, DB_OBJECT * obj)
 	    }
 
 	  /* this is serious */
-	  or_abort (buf);
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -692,8 +695,6 @@ re_check:
 
 /*
  * put_attributes - Write the fixed and variable attribute values.
- *    return: on overflow, or_overflow will call longjmp and jump to the
- *    outer caller
  *    buf(in/out): translation buffer
  *    obj(in): instance memory
  *    class(in): class structure
@@ -728,7 +729,7 @@ put_attributes (OR_BUF * buf, char *obj, SM_CLASS * class_)
   else if (pad > class_->fixed_size)
     {				/* mismatched fixed block calculations */
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-      or_abort (buf);
+      return ER_SM_CORRUPTED;
     }
 
   /* write the bound bits */
@@ -759,9 +760,7 @@ put_attributes (OR_BUF * buf, char *obj, SM_CLASS * class_)
  *    If there was an overflow error on the given record, we determine
  *    the required size and return this size as a negative number, otherwise
  *    a zero is returned to indicate successful translation.
- *    Note that volatile is used here to prevent the compiler from
- *    optimizing variables into registers that aren't preserved by
- *    setjmp/longjmp.
+ *    we removed setjmp/longjmp logic, decided to check outside once.
  */
 TF_STATUS
 tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record, bool * index_flag)
@@ -772,13 +771,11 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
   bool has_index = false;
   unsigned int repid_bits;
   TF_STATUS status;
-  volatile int expected_size;
-  volatile int offset_size;
+  int expected_size;
+  int offset_size;
 
   buf = &orep;
   or_init (buf, record->data, record->area_size);
-  buf->error_abort = 1;
-
   if (tf_Allow_fixups)
     {
       buf->fixups = tf_make_fixup ();
@@ -800,6 +797,7 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
     }
 
   expected_size = object_size (class_, obj, (int *) &offset_size);
+
   if ((expected_size + OR_MVCC_MAX_HEADER_SIZE - OR_MVCC_INSERT_HEADER_SIZE) > record->area_size)
     {
       record->length = -expected_size;
@@ -814,45 +812,53 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
       return (TF_OUT_OF_SPACE);
     }
 
-  switch (_setjmp (buf->env))
+  status = TF_SUCCESS;
+
+  if (OID_ISTEMP (WS_OID (classmop)))
     {
-    case 0:
-      status = TF_SUCCESS;
-
-      if (OID_ISTEMP (WS_OID (classmop)))
+      /*
+       * since this isn't a mem_oid, can't rely on write_oid to do this,
+       * don't bother making this part of the deferred fixup stuff yet.
+       */
+      if (locator_assign_permanent_oid (classmop) == NULL)
 	{
-	  /*
-	   * since this isn't a mem_oid, can't rely on write_oid to do this,
-	   * don't bother making this part of the deferred fixup stuff yet.
-	   */
-	  if (locator_assign_permanent_oid (classmop) == NULL)
+	  if (er_errid () == NO_ERROR)
 	    {
-	      if (er_errid () == NO_ERROR)
-		{
-		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_CANT_ASSIGN_OID, 0);
-		}
-
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_CANT_ASSIGN_OID, 0);
 	    }
+	  status = TF_ERROR;
+	  has_index = false;
+	  goto exit;
 	}
+    }
 
-      /* header */
+  /* header */
 
-      repid_bits = class_->repid;
-      if (class_->fixed_count)
-	{
-	  repid_bits |= OR_BOUND_BIT_FLAG;
-	}
-      /* offset size */
-      OR_SET_VAR_OFFSET_SIZE (repid_bits, offset_size);
+  repid_bits = class_->repid;
+  if (class_->fixed_count)
+    {
+      repid_bits |= OR_BOUND_BIT_FLAG;
+    }
+  /* offset size */
+  OR_SET_VAR_OFFSET_SIZE (repid_bits, offset_size);
 
-      chn = WS_CHN (obj) + 1;
+  chn = WS_CHN (obj) + 1;
 
-      /* in most of the cases, we expect the MVCC header of a new object to have OR_MVCC_FLAG_VALID_INSID flag,
-       * repid_bits, MVCC insert id and chn. This header may be changed later, at insert/update. So, we must be sure
-       * that the record has enough free space. */
+  /* in most of the cases, we expect the MVCC header of a new object to have OR_MVCC_FLAG_VALID_INSID flag,
+   * repid_bits, MVCC insert id and chn. This header may be changed later, at insert/update. So, we must be sure
+   * that the record has enough free space. */
 
-      repid_bits |= (OR_MVCC_FLAG_VALID_INSID << OR_MVCC_FLAG_SHIFT_BITS);
+  repid_bits |= (OR_MVCC_FLAG_VALID_INSID << OR_MVCC_FLAG_SHIFT_BITS);
+  if (buf->ptr + expected_size > buf->endptr)
+    {
+      status = TF_OUT_OF_SPACE;
+      record->length = -expected_size;
+      has_index = false;
+      goto exit;
+    }
+  else
+    {
+
       or_put_int (buf, repid_bits);
       or_put_int (buf, chn);	/* CHN, short size */
       or_put_bigint (buf, MVCCID_NULL);	/* MVCC insert id */
@@ -862,7 +868,6 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
 
       /* attributes, fixed followed by variable */
       put_attributes (buf, obj, class_);
-
       record->length = (int) (buf->ptr - buf->buffer);
 
       /* see if there are any indexes */
@@ -883,22 +888,8 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
        */
       WS_CHN (obj) = chn;
 
-      break;
-
-      /* if the longjmp status was anything other than ER_TF_BUFFER_OVERFLOW, it represents an error condition and
-       * er_set will have been called */
-    case ER_TF_BUFFER_OVERFLOW:
-      status = TF_OUT_OF_SPACE;
-      record->length = -expected_size;
-      has_index = false;
-      break;
-
-    default:
-      status = TF_ERROR;
-      has_index = false;
-      break;
     }
-
+exit:
   /* make sure we free this */
   if (tf_Allow_fixups)
     {
@@ -907,7 +898,6 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
 
   *index_flag = has_index;
 
-  buf->error_abort = 0;
   return (status);
 }
 
@@ -937,15 +927,18 @@ get_current (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int bound_bit_flag
       vars = (int *) db_ws_alloc (sizeof (int) * class_->variable_count);
       if (vars == NULL)
 	{
-	  or_abort (buf);
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		  (size_t) (class_->variable_count * sizeof (int)));
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
 	  /* get the offsets relative to the end of the header (beginning of variable table) */
-	  offset = or_get_offset_internal (buf, &rc, offset_size);
+	  offset = or_get_offset_internal (buf, offset_size);
 	  for (i = 0; i < class_->variable_count; i++)
 	    {
-	      offset2 = or_get_offset_internal (buf, &rc, offset_size);
+	      offset2 = or_get_offset_internal (buf, offset_size);
 	      vars[i] = offset2 - offset;
 	      offset = offset2;
 	    }
@@ -966,7 +959,9 @@ get_current (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int bound_bit_flag
 	{
 	  db_ws_free (vars);
 	}
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, class_->object_size);
+      assert (false);
+      return NULL;
     }
   else
     {
@@ -1128,7 +1123,9 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 
       if (obj == NULL)
 	{
-	  or_abort (buf);
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, class_->object_size);
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -1142,16 +1139,18 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 	      vars = (int *) db_ws_alloc (sizeof (int) * oldrep->variable_count);
 	      if (vars == NULL)
 		{
-		  or_abort (buf);
+		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+			  (size_t) (oldrep->variable_count * sizeof (int)));
+		  assert (false);
 		  return NULL;
 		}
 	      else
 		{
 		  /* get the offsets relative to the end of the header (beginning of variable table) */
-		  offset = or_get_offset_internal (buf, &rc, offset_size);
+		  offset = or_get_offset_internal (buf, offset_size);
 		  for (i = 0; i < oldrep->variable_count; i++)
 		    {
-		      offset2 = or_get_offset_internal (buf, &rc, offset_size);
+		      offset2 = or_get_offset_internal (buf, offset_size);
 		      vars[i] = offset2 - offset;
 		      offset = offset2;
 		    }
@@ -1171,7 +1170,9 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 		    {
 		      db_ws_free (vars);
 		    }
-		  or_abort (buf);
+		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+			  (size_t) (total * sizeof (SM_ATTRIBUTE *)));
+		  assert (false);
 		  return NULL;
 		}
 	      else
@@ -1200,7 +1201,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 		      db_ws_free (vars);
 		    }
 
-		  or_abort (buf);
+		  assert (false);
 		  return NULL;
 		}
 
@@ -1231,11 +1232,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 	    {
 	      bits = buf->ptr;
 	      bytes = OR_BOUND_BIT_BYTES (oldrep->fixed_count);
-	      if ((buf->ptr + bytes) > buf->endptr)
-		{
-		  or_overflow (buf);
-		}
-
+	      assert (bytes <= (buf->endptr - buf->ptr));
 	      rat = oldrep->attributes;
 	      for (i = 0; i < oldrep->fixed_count && rat != NULL && attmap != NULL; i++, rat = rat->next)
 		{
@@ -1264,7 +1261,7 @@ get_old (OR_BUF * buf, SM_CLASS * class_, MOBJ * obj_ptr, int repid, int bound_b
 		      db_ws_free (attmap);
 		      db_ws_free (vars);
 
-		      or_abort (buf);
+		      assert (false);
 		      return NULL;
 		    }
 
@@ -1327,81 +1324,64 @@ tf_disk_to_mem (MOBJ classobj, RECDES * record, int *convertp)
   char *obj = NULL;
   unsigned int repid_bits;
   int repid, convert, chn, bound_bit_flag;
-  int rc = NO_ERROR;
   int offset_size;
   char mvcc_flags;
 
   buf = &orep;
   or_init (buf, record->data, record->length);
-  buf->error_abort = 1;
+  class_ = (SM_CLASS *) classobj;
 
-  switch (_setjmp (buf->env))
+
+  obj = NULL;
+  convert = 0;
+  /* offset size */
+  offset_size = OR_GET_OFFSET_SIZE (buf->ptr);
+
+  /* in case of MVCC, repid_bits contains MVCC flags */
+  repid_bits = or_mvcc_get_repid_and_flags (buf);
+  repid = repid_bits & OR_MVCC_REPID_MASK;
+
+  mvcc_flags = (char) ((repid_bits >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK);
+
+  chn = or_get_int (buf);
+
+  if (mvcc_flags & OR_MVCC_FLAG_VALID_INSID)
     {
-    case 0:
-      class_ = (SM_CLASS *) classobj;
-      obj = NULL;
-      convert = 0;
-      /* offset size */
-      offset_size = OR_GET_OFFSET_SIZE (buf->ptr);
-
-      /* in case of MVCC, repid_bits contains MVCC flags */
-      repid_bits = or_mvcc_get_repid_and_flags (buf, &rc);
-      repid = repid_bits & OR_MVCC_REPID_MASK;
-
-      mvcc_flags = (char) ((repid_bits >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK);
-
-      chn = or_get_int (buf, &rc);
-
-      if (mvcc_flags & OR_MVCC_FLAG_VALID_INSID)
-	{
-	  /* skip insert id */
-	  or_advance (buf, OR_MVCCID_SIZE);
-	}
-
-      if (mvcc_flags & OR_MVCC_FLAG_VALID_DELID)
-	{
-	  /* skip delete id */
-	  or_advance (buf, OR_MVCCID_SIZE);
-	}
-
-      if (mvcc_flags & OR_MVCC_FLAG_VALID_PREV_VERSION)
-	{
-	  /* skip prev version lsa */
-	  or_advance (buf, OR_MVCC_PREV_VERSION_LSA_SIZE);
-	}
-
-      bound_bit_flag = repid_bits & OR_BOUND_BIT_FLAG;
-
-      if (repid == class_->repid)
-	{
-	  obj = get_current (buf, class_, &obj, bound_bit_flag, offset_size);
-	}
-      else
-	{
-	  obj = get_old (buf, class_, &obj, repid, bound_bit_flag, offset_size);
-	  convert = 1;
-	}
-
-      /* set the chn of the object */
-      if (obj != NULL)
-	{
-	  WS_CHN (obj) = chn;
-	}
-
-      *convertp = convert;
-      break;
-
-    default:
-      /* make sure to clear the object that was being created, an appropriate error will have been set */
-      if (obj != NULL)
-	{
-	  obj_free_memory (class_, obj);
-	  obj = NULL;
-	}
-      break;
+      /* skip insert id */
+      or_advance (buf, OR_MVCCID_SIZE);
     }
 
-  buf->error_abort = 0;
+  if (mvcc_flags & OR_MVCC_FLAG_VALID_DELID)
+    {
+      /* skip delete id */
+      or_advance (buf, OR_MVCCID_SIZE);
+    }
+
+  if (mvcc_flags & OR_MVCC_FLAG_VALID_PREV_VERSION)
+    {
+      /* skip prev version lsa */
+      or_advance (buf, OR_MVCC_PREV_VERSION_LSA_SIZE);
+    }
+
+  bound_bit_flag = repid_bits & OR_BOUND_BIT_FLAG;
+
+  if (repid == class_->repid)
+    {
+      obj = get_current (buf, class_, &obj, bound_bit_flag, offset_size);
+    }
+  else
+    {
+      obj = get_old (buf, class_, &obj, repid, bound_bit_flag, offset_size);
+      convert = 1;
+    }
+
+  /* set the chn of the object */
+  if (obj != NULL)
+    {
+      WS_CHN (obj) = chn;
+    }
+
+  *convertp = convert;
   return (obj);
 }
 
@@ -1653,8 +1633,6 @@ or_pack_mop (OR_BUF * buf, MOP mop)
 /*
  * put_object_set - Translates a list objects into the disk representation of a
  * sequence of objects
- *    return: on overflow, or_overflow will call longjmp and jump to the outer
- *            caller
  *    buf(in/out): translation buffer
  *    list(in): object list
  */
@@ -1738,7 +1716,9 @@ get_object_set (OR_BUF * buf, int expected)
 	  if (ml_append (&list, op, NULL))
 	    {
 	      /* memory error */
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (DB_OBJLIST));
+	      assert (false);
+	      return NULL;
 	    }
 	}
     }
@@ -1894,7 +1874,7 @@ get_substructure_set (OR_BUF * buf, LREADER reader, int expected)
 	}
       else
 	{
-	  or_abort (buf);
+	  assert (false);
 	}
     }
   return (list);
@@ -2009,7 +1989,11 @@ get_property_list (OR_BUF * buf, int expected_size)
       tp_Sequence.data_readval (buf, &value, NULL, expected_size, true, NULL, 0);
       properties = db_get_set (&value);
       if (properties == NULL)
-	or_abort (buf);		/* trouble allocating a handle */
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+	  assert (false);
+	  return NULL;
+	}
       else
 	{
 	  max = set_size (properties);
@@ -2138,24 +2122,26 @@ disk_to_domain2 (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_domain.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
       return NULL;
     }
 
-  typeid_ = (DB_TYPE) or_get_int (buf, &rc);
+  typeid_ = (DB_TYPE) or_get_int (buf);
 
   domain = tp_domain_new (typeid_);
   if (domain == NULL)
     {
       free_var_table (vars);
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (TP_DOMAIN));
+      assert (false);
       return NULL;
     }
 
-  domain->precision = or_get_int (buf, &rc);
-  domain->scale = or_get_int (buf, &rc);
-  domain->codeset = or_get_int (buf, &rc);
-  domain->collation_id = or_get_int (buf, &rc);
+  domain->precision = or_get_int (buf);
+  domain->scale = or_get_int (buf);
+  domain->codeset = or_get_int (buf);
+  domain->collation_id = or_get_int (buf);
   if (typeid_ == DB_TYPE_ENUMERATION && domain->codeset == 0)
     {
       assert (domain->collation_id == LANG_COLL_ISO_BINARY);
@@ -2176,7 +2162,9 @@ disk_to_domain2 (OR_BUF * buf)
       if (domain->class_mop == NULL)
 	{
 	  free_var_table (vars);
-	  or_abort (buf);
+	  assert (false);
+	  /* error set in ws_mop */
+	  return NULL;
 	}
     }
   domain->setdomain = (TP_DOMAIN *) get_substructure_set (buf, (LREADER) disk_to_domain2,
@@ -2187,7 +2175,8 @@ disk_to_domain2 (OR_BUF * buf)
     {
       free_var_table (vars);
       tp_domain_free (domain);
-      or_abort (buf);
+      assert (false);
+      /* error set in get_enumeration */
       return NULL;
     }
 
@@ -2258,7 +2247,6 @@ disk_to_domain (OR_BUF * buf)
  *    arg(in): method argument
  * Note:
  *    Write the memory representation of a method argument to disk.
- *    On overflow, or_overflow will call longjmp and jump to the outer caller
  */
 static void
 metharg_to_disk (OR_BUF * buf, SM_METHOD_ARGUMENT * arg)
@@ -2330,18 +2318,21 @@ disk_to_metharg (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_metharg.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
       return NULL;
     }
 
   arg = classobj_make_method_arg (0);
   if (arg == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_METHOD_ARGUMENT));
+      assert (false);
+      return NULL;
     }
   else
     {
-      argtype = (DB_TYPE) or_get_int (buf, &rc);
+      argtype = (DB_TYPE) or_get_int (buf);
       if (argtype == DB_TYPE_NULL)
 	{
 	  arg->type = NULL;
@@ -2350,7 +2341,7 @@ disk_to_metharg (OR_BUF * buf)
 	{
 	  arg->type = pr_type_from_id (argtype);
 	}
-      arg->index = or_get_int (buf, &rc);
+      arg->index = or_get_int (buf);
       arg->domain =
 	(TP_DOMAIN *) get_substructure_set (buf, (LREADER) disk_to_domain, vars[ORC_METHARG_DOMAIN_INDEX].length);
     }
@@ -2364,9 +2355,7 @@ disk_to_metharg (OR_BUF * buf)
  *    return: void
  *    buf(in/out): translation buffer
  *    sig(in): signature
- * Note:
- * On overflow, or_overflow will call longjmp and jump to the outer caller
- *
+ * Note: overflow shouldn't be handled here
  */
 static int
 methsig_to_disk (OR_BUF * buf, SM_METHOD_SIGNATURE * sig)
@@ -2456,15 +2445,19 @@ disk_to_methsig (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_methsig.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return NULL;
     }
   else
     {
-      nargs = or_get_int (buf, &rc);
+      nargs = or_get_int (buf);
       sig = classobj_make_method_signature (NULL);
       if (sig == NULL)
 	{
-	  or_abort (buf);
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_METHOD_SIGNATURE));
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -2482,7 +2475,9 @@ disk_to_methsig (OR_BUF * buf)
 	      fix = ws_copy_string (fname + 1);
 	      if (fix == NULL)
 		{
-		  or_abort (buf);
+		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, strlen (fname) + 1);
+		  assert (false);
+		  return NULL;
 		}
 	      else
 		{
@@ -2511,8 +2506,7 @@ disk_to_methsig (OR_BUF * buf)
  *    return:
  *    buf(in/out): translation buffer
  *    method(in): method structure
- * Note:
- *    On overflow, or_overflow will call longjmp and jump to the outer caller
+ *    Note: overflow shouldn't be handled here
  */
 static int
 method_to_disk (OR_BUF * buf, SM_METHOD * method)
@@ -2606,7 +2600,9 @@ disk_to_method (OR_BUF * buf, SM_METHOD * method)
   vars = read_var_table (buf, tf_Metaclass_method.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return;
     }
   else
     {
@@ -2616,7 +2612,7 @@ disk_to_method (OR_BUF * buf, SM_METHOD * method)
       /* CLASS */
       tp_Object.data_readval (buf, &value, NULL, -1, true, NULL, 0);
       method->class_mop = db_get_object (&value);
-      method->id = or_get_int (buf, &rc);
+      method->id = or_get_int (buf);
       method->function = NULL;
 
       /* variable attrubute 0 : name */
@@ -2639,8 +2635,7 @@ disk_to_method (OR_BUF * buf, SM_METHOD * method)
  *    return: NO_ERROR, or error code
  *    buf(in/out): translation buffer
  *    file(in): method file
- * Note:
- *    on overflow, or_overflow will call longjmp and jump to the outer caller
+ * Note: overflow shouldn't be handled here
  */
 static int
 methfile_to_disk (OR_BUF * buf, SM_METHOD_FILE * file)
@@ -2727,14 +2722,18 @@ disk_to_methfile (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_methfile.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return NULL;
     }
   else
     {
       file = classobj_make_method_file (NULL);
       if (file == NULL)
 	{
-	  or_abort (buf);
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_METHOD_FILE));
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -2832,14 +2831,18 @@ disk_to_query_spec (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_query_spec.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return NULL;
     }
   else
     {
       statement = classobj_make_query_spec (NULL);
       if (statement == NULL)
 	{
-	  or_abort (buf);
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_QUERY_SPEC));
+	  assert (false);
+	  return NULL;
 	}
       else
 	{
@@ -2853,11 +2856,9 @@ disk_to_query_spec (OR_BUF * buf)
 
 /*
  * attribute_to_disk - Write the disk representation of an attribute.
- *    return: on overflow, or_overflow will call longjmp and                        jump to the outer caller
  *    buf(in/out): translation buffer
  *    att(in): attribute
- * Note:
- *    On overflow, or_overflow will call longjmp and jump to the outer caller
+ *    Note: overflow shouldn't be handled here
  */
 static int
 attribute_to_disk (OR_BUF * buf, SM_ATTRIBUTE * att)
@@ -3010,7 +3011,9 @@ disk_to_attribute (OR_BUF * buf, SM_ATTRIBUTE * att)
   vars = read_var_table (buf, tf_Metaclass_attribute.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return;
     }
   else
     {
@@ -3030,29 +3033,29 @@ disk_to_attribute (OR_BUF * buf, SM_ATTRIBUTE * att)
       att->triggers = NULL;
       att->auto_increment = NULL;
 
-      att->id = or_get_int (buf, &rc);
-      dbval_type = (DB_TYPE) or_get_int (buf, &rc);
+      att->id = or_get_int (buf);
+      dbval_type = (DB_TYPE) or_get_int (buf);
       att->type = pr_type_from_id (dbval_type);
-      att->offset = or_get_int (buf, &rc);
+      att->offset = or_get_int (buf);
       att->offset = 0;		/* calculated later */
-      att->order = or_get_int (buf, &rc);
+      att->order = or_get_int (buf);
 
       tp_Object.data_readval (buf, &value, NULL, -1, true, NULL, 0);
       att->class_mop = db_get_object (&value);
       /* prevents clear on next readval call */
       db_value_put_null (&value);
 
-      att->flags = or_get_int (buf, &rc);
+      att->flags = or_get_int (buf);
 
-      fileid = or_get_int (buf, &rc);
+      fileid = or_get_int (buf);
 
       /* index BTID */
       /*
        * Read the NULL BTID from disk.  There is no place to put this so
        * ignore it.  - JB
        */
-      (void) or_get_int (buf, &rc);
-      (void) or_get_int (buf, &rc);
+      (void) or_get_int (buf);
+      (void) or_get_int (buf);
 
       /* variable attribute 0 : name */
       att->header.name = get_string (buf, vars[ORC_ATT_NAME_INDEX].length);
@@ -3264,7 +3267,9 @@ disk_to_resolution (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_resolution.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return NULL;
     }
   else
     {
@@ -3272,17 +3277,19 @@ disk_to_resolution (OR_BUF * buf)
       class_ = db_get_object (&value);
       if (class_ == NULL)
 	{
-	  (void) or_get_int (buf, &rc);
+	  (void) or_get_int (buf);
 	  tp_VarNChar.data_readval (buf, NULL, NULL, vars[ORC_RES_NAME_INDEX].length, true, NULL, 0);
 	  tp_VarNChar.data_readval (buf, NULL, NULL, vars[ORC_RES_ALIAS_INDEX].length, true, NULL, 0);
 	}
       else
 	{
-	  name_space = (SM_NAME_SPACE) or_get_int (buf, &rc);
+	  name_space = (SM_NAME_SPACE) or_get_int (buf);
 	  res = classobj_make_resolution (NULL, NULL, NULL, name_space);
 	  if (res == NULL)
 	    {
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_RESOLUTION));
+	      assert (false);
+	      return NULL;
 	    }
 	  else
 	    {
@@ -3303,8 +3310,7 @@ disk_to_resolution (OR_BUF * buf)
  *    return: NO_ERROR or error code
  *    buf(in): translation buffer
  *    rat(in): attribute
- * Note:
- *    On overflow, or_overflow will call longjmp and jump to the outer caller
+ * Note: overflow shouldn't be handled here
  */
 static int
 repattribute_to_disk (OR_BUF * buf, SM_REPR_ATTRIBUTE * rat)
@@ -3379,17 +3385,19 @@ disk_to_repattribute (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_repattribute.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
       return NULL;
     }
 
-  id = or_get_int (buf, &rc);
-  tid = or_get_int (buf, &rc);
+  id = or_get_int (buf);
+  tid = or_get_int (buf);
   rat = classobj_make_repattribute (id, (DB_TYPE) tid, NULL);
   if (rat == NULL)
     {
       free_var_table (vars);
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_REPR_ATTRIBUTE));
+      assert (false);
       return NULL;
     }
 
@@ -3427,8 +3435,7 @@ representation_size (SM_REPRESENTATION * rep)
  *    return: NO_ERROR
  *    buf(in/out): translation buffer
  *    rep(in): representation
- * Note:
- *    On overflow, or_overflow will call longjmp and jump to the outer caller
+ *    Note: overflow shouldn't be handled here
  */
 static int
 representation_to_disk (OR_BUF * buf, SM_REPRESENTATION * rep)
@@ -3491,7 +3498,8 @@ disk_to_representation (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_representation.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
       return NULL;
     }
 
@@ -3500,17 +3508,18 @@ disk_to_representation (OR_BUF * buf)
   if (rep == NULL)
     {
       free_var_table (vars);
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_REPRESENTATION));
+      assert (false);
       return NULL;
     }
   else
     {
-      rep->id = or_get_int (buf, &rc);
-      rep->fixed_count = or_get_int (buf, &rc);
-      rep->variable_count = or_get_int (buf, &rc);
+      rep->id = or_get_int (buf);
+      rep->fixed_count = or_get_int (buf);
+      rep->variable_count = or_get_int (buf);
 
       /* we no longer use this field, formerly fixed_size */
-      (void) or_get_int (buf, &rc);
+      (void) or_get_int (buf);
 
       /* variable 0 : attributes */
       rep->attributes =
@@ -3773,7 +3782,9 @@ class_to_disk (OR_BUF * buf, SM_CLASS * class_)
    * conversion routines */
   if (!check_class_structure (class_))
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return;
     }
   else
     {
@@ -3785,7 +3796,8 @@ class_to_disk (OR_BUF * buf, SM_CLASS * class_)
       if (start + offset + OR_NON_MVCC_HEADER_SIZE != buf->ptr)
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_OUT_OF_SYNC, 0);
-	  or_abort (buf);
+	  assert (false);
+	  return;
 	}
     }
 }
@@ -4003,14 +4015,14 @@ disk_to_class (OR_BUF * buf, SM_CLASS ** class_ptr)
       goto on_error;
     }
 
-  class_->att_ids = or_get_int (buf, &rc);
-  class_->method_ids = or_get_int (buf, &rc);
+  class_->att_ids = or_get_int (buf);
+  class_->method_ids = or_get_int (buf);
 
   or_get_oid (buf, &(class_->header.ch_rep_dir));
 
-  class_->header.ch_heap.vfid.fileid = or_get_int (buf, &rc);
-  class_->header.ch_heap.vfid.volid = or_get_int (buf, &rc);
-  class_->header.ch_heap.hpgid = or_get_int (buf, &rc);
+  class_->header.ch_heap.vfid.fileid = or_get_int (buf);
+  class_->header.ch_heap.vfid.volid = or_get_int (buf);
+  class_->header.ch_heap.hpgid = or_get_int (buf);
 
 #if !defined(NDEBUG)
   if (!HFID_IS_NULL (sm_ch_heap ((MOBJ) class_)))
@@ -4019,25 +4031,25 @@ disk_to_class (OR_BUF * buf, SM_CLASS ** class_ptr)
     }
 #endif
 
-  class_->fixed_count = or_get_int (buf, &rc);
-  class_->variable_count = or_get_int (buf, &rc);
-  class_->fixed_size = or_get_int (buf, &rc);
-  class_->att_count = or_get_int (buf, &rc);
-  class_->object_size = or_get_int (buf, &rc);
+  class_->fixed_count = or_get_int (buf);
+  class_->variable_count = or_get_int (buf);
+  class_->fixed_size = or_get_int (buf);
+  class_->att_count = or_get_int (buf);
+  class_->object_size = or_get_int (buf);
   class_->object_size = 0;	/* calculated later */
-  class_->shared_count = or_get_int (buf, &rc);
-  class_->method_count = or_get_int (buf, &rc);
-  class_->class_method_count = or_get_int (buf, &rc);
-  class_->class_attribute_count = or_get_int (buf, &rc);
-  class_->flags = or_get_int (buf, &rc);
-  class_->class_type = (SM_CLASS_TYPE) or_get_int (buf, &rc);
+  class_->shared_count = or_get_int (buf);
+  class_->method_count = or_get_int (buf);
+  class_->class_method_count = or_get_int (buf);
+  class_->class_attribute_count = or_get_int (buf);
+  class_->flags = or_get_int (buf);
+  class_->class_type = (SM_CLASS_TYPE) or_get_int (buf);
 
   /* owner object */
   tp_Object.data_readval (buf, &value, NULL, -1, true, NULL, 0);
   class_->owner = db_get_object (&value);
-  class_->collation_id = or_get_int (buf, &rc);
+  class_->collation_id = or_get_int (buf);
 
-  class_->tde_algorithm = or_get_int (buf, &rc);
+  class_->tde_algorithm = or_get_int (buf);
 
   /* variable 0 */
   class_->header.ch_name = get_string (buf, vars[ORC_NAME_INDEX].length);
@@ -4301,15 +4313,17 @@ disk_to_root (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_root.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
+      return NULL;
     }
   else
     {
       assert (OID_ISNULL (sm_ch_rep_dir ((MOBJ) & sm_Root_class)));	/* is dummy */
 
-      sm_Root_class.header.ch_heap.vfid.fileid = (FILEID) or_get_int (buf, &rc);
-      sm_Root_class.header.ch_heap.vfid.volid = (VOLID) or_get_int (buf, &rc);
-      sm_Root_class.header.ch_heap.hpgid = (PAGEID) or_get_int (buf, &rc);
+      sm_Root_class.header.ch_heap.vfid.fileid = (FILEID) or_get_int (buf);
+      sm_Root_class.header.ch_heap.vfid.volid = (VOLID) or_get_int (buf);
+      sm_Root_class.header.ch_heap.hpgid = (PAGEID) or_get_int (buf);
 
       /* name - could make sure its the same as sm_Root_class_name */
       or_advance (buf, vars[0].length);
@@ -4364,54 +4378,45 @@ tf_disk_to_class (OID * oid, RECDES * record)
 
   buf = &orep;
   or_init (buf, record->data, record->length);
-  buf->error_abort = 1;
 
-  switch (_setjmp (buf->env))
+
+  assert (OR_GET_OFFSET_SIZE (buf->ptr) == BIG_VAR_OFFSET_SIZE);
+
+  repid = or_get_int (buf);
+  repid = repid & ~OR_OFFSET_SIZE_FLAG;
+  assert (((char) (repid >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK) == 0);
+  chn = or_get_int (buf);
+
+  if (oid_is_root (oid))
     {
-    case 0:
-      /* offset size */
-      assert (OR_GET_OFFSET_SIZE (buf->ptr) == BIG_VAR_OFFSET_SIZE);
-
-      repid = or_get_int (buf, &rc);
-      repid = repid & ~OR_OFFSET_SIZE_FLAG;
-      assert (((char) (repid >> OR_MVCC_FLAG_SHIFT_BITS) & OR_MVCC_FLAG_MASK) == 0);
-      chn = or_get_int (buf, &rc);
-
-      if (oid_is_root (oid))
-	{
-	  class_ = (MOBJ) disk_to_root (buf);
-	}
-      else
-	{
-	  class_ = (MOBJ) disk_to_class (buf, (SM_CLASS **) (&class_));
-	  if (class_ != NULL)
-	    {
-	      ((SM_CLASS *) class_)->repid = repid;
-	    }
-	}
-
+      class_ = (MOBJ) disk_to_root (buf);
+    }
+  else
+    {
+      class_ = (MOBJ) disk_to_class (buf, (SM_CLASS **) (&class_));
       if (class_ != NULL)
 	{
-	  ((SM_CLASS *) class_)->header.ch_obj_header.chn = chn;
+	  ((SM_CLASS *) class_)->repid = repid;
 	}
-      break;
+    }
 
-    default:
-      /*
-       * make sure to clear the class that was being created,
-       * an appropriate error will have been set
-       */
-      if (class_ != NULL)
-	{
-	  classobj_free_class ((SM_CLASS *) class_);
-	  class_ = NULL;
-	}
-      break;
+  if (class_ != NULL)
+    {
+      ((SM_CLASS *) class_)->header.ch_obj_header.chn = chn;
     }
 
   sm_bump_global_schema_version ();
 
-  buf->error_abort = 0;
+  if (buf->ptr > buf->endptr)
+    {
+      /*
+       * make sure to clear the class that was being created,
+       * an appropriate error will have been set
+       */
+      classobj_free_class ((SM_CLASS *) class_);
+      class_ = NULL;
+    }
+
   return (class_);
 }
 
@@ -4431,13 +4436,13 @@ tf_class_to_disk (MOBJ classobj, RECDES * record)
 {
   OR_BUF orep, *buf;
   /* prevent reg optimization which hoses longmp */
-  SM_CLASS *volatile class_;
-  volatile int expected_size;
+  SM_CLASS *class_;
+  int expected_size;
   SM_CLASS_HEADER *header;
   int chn;
   TF_STATUS status;
   int rc = 0;
-  volatile int prop_free = 0;
+  int prop_free = 0;
   int repid;
 
   /* should we assume this ? */
@@ -4452,7 +4457,6 @@ tf_class_to_disk (MOBJ classobj, RECDES * record)
    */
   buf = &orep;
   or_init (buf, record->data, record->area_size);
-  buf->error_abort = 1;
 
   class_ = (SM_CLASS *) classobj;
 
@@ -4476,15 +4480,14 @@ tf_class_to_disk (MOBJ classobj, RECDES * record)
       expected_size = tf_class_size (classobj);
     }
 
-  /* if anything failed this far, no need to save stack context, return code will be handled in the switch below */
-  if (rc == NO_ERROR)
+  if (buf->ptr + expected_size > buf->endptr)
     {
-      rc = _setjmp (buf->env);
+      status = TF_OUT_OF_SPACE;
+      record->length = -expected_size;
+      goto exit;
     }
-
-  switch (rc)
+  else
     {
-    case 0:
       status = TF_SUCCESS;
 
       /* representation id, offset size */
@@ -4515,28 +4518,12 @@ tf_class_to_disk (MOBJ classobj, RECDES * record)
       if (record->length != expected_size)
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_SIZE_MISMATCH, 2, expected_size, record->length);
-	  or_abort (buf);
+	  status = TF_ERROR;
+	  goto exit;
 	}
-
-      /* fprintf(stdout, "Saved class in %d bytes\n", record->length); */
-      break;
-
-      /*
-       * if the longjmp status was anything other than ER_TF_BUFFER_OVERFLOW,
-       * it represents an error condition and er_set will have been called
-       */
-
-    case ER_TF_BUFFER_OVERFLOW:
-      status = TF_OUT_OF_SPACE;
-      record->length = -expected_size;
-      break;
-
-    default:
-      status = TF_ERROR;
-      break;
-
     }
 
+exit:
   /* restore properties */
   if (((SM_CLASS_HEADER *) classobj)->ch_type != SM_META_ROOT && class_->partition)
     {
@@ -4547,10 +4534,8 @@ tf_class_to_disk (MOBJ classobj, RECDES * record)
 	}
     }
 
-  buf->error_abort = 0;
   return (status);
 }
-
 
 /*
  * tf_object_size - Determines the number of byte required to store an object
@@ -4819,7 +4804,6 @@ tf_pack_set (DB_SET * set, char *buffer, int buffer_size, int *actual_bytes)
   /* set up a transformation buffer, may want to do deferred fixup here ? */
   buf = &orep;
   or_init (buf, buffer, buffer_size);
-  buf->error_abort = 1;
 
   switch (_setjmp (buf->env))
     {
@@ -4860,11 +4844,11 @@ tf_pack_set (DB_SET * set, char *buffer, int buffer_size, int *actual_bytes)
       error = er_errid ();
       break;
     }
-  buf->error_abort = 0;
 
   return (error);
 }
 #endif /* ENABLE_UNUSED_FUNCTION */
+
 
 /*
  * partition_to_disk - Write the disk representation of partition information
@@ -4964,7 +4948,8 @@ disk_to_partition_info (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_partition.mc_n_variable);
   if (vars == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
+      assert (false);
       return NULL;
     }
 
@@ -4973,17 +4958,13 @@ disk_to_partition_info (OR_BUF * buf)
   partition_info = classobj_make_partition_info ();
   if (partition_info == NULL)
     {
-      or_abort (buf);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_PARTITION));
+      assert (false);
+      return NULL;
     }
   else
     {
-      partition_info->partition_type = or_get_int (buf, &error);
-      if (error != NO_ERROR)
-	{
-	  free_var_table (vars);
-	  classobj_free_partition_info (partition_info);
-	  return NULL;
-	}
+      partition_info->partition_type = or_get_int (buf);
 
       partition_info->pname = get_string (buf, vars[ORC_PARTITION_NAME_INDEX].length);
       partition_info->expr = get_string (buf, vars[ORC_PARTITION_EXPR_INDEX].length);

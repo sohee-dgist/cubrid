@@ -5468,28 +5468,27 @@ lock_dump_resource (THREAD_ENTRY * thread_p, FILE * outfp, LK_RES * res_ptr)
 					    PEEK, NULL_CHN) == S_SUCCESS)
 		{
 		  MVCC_REC_HEADER mvcc_rec_header;
-		  if (or_mvcc_get_header (&recdes, &mvcc_rec_header) == NO_ERROR)
+		  or_mvcc_get_header (&recdes, &mvcc_rec_header);
+		  char str_insid[128], str_delid[128];
+		  if (MVCC_IS_FLAG_SET (&mvcc_rec_header, OR_MVCC_FLAG_VALID_INSID))
 		    {
-		      char str_insid[128], str_delid[128];
-		      if (MVCC_IS_FLAG_SET (&mvcc_rec_header, OR_MVCC_FLAG_VALID_INSID))
-			{
-			  sprintf (str_insid, "%llu", (unsigned long long int) MVCC_GET_INSID (&mvcc_rec_header));
-			}
-		      else
-			{
-			  strcpy (str_insid, "missing");
-			}
-		      if (MVCC_IS_HEADER_DELID_VALID (&mvcc_rec_header))
-			{
-			  sprintf (str_delid, "%llu", (unsigned long long int) MVCC_GET_DELID (&mvcc_rec_header));
-			}
-		      else
-			{
-			  strcpy (str_delid, "missing");
-			}
-		      fprintf (outfp, msgcat_message (MSGCAT_CATALOG_CUBRID, MSGCAT_SET_LOCK, MSGCAT_LK_MVCC_INFO),
-			       str_insid, str_delid);
+		      sprintf (str_insid, "%llu", (unsigned long long int) MVCC_GET_INSID (&mvcc_rec_header));
 		    }
+		  else
+		    {
+		      strcpy (str_insid, "missing");
+		    }
+		  if (MVCC_IS_HEADER_DELID_VALID (&mvcc_rec_header))
+		    {
+		      sprintf (str_delid, "%llu", (unsigned long long int) MVCC_GET_DELID (&mvcc_rec_header));
+		    }
+		  else
+		    {
+		      strcpy (str_delid, "missing");
+		    }
+		  fprintf (outfp, msgcat_message (MSGCAT_CATALOG_CUBRID, MSGCAT_SET_LOCK, MSGCAT_LK_MVCC_INFO),
+			   str_insid, str_delid);
+
 		}
 	      heap_scancache_end (thread_p, &scan_cache);
 	    }

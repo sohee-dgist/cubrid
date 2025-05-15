@@ -2442,7 +2442,7 @@ mr_data_readmem_int (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
     }
   else
     {
-      *(int *) mem = or_get_int (buf, &rc);
+      *(int *) mem = or_get_int (buf);
     }
 }
 
@@ -2469,29 +2469,27 @@ mr_setval_int (DB_VALUE * dest, const DB_VALUE * src, bool copy)
 static int
 mr_data_writeval_int (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_int (buf, db_get_int (value));
+  or_put_int (buf, db_get_int (value));
+  return NO_ERROR;
 }
 
 static int
 mr_data_readval_int (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int size, bool copy, char *copy_buf,
 		     int copy_buf_len)
 {
-  int temp_int, rc = NO_ERROR;
+  int temp_int;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Integer.disksize);
+      or_advance (buf, tp_Integer.disksize);
     }
   else
     {
-      temp_int = or_get_int (buf, &rc);
-      if (rc == NO_ERROR)
-	{
-	  db_make_int (value, temp_int);
-	}
+      temp_int = or_get_int (buf);
+      db_make_int (value, temp_int);
       value->need_clear = false;
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -2501,29 +2499,27 @@ mr_index_writeval_int (OR_BUF * buf, DB_VALUE * value)
 
   i = db_get_int (value);
 
-  return or_put_data (buf, (char *) (&i), tp_Integer.disksize);
+  or_put_data (buf, (char *) (&i), tp_Integer.disksize);
+  return NO_ERROR;
 }
 
 static int
 mr_index_readval_int (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int size, bool copy, char *copy_buf,
 		      int copy_buf_len)
 {
-  int i, rc = NO_ERROR;
+  int i;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Integer.disksize);
+      or_advance (buf, tp_Integer.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&i), tp_Integer.disksize);
-      if (rc == NO_ERROR)
-	{
-	  db_make_int (value, i);
-	}
+      or_get_data (buf, (char *) (&i), tp_Integer.disksize);
+      db_make_int (value, i);
       value->need_clear = false;
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -2555,12 +2551,7 @@ mr_data_cmpdisk_int (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coercion
 static DB_VALUE_COMPARE_RESULT
 mr_cmpval_int (DB_VALUE * value1, DB_VALUE * value2, int do_coercion, int total_order, int *start_colp, int collation)
 {
-  int i1, i2;
-
-  i1 = db_get_int (value1);
-  i2 = db_get_int (value2);
-
-  return MR_CMP (i1, i2);
+  return MR_CMP (value1->data.i, value2->data.i);
 }
 
 /*
@@ -2611,7 +2602,7 @@ mr_data_readmem_short (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
     }
   else
     {
-      *(short *) mem = or_get_short (buf, &rc);
+      *(short *) mem = or_get_short (buf);
     }
 }
 
@@ -2638,31 +2629,28 @@ mr_setval_short (DB_VALUE * dest, const DB_VALUE * src, bool copy)
 static int
 mr_data_writeval_short (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_short (buf, db_get_short (value));
+  or_put_short (buf, db_get_short (value));
+  return NO_ERROR;
 }
 
 static int
 mr_data_readval_short (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int size, bool copy, char *copy_buf,
 		       int copy_buf_len)
 {
-  int rc = NO_ERROR;
   short s;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Short.disksize);
+      or_advance (buf, tp_Short.disksize);
     }
   else
     {
-      s = (short) or_get_short (buf, &rc);
-      if (rc == NO_ERROR)
-	{
-	  db_make_short (value, s);
-	}
+      s = or_get_short (buf);
+      db_make_short (value, s);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -2672,31 +2660,28 @@ mr_index_writeval_short (OR_BUF * buf, DB_VALUE * value)
 
   s = db_get_short (value);
 
-  return or_put_data (buf, (char *) (&s), tp_Short.disksize);
+  or_put_data (buf, (char *) (&s), tp_Short.disksize);
+  return NO_ERROR;
 }
 
 static int
 mr_index_readval_short (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int size, bool copy, char *copy_buf,
 			int copy_buf_len)
 {
-  int rc = NO_ERROR;
   short s;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Short.disksize);
+      or_advance (buf, tp_Short.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&s), tp_Short.disksize);
-      if (rc == NO_ERROR)
-	{
-	  db_make_short (value, s);
-	}
+      or_get_data (buf, (char *) (&s), tp_Short.disksize);
+      db_make_short (value, s);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -2783,7 +2768,7 @@ mr_data_readmem_bigint (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
     }
   else
     {
-      *(DB_BIGINT *) mem = or_get_bigint (buf, &rc);
+      *(DB_BIGINT *) mem = or_get_bigint (buf);
     }
 }
 
@@ -2810,30 +2795,27 @@ mr_setval_bigint (DB_VALUE * dest, const DB_VALUE * src, bool copy)
 static int
 mr_data_writeval_bigint (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_bigint (buf, db_get_bigint (value));
+  or_put_bigint (buf, db_get_bigint (value));
+  return NO_ERROR;
 }
 
 static int
 mr_data_readval_bigint (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int size, bool copy, char *copy_buf,
 			int copy_buf_len)
 {
-  int rc = NO_ERROR;
   DB_BIGINT temp_int;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Bigint.disksize);
+      or_advance (buf, tp_Bigint.disksize);
     }
   else
     {
-      temp_int = or_get_bigint (buf, &rc);
-      if (rc == NO_ERROR)
-	{
-	  db_make_bigint (value, temp_int);
-	}
+      temp_int = or_get_bigint (buf);
+      db_make_bigint (value, temp_int);
       value->need_clear = false;
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -2843,31 +2825,28 @@ mr_index_writeval_bigint (OR_BUF * buf, DB_VALUE * value)
 
   bi = db_get_bigint (value);
 
-  return or_put_data (buf, (char *) (&bi), tp_Bigint.disksize);
+  or_put_data (buf, (char *) (&bi), tp_Bigint.disksize);
+  return NO_ERROR;
 }
 
 static int
 mr_index_readval_bigint (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int size, bool copy, char *copy_buf,
 			 int copy_buf_len)
 {
-  int rc = NO_ERROR;
   DB_BIGINT bi;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Bigint.disksize);
+      or_advance (buf, tp_Bigint.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&bi), tp_Bigint.disksize);
-      if (rc == NO_ERROR)
-	{
-	  db_make_bigint (value, bi);
-	}
+      or_get_data (buf, (char *) (&bi), tp_Bigint.disksize);
+      db_make_bigint (value, bi);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -2958,7 +2937,7 @@ mr_data_readmem_float (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
     }
   else
     {
-      *(float *) mem = or_get_float (buf, &rc);
+      *(float *) mem = or_get_float (buf);
     }
 }
 
@@ -2985,7 +2964,8 @@ mr_setval_float (DB_VALUE * dest, const DB_VALUE * src, bool copy)
 static int
 mr_data_writeval_float (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_float (buf, db_get_float (value));
+  or_put_float (buf, db_get_float (value));
+  return NO_ERROR;
 }
 
 static int
@@ -2993,22 +2973,18 @@ mr_data_readval_float (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int s
 		       int copy_buf_len)
 {
   float temp;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Float.disksize);
+      or_advance (buf, tp_Float.disksize);
     }
   else
     {
-      temp = or_get_float (buf, &rc);
-      if (rc == NO_ERROR)
-	{
-	  db_make_float (value, temp);
-	}
+      temp = or_get_float (buf);
+      db_make_float (value, temp);
       value->need_clear = false;
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -3018,7 +2994,8 @@ mr_index_writeval_float (OR_BUF * buf, DB_VALUE * value)
 
   f = db_get_float (value);
 
-  return or_put_data (buf, (char *) (&f), tp_Float.disksize);
+  or_put_data (buf, (char *) (&f), tp_Float.disksize);
+  return NO_ERROR;
 }
 
 static int
@@ -3026,23 +3003,19 @@ mr_index_readval_float (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int 
 			int copy_buf_len)
 {
   float f;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Float.disksize);
+      or_advance (buf, tp_Float.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&f), tp_Float.disksize);
-      if (rc == NO_ERROR)
-	{
-	  db_make_float (value, f);
-	}
+      or_get_data (buf, (char *) (&f), tp_Float.disksize);
+      db_make_float (value, f);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -3139,7 +3112,6 @@ static void
 mr_data_readmem_double (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
 {
   double d;
-  int rc = NO_ERROR;
 
   if (mem == NULL)
     {
@@ -3147,7 +3119,7 @@ mr_data_readmem_double (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
     }
   else
     {
-      d = or_get_double (buf, &rc);
+      d = or_get_double (buf);
       OR_MOVE_DOUBLE (&d, mem);
     }
 }
@@ -3175,7 +3147,8 @@ mr_setval_double (DB_VALUE * dest, const DB_VALUE * src, bool copy)
 static int
 mr_data_writeval_double (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_double (buf, db_get_double (value));
+  or_put_double (buf, db_get_double (value));
+  return NO_ERROR;
 }
 
 static int
@@ -3183,23 +3156,19 @@ mr_data_readval_double (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int 
 			int copy_buf_len)
 {
   double temp;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Double.disksize);
+      or_advance (buf, tp_Double.disksize);
     }
   else
     {
-      temp = or_get_double (buf, &rc);
-      if (rc == NO_ERROR)
-	{
-	  db_make_double (value, temp);
-	}
+      temp = or_get_double (buf);
+      db_make_double (value, temp);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -3209,7 +3178,8 @@ mr_index_writeval_double (OR_BUF * buf, DB_VALUE * value)
 
   d = db_get_double (value);
 
-  return or_put_data (buf, (char *) (&d), tp_Double.disksize);
+  or_put_data (buf, (char *) (&d), tp_Double.disksize);
+  return NO_ERROR;
 }
 
 static int
@@ -3217,23 +3187,19 @@ mr_index_readval_double (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
 			 int copy_buf_len)
 {
   double d;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Double.disksize);
+      or_advance (buf, tp_Double.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&d), tp_Double.disksize);
-      if (rc == NO_ERROR)
-	{
-	  db_make_double (value, d);
-	}
+      or_get_data (buf, (char *) (&d), tp_Double.disksize);
+      db_make_double (value, d);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -3354,7 +3320,8 @@ mr_setval_time (DB_VALUE * dest, const DB_VALUE * src, bool copy)
 static int
 mr_data_writeval_time (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_time (buf, db_get_time (value));
+  or_put_time (buf, db_get_time (value));
+  return NO_ERROR;
 }
 
 static int
@@ -3362,22 +3329,18 @@ mr_data_readval_time (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int si
 		      int copy_buf_len)
 {
   DB_TIME tm;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Time.disksize);
+      or_advance (buf, tp_Time.disksize);
     }
   else
     {
-      rc = or_get_time (buf, &tm);
-      if (rc == NO_ERROR)
-	{
-	  db_value_put_encoded_time (value, &tm);
-	}
+      or_get_time (buf, &tm);
+      db_value_put_encoded_time (value, &tm);
       value->need_clear = false;
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -3387,7 +3350,8 @@ mr_index_writeval_time (OR_BUF * buf, DB_VALUE * value)
 
   tm = db_get_time (value);
 
-  return or_put_data (buf, (char *) tm, tp_Time.disksize);
+  or_put_data (buf, (char *) tm, tp_Time.disksize);
+  return NO_ERROR;
 }
 
 static int
@@ -3395,23 +3359,19 @@ mr_index_readval_time (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int s
 		       int copy_buf_len)
 {
   DB_TIME tm;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Time.disksize);
+      or_advance (buf, tp_Time.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&tm), tp_Time.disksize);
-      if (rc == NO_ERROR)
-	{
-	  db_value_put_encoded_time (value, &tm);
-	}
+      or_get_data (buf, (char *) (&tm), tp_Time.disksize);
+      db_value_put_encoded_time (value, &tm);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -3565,7 +3525,8 @@ mr_setval_timestampltz (DB_VALUE * dest, const DB_VALUE * src, bool copy)
 static int
 mr_data_writeval_utime (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_utime (buf, db_get_timestamp (value));
+  or_put_utime (buf, db_get_timestamp (value));
+  return NO_ERROR;
 }
 
 static int
@@ -3573,22 +3534,18 @@ mr_data_readval_utime (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int s
 		       int copy_buf_len)
 {
   DB_UTIME utm;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Utime.disksize);
+      or_advance (buf, tp_Utime.disksize);
     }
   else
     {
-      rc = or_get_utime (buf, &utm);
-      if (rc == NO_ERROR)
-	{
-	  db_make_utime (value, utm);
-	}
+      or_get_utime (buf, &utm);
+      db_make_utime (value, utm);
       value->need_clear = false;
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -3596,19 +3553,18 @@ mr_data_readval_timestampltz (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 			      int copy_buf_len)
 {
   DB_UTIME utm;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Timestampltz.disksize);
+      or_advance (buf, tp_Timestampltz.disksize);
     }
   else
     {
-      rc = or_get_utime (buf, &utm);
+      or_get_utime (buf, &utm);
       db_make_timestampltz (value, utm);
       value->need_clear = false;
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -3618,7 +3574,8 @@ mr_index_writeval_utime (OR_BUF * buf, DB_VALUE * value)
 
   utm = db_get_timestamp (value);
 
-  return or_put_data (buf, (char *) utm, tp_Utime.disksize);
+  or_put_data (buf, (char *) utm, tp_Utime.disksize);
+  return NO_ERROR;
 }
 
 static int
@@ -3626,23 +3583,19 @@ mr_index_readval_utime (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int 
 			int copy_buf_len)
 {
   DB_UTIME utm;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Utime.disksize);
+      or_advance (buf, tp_Utime.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&utm), tp_Utime.disksize);
-      if (rc == NO_ERROR)
-	{
-	  db_make_utime (value, utm);
-	}
+      or_get_data (buf, (char *) (&utm), tp_Utime.disksize);
+      db_make_utime (value, utm);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -3650,23 +3603,19 @@ mr_index_readval_timestampltz (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domai
 			       int copy_buf_len)
 {
   DB_UTIME utm;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Timestampltz.disksize);
+      or_advance (buf, tp_Timestampltz.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&utm), tp_Timestampltz.disksize);
-      if (rc == NO_ERROR)
-	{
-	  db_make_timestampltz (value, utm);
-	}
+      or_get_data (buf, (char *) (&utm), tp_Timestampltz.disksize);
+      db_make_timestampltz (value, utm);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -3794,7 +3743,8 @@ mr_setval_timestamptz (DB_VALUE * dest, const DB_VALUE * src, bool copy)
 static int
 mr_data_writeval_timestamptz (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_timestamptz (buf, db_get_timestamptz (value));
+  or_put_timestamptz (buf, db_get_timestamptz (value));
+  return NO_ERROR;
 }
 
 static int
@@ -3802,37 +3752,32 @@ mr_data_readval_timestamptz (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain,
 			     int copy_buf_len)
 {
   DB_TIMESTAMPTZ ts_tz;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Timestamptz.disksize);
+      or_advance (buf, tp_Timestamptz.disksize);
     }
   else
     {
-      rc = or_get_timestamptz (buf, &ts_tz);
+      or_get_timestamptz (buf, &ts_tz);
       db_make_timestamptz (value, &ts_tz);
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
 mr_index_writeval_timestamptz (OR_BUF * buf, DB_VALUE * value)
 {
   DB_TIMESTAMPTZ *ts_tz;
-  int rc = NO_ERROR;
 
   ts_tz = db_get_timestamptz (value);
 
   assert (tp_Timestamptz.disksize == (tp_Utime.disksize + tp_Integer.disksize));
 
-  rc = or_put_data (buf, (char *) (&ts_tz->timestamp), tp_Utime.disksize);
-  if (rc == NO_ERROR)
-    {
-      rc = or_put_data (buf, (char *) (&ts_tz->tz_id), tp_Integer.disksize);
-    }
+  or_put_data (buf, (char *) (&ts_tz->timestamp), tp_Utime.disksize);
+  or_put_data (buf, (char *) (&ts_tz->tz_id), tp_Integer.disksize);
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -3840,23 +3785,19 @@ mr_index_readval_timestamptz (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 			      int copy_buf_len)
 {
   DB_TIMESTAMPTZ ts_tz;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Timestamptz.disksize);
+      or_advance (buf, tp_Timestamptz.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&ts_tz), tp_Timestamptz.disksize);
-      if (rc == NO_ERROR)
-	{
-	  db_make_timestamptz (value, &ts_tz);
-	}
+      or_get_data (buf, (char *) (&ts_tz), tp_Timestamptz.disksize);
+      db_make_timestamptz (value, &ts_tz);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -4025,7 +3966,8 @@ mr_data_readmem_datetime (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
 static int
 mr_data_writeval_datetime (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_datetime (buf, db_get_datetime (value));
+  or_put_datetime (buf, db_get_datetime (value));
+  return NO_ERROR;
 }
 
 static int
@@ -4033,22 +3975,18 @@ mr_data_readval_datetime (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 			  int copy_buf_len)
 {
   DB_DATETIME datetime;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Datetime.disksize);
+      or_advance (buf, tp_Datetime.disksize);
     }
   else
     {
-      rc = or_get_datetime (buf, &datetime);
-      if (rc == NO_ERROR)
-	{
-	  db_make_datetime (value, &datetime);
-	}
+      or_get_datetime (buf, &datetime);
+      db_make_datetime (value, &datetime);
       value->need_clear = false;
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -4056,37 +3994,32 @@ mr_data_readval_datetimeltz (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain,
 			     int copy_buf_len)
 {
   DB_DATETIME datetime;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Datetimeltz.disksize);
+      or_advance (buf, tp_Datetimeltz.disksize);
     }
   else
     {
-      rc = or_get_datetime (buf, &datetime);
+      or_get_datetime (buf, &datetime);
       db_make_datetimeltz (value, &datetime);
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
 mr_index_writeval_datetime (OR_BUF * buf, DB_VALUE * value)
 {
   DB_DATETIME *datetime;
-  int rc = NO_ERROR;
 
   datetime = db_get_datetime (value);
 
   assert (tp_Datetime.disksize == (tp_Date.disksize + tp_Time.disksize));
 
-  rc = or_put_data (buf, (char *) (&datetime->date), tp_Date.disksize);
-  if (rc == NO_ERROR)
-    {
-      rc = or_put_data (buf, (char *) (&datetime->time), tp_Time.disksize);
-    }
+  or_put_data (buf, (char *) (&datetime->date), tp_Date.disksize);
+  or_put_data (buf, (char *) (&datetime->time), tp_Time.disksize);
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -4100,24 +4033,17 @@ mr_index_readval_datetime (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Datetime.disksize);
+      or_advance (buf, tp_Datetime.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&datetime.date), tp_Date.disksize);
-      if (rc == NO_ERROR)
-	{
-	  rc = or_get_data (buf, (char *) (&datetime.time), tp_Time.disksize);
-	}
-
-      if (rc == NO_ERROR)
-	{
-	  db_make_datetime (value, &datetime);
-	}
+      or_get_data (buf, (char *) (&datetime.date), tp_Date.disksize);
+      or_get_data (buf, (char *) (&datetime.time), tp_Time.disksize);
+      db_make_datetime (value, &datetime);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -4125,30 +4051,22 @@ mr_index_readval_datetimeltz (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 			      int copy_buf_len)
 {
   DB_DATETIME datetime;
-  int rc = NO_ERROR;
 
   assert (tp_Datetimeltz.disksize == (tp_Date.disksize + tp_Time.disksize));
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Datetimeltz.disksize);
+      or_advance (buf, tp_Datetimeltz.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&datetime.date), tp_Date.disksize);
-      if (rc == NO_ERROR)
-	{
-	  rc = or_get_data (buf, (char *) (&datetime.time), tp_Time.disksize);
-	}
-
-      if (rc == NO_ERROR)
-	{
-	  db_make_datetimeltz (value, &datetime);
-	}
+      or_get_data (buf, (char *) (&datetime.date), tp_Date.disksize);
+      or_get_data (buf, (char *) (&datetime.time), tp_Time.disksize);
+      db_make_datetimeltz (value, &datetime);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -4360,7 +4278,8 @@ mr_data_readmem_datetimetz (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int siz
 static int
 mr_data_writeval_datetimetz (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_datetimetz (buf, db_get_datetimetz (value));
+  or_put_datetimetz (buf, db_get_datetimetz (value));
+  return NO_ERROR;
 }
 
 static int
@@ -4368,41 +4287,33 @@ mr_data_readval_datetimetz (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 			    int copy_buf_len)
 {
   DB_DATETIMETZ datetimetz;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Datetimetz.disksize);
+      or_advance (buf, tp_Datetimetz.disksize);
     }
   else
     {
-      rc = or_get_datetimetz (buf, &datetimetz);
+      or_get_datetimetz (buf, &datetimetz);
       db_make_datetimetz (value, &datetimetz);
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
 mr_index_writeval_datetimetz (OR_BUF * buf, DB_VALUE * value)
 {
   DB_DATETIMETZ *datetimetz;
-  int rc = NO_ERROR;
 
   datetimetz = db_get_datetimetz (value);
 
   assert (tp_Datetimetz.disksize == (tp_Date.disksize + tp_Time.disksize + tp_Integer.disksize));
 
-  rc = or_put_data (buf, (char *) (&datetimetz->datetime.date), tp_Date.disksize);
-  if (rc == NO_ERROR)
-    {
-      rc = or_put_data (buf, (char *) (&datetimetz->datetime.time), tp_Time.disksize);
-      if (rc == NO_ERROR)
-	{
-	  rc = or_put_data (buf, (char *) (&datetimetz->tz_id), tp_Integer.disksize);
-	}
-    }
+  or_put_data (buf, (char *) (&datetimetz->datetime.date), tp_Date.disksize);
+  or_put_data (buf, (char *) (&datetimetz->datetime.time), tp_Time.disksize);
+  or_put_data (buf, (char *) (&datetimetz->tz_id), tp_Integer.disksize);
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -4410,34 +4321,23 @@ mr_index_readval_datetimetz (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain,
 			     int copy_buf_len)
 {
   DB_DATETIMETZ datetimetz;
-  int rc = NO_ERROR;
 
   assert (tp_Datetimetz.disksize == (tp_Date.disksize + tp_Time.disksize + tp_Integer.disksize));
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Datetimetz.disksize);
+      or_advance (buf, tp_Datetimetz.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&datetimetz.datetime.date), tp_Date.disksize);
-      if (rc == NO_ERROR)
-	{
-	  rc = or_get_data (buf, (char *) (&datetimetz.datetime.time), tp_Time.disksize);
-	  if (rc == NO_ERROR)
-	    {
-	      rc = or_get_data (buf, (char *) (&datetimetz.tz_id), tp_Integer.disksize);
-	    }
-	}
-
-      if (rc == NO_ERROR)
-	{
-	  db_make_datetimetz (value, &datetimetz);
-	}
+      or_get_data (buf, (char *) (&datetimetz.datetime.date), tp_Date.disksize);
+      or_get_data (buf, (char *) (&datetimetz.datetime.time), tp_Time.disksize);
+      or_get_data (buf, (char *) (&datetimetz.tz_id), tp_Integer.disksize);
+      db_make_datetimetz (value, &datetimetz);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -4611,39 +4511,31 @@ mr_data_readval_money (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int s
 		       int copy_buf_len)
 {
   DB_MONETARY money;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Monetary.disksize);
+      or_advance (buf, tp_Monetary.disksize);
     }
   else
     {
-      rc = or_get_monetary (buf, &money);
-      if (rc == NO_ERROR)
-	{
-	  db_make_monetary (value, money.type, money.amount);
-	}
+      or_get_monetary (buf, &money);
+      db_make_monetary (value, money.type, money.amount);
       value->need_clear = false;
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
 mr_index_writeval_money (OR_BUF * buf, DB_VALUE * value)
 {
   DB_MONETARY *money;
-  int rc = NO_ERROR;
 
   money = db_get_monetary (value);
 
-  rc = or_put_data (buf, (char *) (&money->type), tp_Integer.disksize);
-  if (rc == NO_ERROR)
-    {
-      rc = or_put_data (buf, (char *) (&money->amount), tp_Double.disksize);
-    }
+  or_put_data (buf, (char *) (&money->type), tp_Integer.disksize);
+  or_put_data (buf, (char *) (&money->amount), tp_Double.disksize);
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -4651,28 +4543,20 @@ mr_index_readval_money (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int 
 			int copy_buf_len)
 {
   DB_MONETARY money;
-  int rc = NO_ERROR;
-
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Monetary.disksize);
+      or_advance (buf, tp_Monetary.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&money.type), tp_Integer.disksize);
-      if (rc == NO_ERROR)
-	{
-	  rc = or_get_data (buf, (char *) (&money.amount), tp_Double.disksize);
-	}
+      or_get_data (buf, (char *) (&money.type), tp_Integer.disksize);
+      or_get_data (buf, (char *) (&money.amount), tp_Double.disksize);
 
-      if (rc == NO_ERROR)
-	{
-	  db_make_monetary (value, money.type, money.amount);
-	}
+      db_make_monetary (value, money.type, money.amount);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -4786,7 +4670,8 @@ mr_setval_date (DB_VALUE * dest, const DB_VALUE * src, bool copy)
 static int
 mr_data_writeval_date (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_date (buf, db_get_date (value));
+  or_put_date (buf, db_get_date (value));
+  return NO_ERROR;
 }
 
 static int
@@ -4794,22 +4679,18 @@ mr_data_readval_date (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int si
 		      int copy_buf_len)
 {
   DB_DATE dt;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Date.disksize);
+      or_advance (buf, tp_Date.disksize);
     }
   else
     {
-      rc = or_get_date (buf, &dt);
-      if (rc == NO_ERROR)
-	{
-	  db_value_put_encoded_date (value, &dt);
-	}
+      or_get_date (buf, &dt);
+      db_value_put_encoded_date (value, &dt);
       value->need_clear = false;
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -4819,7 +4700,8 @@ mr_index_writeval_date (OR_BUF * buf, DB_VALUE * value)
 
   dt = db_get_date (value);
 
-  return or_put_data (buf, (char *) dt, tp_Date.disksize);
+  or_put_data (buf, (char *) dt, tp_Date.disksize);
+  return NO_ERROR;
 }
 
 static int
@@ -4827,23 +4709,19 @@ mr_index_readval_date (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int s
 		       int copy_buf_len)
 {
   DB_DATE dt;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Date.disksize);
+      or_advance (buf, tp_Date.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&dt), tp_Date.disksize);
-      if (rc == NO_ERROR)
-	{
-	  db_value_put_encoded_date (value, &dt);
-	}
+      or_get_data (buf, (char *) (&dt), tp_Date.disksize);
+      db_value_put_encoded_date (value, &dt);
       value->need_clear = false;
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -5259,15 +5137,14 @@ mr_data_writeval_object (OR_BUF * buf, DB_VALUE * value)
 #endif
   OID *oidp = NULL;
   int rc = NO_ERROR;
-
 #if !defined (SERVER_MODE)
   if (db_on_server || pr_Inhibit_oid_promotion)
     {
       if (DB_VALUE_TYPE (value) == DB_TYPE_OID)
 	{
 	  oidp = db_get_oid (value);
-	  rc = or_put_oid (buf, oidp);
-	  return rc;
+	  or_put_oid (buf, oidp);
+	  return NO_ERROR;
 	}
       else
 	{
@@ -5279,7 +5156,7 @@ mr_data_writeval_object (OR_BUF * buf, DB_VALUE * value)
       mop = db_get_object (value);
       if ((mop == NULL) || (WS_IS_DELETED (mop)))
 	{
-	  rc = or_put_oid (buf, (OID *) (&oid_Null_oid));
+	  or_put_oid (buf, (OID *) (&oid_Null_oid));
 	}
       else if (WS_ISVID (mop))
 	{
@@ -5289,7 +5166,7 @@ mr_data_writeval_object (OR_BUF * buf, DB_VALUE * value)
 	  error = vid_object_to_vobj (mop, &vmop_seq);
 	  if (error >= 0)
 	    {
-	      rc = mr_data_writeval_set (buf, &vmop_seq);
+	      mr_data_writeval_set (buf, &vmop_seq);
 	      pr_clear_value (&vmop_seq);
 	    }
 	  else
@@ -5311,23 +5188,23 @@ mr_data_writeval_object (OR_BUF * buf, DB_VALUE * value)
 		  oidp = (OID *) (&oid_Null_oid);
 		}
 	    }
-	  rc = or_put_oid (buf, oidp);
+	  or_put_oid (buf, oidp);
 	}
     }
   else if (DB_VALUE_TYPE (value) == DB_TYPE_OID)
     {
       oidp = db_get_oid (value);
-      rc = or_put_oid (buf, oidp);
+      or_put_oid (buf, oidp);
     }
   else
     {
       /* should never get here ! */
-      rc = or_put_oid (buf, (OID *) (&oid_Null_oid));
+      or_put_oid (buf, (OID *) (&oid_Null_oid));
     }
 #else /* SERVER_MODE */
   /* on the server, the value must contain an OID */
   oidp = db_get_oid (value);
-  rc = or_put_oid (buf, oidp);
+  or_put_oid (buf, oidp);
 #endif /* !SERVER_MODE */
   return rc;
 }
@@ -5346,12 +5223,11 @@ mr_data_readval_object (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int 
 			int copy_buf_len)
 {
   OID oid;
-  int rc = NO_ERROR;
 
 #if !defined (SERVER_MODE)
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Object.disksize);
+      or_advance (buf, tp_Object.disksize);
     }
   else
     {
@@ -5359,14 +5235,14 @@ mr_data_readval_object (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int 
 	{
 	  /* basically the same as mr_readval_server_oid, don't promote OIDs */
 	  db_value_domain_init (value, DB_TYPE_OID, DB_DEFAULT_PRECISION, DB_DEFAULT_SCALE);
-	  rc = or_get_oid (buf, &oid);
+	  or_get_oid (buf, &oid);
 	  db_make_oid (value, &oid);
 	}
       else
 	{
 	  db_value_domain_init (value, DB_TYPE_OBJECT, DB_DEFAULT_PRECISION, DB_DEFAULT_SCALE);
 
-	  rc = or_get_oid (buf, &oid);
+	  or_get_oid (buf, &oid);
 	  /*
 	   * if the OID is NULL, leave the value with the NULL bit set
 	   * and don't bother to put the OID inside.
@@ -5377,7 +5253,7 @@ mr_data_readval_object (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int 
 	      db_make_object (value, ws_mop (&oid, NULL));
 	      if (db_get_object (value) == NULL)
 		{
-		  or_abort (buf);
+
 		  return ER_FAILED;
 		}
 	    }
@@ -5387,17 +5263,17 @@ mr_data_readval_object (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int 
   /* on the server, we only read OIDs */
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Object.disksize);
+      or_advance (buf, tp_Object.disksize);
     }
   else
     {
       db_value_domain_init (value, DB_TYPE_OID, DB_DEFAULT_PRECISION, DB_DEFAULT_SCALE);
-      rc = or_get_oid (buf, &oid);
+      or_get_oid (buf, &oid);
       /* should we be checking for the NULL OID here ? */
       db_make_oid (value, &oid);
     }
 #endif /* !SERVER_MODE */
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -5706,12 +5582,12 @@ static int
 getmem_elo_with_type (void *memptr, TP_DOMAIN * domain, DB_VALUE * value, bool copy, DB_TYPE type)
 {
   DB_ELO *elo;
-  int r = NO_ERROR;
+  int rc = NO_ERROR;
 
   if (memptr == NULL)
     {
       db_make_null (value);
-      return r;
+      return rc;
     }
 
   elo = *((DB_ELO **) memptr);
@@ -5719,15 +5595,15 @@ getmem_elo_with_type (void *memptr, TP_DOMAIN * domain, DB_VALUE * value, bool c
   if (elo == NULL || elo->size < 0)
     {
       db_make_null (value);
-      return r;
+      return rc;
     }
 
   if (copy)
     {
       DB_ELO e;
 
-      r = elo_copy_structure (elo, &e);
-      if (r == NO_ERROR)
+      rc = elo_copy_structure (elo, &e);
+      if (rc == NO_ERROR)
 	{
 	  db_make_elo (value, type, &e);
 	  value->need_clear = true;
@@ -5738,7 +5614,7 @@ getmem_elo_with_type (void *memptr, TP_DOMAIN * domain, DB_VALUE * value, bool c
       db_make_elo (value, type, elo);
     }
 
-  return r;
+  return rc;
 }
 
 static int
@@ -5764,7 +5640,7 @@ mr_getmem_clob (void *memptr, TP_DOMAIN * domain, DB_VALUE * value, bool copy)
 static int
 setval_elo_with_type (DB_VALUE * dest, const DB_VALUE * src, bool copy, DB_TYPE type)
 {
-  int r = NO_ERROR;
+  int rc = NO_ERROR;
 
   if (DB_IS_NULL (src) || db_get_elo (src) == NULL)
     {
@@ -5777,8 +5653,8 @@ setval_elo_with_type (DB_VALUE * dest, const DB_VALUE * src, bool copy, DB_TYPE 
       DB_ELO elo;
       DB_ELO *e = db_get_elo (src);
 
-      r = elo_copy_structure (e, &elo);
-      if (r == NO_ERROR)
+      rc = elo_copy_structure (e, &elo);
+      if (rc == NO_ERROR)
 	{
 	  db_make_elo (dest, type, &elo);
 	  dest->need_clear = true;
@@ -5789,7 +5665,7 @@ setval_elo_with_type (DB_VALUE * dest, const DB_VALUE * src, bool copy, DB_TYPE 
       db_make_elo (dest, type, db_get_elo (src));
     }
 
-  return r;
+  return rc;
 }
 
 static int
@@ -5899,24 +5775,12 @@ static void
 peekmem_elo (OR_BUF * buf, DB_ELO * elo)
 {
   int locator_len, meta_data_len;
-  int rc = NO_ERROR;
 
   /* size */
-  elo->size = or_get_bigint (buf, &rc);
-
-  if (rc != NO_ERROR)
-    {
-      assert (false);
-      goto error;
-    }
+  elo->size = or_get_bigint (buf);
 
   /* locator */
-  locator_len = or_get_int (buf, &rc);
-  if (rc != NO_ERROR)
-    {
-      assert (false);
-      goto error;
-    }
+  locator_len = or_get_int (buf);
   if (locator_len > 0)
     {
       elo->locator = buf->ptr;
@@ -5926,20 +5790,12 @@ peekmem_elo (OR_BUF * buf, DB_ELO * elo)
       assert (false);
       goto error;
     }
-  rc = or_advance (buf, locator_len);
-  if (rc != NO_ERROR)
-    {
-      assert (false);
-      goto error;
-    }
+  or_advance (buf, locator_len);
+
 
   /* meta_data */
-  meta_data_len = or_get_int (buf, &rc);
-  if (rc != NO_ERROR)
-    {
-      assert (false);
-      goto error;
-    }
+  meta_data_len = or_get_int (buf);
+
   if (meta_data_len > 0)
     {
       elo->meta_data = buf->ptr;
@@ -5948,21 +5804,10 @@ peekmem_elo (OR_BUF * buf, DB_ELO * elo)
     {
       elo->meta_data = NULL;
     }
-  rc = or_advance (buf, meta_data_len);
-  if (rc != NO_ERROR)
-    {
-      assert (false);
-      goto error;
-    }
+  or_advance (buf, meta_data_len);
 
   /* type */
-  elo->type = (DB_ELO_TYPE) or_get_int (buf, &rc);
-  if (rc != NO_ERROR)
-    {
-      assert (false);
-      goto error;
-    }
-
+  elo->type = (DB_ELO_TYPE) or_get_int (buf);
   return;
 
 error:
@@ -5993,7 +5838,7 @@ mr_data_readmem_elo (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size)
   elo = (DB_ELO *) db_private_alloc (NULL, sizeof (DB_ELO));
   if (elo == NULL)
     {
-      or_abort (buf);
+      assert (false);
     }
   else
     {
@@ -6003,7 +5848,7 @@ mr_data_readmem_elo (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size)
       if (rc != NO_ERROR)
 	{
 	  db_private_free_and_init (NULL, elo);
-	  or_abort (buf);
+	  assert (false);
 	}
     }
 
@@ -6028,7 +5873,7 @@ readval_elo_with_type (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int s
 
   if (value == NULL)
     {
-      rc = or_advance (buf, size);
+      or_advance (buf, size);
       return rc;
     }
 
@@ -6665,7 +6510,8 @@ mr_data_readmem_oid (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size)
 static int
 mr_data_writeval_oid (OR_BUF * buf, DB_VALUE * value)
 {
-  return (or_put_oid (buf, db_get_oid (value)));
+  or_put_oid (buf, db_get_oid (value));
+  return NO_ERROR;
 }
 
 static int
@@ -6673,20 +6519,19 @@ mr_data_readval_oid (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 		     int copy_buf_len)
 {
   OID oid;
-  int rc = NO_ERROR;
 
   if (value != NULL)
     {
       db_value_domain_init (value, DB_TYPE_OID, DB_DEFAULT_PRECISION, DB_DEFAULT_SCALE);
-      rc = or_get_oid (buf, &oid);
+      or_get_oid (buf, &oid);
       db_make_oid (value, &oid);
     }
   else
     {
-      rc = or_advance (buf, tp_Oid.disksize);
+      or_advance (buf, tp_Oid.disksize);
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -6699,17 +6544,11 @@ mr_index_writeval_oid (OR_BUF * buf, DB_VALUE * value)
 
   oidp = db_get_oid (value);
 
-  rc = or_put_data (buf, (char *) (&oidp->pageid), tp_Integer.disksize);
-  if (rc == NO_ERROR)
-    {
-      rc = or_put_data (buf, (char *) (&oidp->slotid), tp_Short.disksize);
-    }
-  if (rc == NO_ERROR)
-    {
-      rc = or_put_data (buf, (char *) (&oidp->volid), tp_Short.disksize);
-    }
+  or_put_data (buf, (char *) (&oidp->pageid), tp_Integer.disksize);
+  or_put_data (buf, (char *) (&oidp->slotid), tp_Short.disksize);
+  or_put_data (buf, (char *) (&oidp->volid), tp_Short.disksize);
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -6717,32 +6556,22 @@ mr_index_readval_oid (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int si
 		      int copy_buf_len)
 {
   OID oid;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Object.disksize);
+      or_advance (buf, tp_Object.disksize);
     }
   else
     {
-      rc = or_get_data (buf, (char *) (&oid.pageid), tp_Integer.disksize);
-      if (rc == NO_ERROR)
-	{
-	  rc = or_get_data (buf, (char *) (&oid.slotid), tp_Short.disksize);
-	}
-      if (rc == NO_ERROR)
-	{
-	  rc = or_get_data (buf, (char *) (&oid.volid), tp_Short.disksize);
-	}
-
-      if (rc == NO_ERROR)
-	{
-	  db_value_domain_init (value, DB_TYPE_OID, DB_DEFAULT_PRECISION, DB_DEFAULT_SCALE);
-	  db_make_oid (value, &oid);
-	}
+      or_get_data (buf, (char *) (&oid.pageid), tp_Integer.disksize);
+      or_get_data (buf, (char *) (&oid.slotid), tp_Short.disksize);
+      or_get_data (buf, (char *) (&oid.volid), tp_Short.disksize);
+      db_value_domain_init (value, DB_TYPE_OID, DB_DEFAULT_PRECISION, DB_DEFAULT_SCALE);
+      db_make_oid (value, &oid);
     }
 
-  return rc;
+
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -7080,7 +6909,6 @@ mr_data_writeval_set (OR_BUF * buf, DB_VALUE * value)
 #if !defined (SERVER_MODE)
   int pin;
 #endif
-  int rc = NO_ERROR;
 
   ref = db_get_set (value);
   if (ref != NULL)
@@ -7091,15 +6919,9 @@ mr_data_writeval_set (OR_BUF * buf, DB_VALUE * value)
       if (ref->disk_set)
 	{
 	  /* check for overflow */
-	  if ((((ptrdiff_t) (buf->endptr - buf->ptr)) < (ptrdiff_t) ref->disk_size))
-	    {
-	      return or_overflow (buf);
-	    }
-	  else
-	    {
-	      memcpy (buf->ptr, ref->disk_set, ref->disk_size);
-	      rc = or_advance (buf, ref->disk_size);
-	    }
+	  assert (((ptrdiff_t) (buf->endptr - buf->ptr)) >= (ptrdiff_t) ref->disk_size);
+	  memcpy (buf->ptr, ref->disk_set, ref->disk_size);
+	  or_advance (buf, ref->disk_size);
 	}
       else if (set_get_setobj (ref, &set, 0) == NO_ERROR)
 	{
@@ -7122,7 +6944,7 @@ mr_data_writeval_set (OR_BUF * buf, DB_VALUE * value)
 #if !defined (SERVER_MODE)
 		      (void) ws_pin (ref->owner, pin);
 #endif
-		      return or_overflow (buf);
+		      return ER_TF_BUFFER_OVERFLOW;
 		    }
 		  else
 		    {
@@ -7136,7 +6958,7 @@ mr_data_writeval_set (OR_BUF * buf, DB_VALUE * value)
 	    }
 	}
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static void
@@ -7175,7 +6997,7 @@ mr_data_readmem_set (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size)
 	    }
 	  else
 	    {
-	      or_abort (buf);
+	      assert (false);
 	    }
 	}
     }
@@ -7187,7 +7009,6 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 {
   SETOBJ *set;
   SETREF *ref;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
@@ -7201,7 +7022,7 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	    }
 	  else
 	    {
-	      or_abort (buf);
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	}
@@ -7209,7 +7030,7 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	{
 	  if (size)
 	    {
-	      rc = or_advance (buf, size);
+	      or_advance (buf, size);
 	    }
 	}
     }
@@ -7236,7 +7057,6 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	  set = or_get_set (buf, domain);
 	  if (set == NULL)
 	    {
-	      or_abort (buf);
 	      return ER_FAILED;
 	    }
 	  else
@@ -7244,7 +7064,7 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	      ref = setobj_get_reference (set);
 	      if (ref == NULL)
 		{
-		  or_abort (buf);
+		  assert (false);
 		  return ER_FAILED;
 		}
 	      else
@@ -7272,7 +7092,7 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	  ref = set_make_reference ();
 	  if (ref == NULL)
 	    {
-	      or_abort (buf);
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -7308,7 +7128,7 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	      ref->disk_domain = domain;
 
 	      /* advance the buffer as if we had read the set */
-	      rc = or_advance (buf, disk_size);
+	      or_advance (buf, disk_size);
 
 	      switch (set_type)
 		{
@@ -7327,7 +7147,7 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	    }
 	}
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static void
@@ -7600,7 +7420,6 @@ static int
 mr_index_writeval_midxkey (OR_BUF * buf, DB_VALUE * value)
 {
   DB_MIDXKEY *midxkey;
-  int rc;
 
   midxkey = db_get_midxkey (value);
   if (midxkey == NULL)
@@ -7608,9 +7427,9 @@ mr_index_writeval_midxkey (OR_BUF * buf, DB_VALUE * value)
       return ER_FAILED;
     }
 
-  rc = or_put_data (buf, (char *) midxkey->buf, midxkey->size);
+  or_put_data (buf, (char *) midxkey->buf, midxkey->size);
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -7626,7 +7445,6 @@ mr_index_readval_midxkey (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 {
   char *new_;
   DB_MIDXKEY midxkey;
-  int rc = NO_ERROR;
   TP_DOMAIN *dom;
 
   if (size == -1)
@@ -7642,7 +7460,8 @@ mr_index_readval_midxkey (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 
   if (value == NULL)
     {
-      return or_advance (buf, size);
+      or_advance (buf, size);
+      return NO_ERROR;
     }
 
   midxkey.size = size;
@@ -7655,7 +7474,7 @@ mr_index_readval_midxkey (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
     {
       midxkey.buf = buf->ptr;
       db_make_midxkey (value, &midxkey);
-      rc = or_advance (buf, size);
+      or_advance (buf, size);
     }
   else
     {
@@ -7677,32 +7496,20 @@ mr_index_readval_midxkey (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	{
 	  /* need to be able to return errors ! */
 	  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	  or_abort (buf);
+	  assert (false);
 	  return ER_FAILED;
 	}
       else
 	{
-	  rc = or_get_data (buf, new_, size);
-	  if (rc == NO_ERROR)
-	    {
-	      /* round up to a word boundary */
-	      /* rc = or_get_align32 (buf); *//* need ?? */
-	    }
-	  if (rc != NO_ERROR)
-	    {
-	      if (new_ != copy_buf)
-		{
-		  db_private_free_and_init (NULL, new_);
-		}
-	      return rc;
-	    }
+	  or_get_data (buf, new_, size);
+
 	  midxkey.buf = new_;
 	  db_make_midxkey (value, &midxkey);
 	  value->need_clear = (new_ != copy_buf) ? true : false;
 	}
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -8446,7 +8253,8 @@ mr_data_readmem_numeric (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
       if (size != OR_NUMERIC_SIZE (domain->precision))
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+	  assert (false);
+	  return;
 	}
       else
 	{
@@ -8559,7 +8367,6 @@ mr_data_writeval_numeric (OR_BUF * buf, DB_VALUE * value)
 {
   DB_C_NUMERIC numeric;
   int precision, disk_size;
-  int rc = NO_ERROR;
 
   if (value != NULL)
     {
@@ -8568,10 +8375,10 @@ mr_data_writeval_numeric (OR_BUF * buf, DB_VALUE * value)
 	{
 	  precision = db_value_precision (value);
 	  disk_size = OR_NUMERIC_SIZE (precision);
-	  rc = or_put_data (buf, (char *) numeric, disk_size);
+	  or_put_data (buf, (char *) numeric, disk_size);
 	}
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -8585,8 +8392,6 @@ static int
 mr_data_readval_numeric (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int size, bool copy, char *copy_buf,
 			 int copy_buf_len)
 {
-  int rc = NO_ERROR;
-
   if (domain == NULL)
     {
       return ER_FAILED;
@@ -8610,7 +8415,7 @@ mr_data_readval_numeric (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
     {
       if (size)
 	{
-	  rc = or_advance (buf, size);
+	  or_advance (buf, size);
 	}
     }
   else
@@ -8621,10 +8426,10 @@ mr_data_readval_numeric (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
        */
       (void) db_make_numeric (value, (DB_C_NUMERIC) buf->ptr, domain->precision, domain->scale);
       value->need_clear = false;
-      rc = or_advance (buf, size);
+      or_advance (buf, size);
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -8981,10 +8786,7 @@ pr_midxkey_get_element_offset (const DB_MIDXKEY * midxkey, int index)
 
   nullmap_ptr = midxkey->buf;
 
-  if (or_advance (&buf, or_multi_header_size (idx_ncols)) != NO_ERROR)
-    {
-      goto exit_on_error;
-    }
+  or_advance (&buf, or_multi_header_size (idx_ncols));
 
   offset = or_multi_get_element_offset (nullmap_ptr, idx_ncols, index);
   if (offset > 0)
@@ -9956,15 +9758,13 @@ mr_data_writemem_resultset (OR_BUF * buf, void *mem, TP_DOMAIN * domain)
 static void
 mr_data_readmem_resultset (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
 {
-  int rc = NO_ERROR;
-
   if (mem == NULL)
     {
       or_advance (buf, tp_ResultSet.disksize);
     }
   else
     {
-      *(DB_BIGINT *) mem = or_get_bigint (buf, &rc);
+      *(DB_BIGINT *) mem = or_get_bigint (buf);
     }
 }
 
@@ -9991,7 +9791,8 @@ mr_setval_resultset (DB_VALUE * dest, const DB_VALUE * src, bool copy)
 static int
 mr_data_writeval_resultset (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_bigint (buf, db_get_resultset (value));
+  or_put_bigint (buf, db_get_resultset (value));
+  return NO_ERROR;
 }
 
 static int
@@ -9999,22 +9800,18 @@ mr_data_readval_resultset (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 			   int copy_buf_len)
 {
   DB_BIGINT temp;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_ResultSet.disksize);
+      or_advance (buf, tp_ResultSet.disksize);
     }
   else
     {
-      temp = (DB_BIGINT) or_get_bigint (buf, &rc);
-      if (rc == NO_ERROR)
-	{
-	  db_make_resultset (value, temp);
-	}
+      temp = (DB_BIGINT) or_get_bigint (buf);
+      db_make_resultset (value, temp);
       value->need_clear = false;
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -10235,7 +10032,7 @@ mr_index_lengthmem_string (void *memptr, TP_DOMAIN * domain)
 {
   int charlen;
   OR_BUF buf;
-  int rc = NO_ERROR, compressed_length = 0, decompressed_length = 0, length = 0;
+  int compressed_length = 0, decompressed_length = 0, length = 0;
 
   /* generally, index key-value is short enough */
   charlen = OR_GET_BYTE (memptr);
@@ -10248,7 +10045,7 @@ mr_index_lengthmem_string (void *memptr, TP_DOMAIN * domain)
 
   or_init (&buf, (char *) memptr, -1);
 
-  rc = or_get_varchar_compression_lengths (&buf, &compressed_length, &decompressed_length);
+  or_get_varchar_compression_lengths (&buf, &compressed_length, &decompressed_length);
 
   if (compressed_length > 0)
     {
@@ -10342,12 +10139,7 @@ mr_data_readmem_string (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	   * in another specialized or_ function. */
 
 	  /* Get just the length prefix. */
-	  rc = or_get_varchar_compression_lengths (buf, &compressed_size, &len);
-	  if (rc != NO_ERROR)
-	    {
-	      or_abort (buf);
-	      return;
-	    }
+	  or_get_varchar_compression_lengths (buf, &compressed_size, &len);
 
 	  /*
 	   * Allocate storage for this string, including our own full word size
@@ -10358,7 +10150,7 @@ mr_data_readmem_string (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	  new_ = (char *) db_private_alloc (NULL, mem_length);
 	  if (new_ == NULL)
 	    {
-	      or_abort (buf);
+	      assert (false);
 	    }
 	  else
 	    {
@@ -10371,7 +10163,7 @@ mr_data_readmem_string (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	      if (rc != NO_ERROR)
 		{
 		  db_private_free (NULL, new_);
-		  or_abort (buf);
+		  assert (false);
 		  return;
 		}
 	      /* align like or_get_varchar */
@@ -10712,13 +10504,13 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
     {
       if (size == -1)
 	{
-	  rc = or_skip_varchar (buf, align);
+	  or_skip_varchar (buf, align);
 	}
       else
 	{
 	  if (size)
 	    {
-	      rc = or_advance (buf, size);
+	      or_advance (buf, size);
 	    }
 	}
     }
@@ -10747,11 +10539,7 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 	    }
 	  /* Get the compressed size and uncompressed size from the buffer, and point the buf->ptr
 	   * towards the data stored in the buffer */
-	  rc = or_get_varchar_compression_lengths (buf, &compressed_size, &expected_decompressed_size);
-	  if (rc != NO_ERROR)
-	    {
-	      return rc;
-	    }
+	  or_get_varchar_compression_lengths (buf, &compressed_size, &expected_decompressed_size);
 
 	  if (compressed_size > 0)
 	    {
@@ -10823,11 +10611,7 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 	    }			/* size != -1 */
 
 	  /* Get the length of the string, be it compressed or uncompressed. */
-	  rc = or_get_varchar_compression_lengths (buf, &compressed_size, &expected_decompressed_size);
-	  if (rc != NO_ERROR)
-	    {
-	      return ER_FAILED;
-	    }
+	  or_get_varchar_compression_lengths (buf, &compressed_size, &expected_decompressed_size);
 	  if (compressed_size <= 0)
 	    {
 	      assert (compressed_size == 0);
@@ -10859,7 +10643,7 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 		{
 		  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
 		}
-	      or_abort (buf);
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -10867,17 +10651,14 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 	      if (align == INT_ALIGNMENT)
 		{
 		  /* read the kludge NULL terminator */
-		  rc = or_get_data (buf, new_, str_length + 1);
+		  or_get_data (buf, new_, str_length + 1);
 
 		  /* round up to a word boundary */
-		  if (rc == NO_ERROR)
-		    {
-		      rc = or_get_align32 (buf);
-		    }
+		  or_get_align32 (buf);
 		}
 	      else
 		{
-		  rc = or_get_data (buf, new_, str_length);
+		  or_get_data (buf, new_, str_length);
 		}
 
 	      if (rc != NO_ERROR)
@@ -10972,7 +10753,7 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 		  pad = size - (int) (buf->ptr - start);
 		  if (pad > 0)
 		    {
-		      rc = or_advance (buf, pad);
+		      or_advance (buf, pad);
 		    }
 		}		/* size != -1 */
 	    }			/* else */
@@ -11018,14 +10799,14 @@ data_readval_string (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
     {
       if (size == -1)
 	{
-	  rc = or_skip_varchar (buf, align);
+	  or_skip_varchar (buf, align);
 	}
       else if (size)
 	{
-	  rc = or_advance (buf, size);
+	  or_advance (buf, size);
 	}
 
-      return rc;
+      return NO_ERROR;
     }
 
   precision = (domain != NULL) ? domain->precision : DB_MAX_VARCHAR_PRECISION;
@@ -11044,11 +10825,7 @@ data_readval_string (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 
 /* Get the compressed size and uncompressed size from the buffer, and point the buf->ptr
        * towards the data stored in the buffer */
-  rc = or_get_varchar_compression_lengths (buf, &compressed_size, &expected_decompressed_size);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
+  or_get_varchar_compression_lengths (buf, &compressed_size, &expected_decompressed_size);
 
   if (!copy)
     {
@@ -11219,11 +10996,7 @@ mr_data_cmpdisk_string (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coerc
   or_init (&buf1, str1, 0);
   if (str_length1 == OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION)
     {
-      rc = or_get_varchar_compression_lengths (&buf1, &str1_compressed_length, &str1_decompressed_length);
-      if (rc != NO_ERROR)
-	{
-	  goto cleanup;
-	}
+      or_get_varchar_compression_lengths (&buf1, &str1_compressed_length, &str1_decompressed_length);
 
       string1 = (char *) db_private_alloc (NULL, str1_decompressed_length + 1);
       if (string1 == NULL)
@@ -11262,11 +11035,7 @@ mr_data_cmpdisk_string (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coerc
 
   if (str_length2 == OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION)
     {
-      rc = or_get_varchar_compression_lengths (&buf2, &str2_compressed_length, &str2_decompressed_length);
-      if (rc != NO_ERROR)
-	{
-	  goto cleanup;
-	}
+      or_get_varchar_compression_lengths (&buf2, &str2_compressed_length, &str2_decompressed_length);
 
       string2 = (char *) db_private_alloc (NULL, str2_decompressed_length + 1);
       if (string2 == NULL)
@@ -11681,7 +11450,8 @@ mr_data_readmem_char (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
       if (size != -1 && mem_length > size)
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+	  assert (false);
+	  return;
 	}
       or_get_data (buf, (char *) mem, mem_length);
 
@@ -11851,12 +11621,11 @@ mr_writeval_char_internal (OR_BUF * buf, DB_VALUE * value, int align)
 {
   int src_precision, src_length, packed_length, pad;
   const char *src;
-  int rc = NO_ERROR;
 
   src = db_get_string (value);
   if (src == NULL)
     {
-      return rc;
+      return NO_ERROR;
     }
 
   src_precision = db_value_precision (value);
@@ -11875,11 +11644,11 @@ mr_writeval_char_internal (OR_BUF * buf, DB_VALUE * value, int align)
       if (packed_length < src_length)
 	{
 	  /* should have caught this by now, truncate silently */
-	  rc = or_put_data (buf, src, packed_length);
+	  or_put_data (buf, src, packed_length);
 	}
       else
 	{
-	  rc = or_put_data (buf, src, src_length);
+	  or_put_data (buf, src, src_length);
 	  /*
 	   * Check for space padding, if this were a national string, we
 	   * would need to be padding with the appropriate space character !
@@ -11890,13 +11659,9 @@ mr_writeval_char_internal (OR_BUF * buf, DB_VALUE * value, int align)
 	      int i;
 	      for (i = src_length; i < packed_length; i++)
 		{
-		  rc = or_put_byte (buf, (int) ' ');
+		  or_put_byte (buf, (int) ' ');
 		}
 	    }
-	}
-      if (rc != NO_ERROR)
-	{
-	  return rc;
 	}
     }
   else
@@ -11916,20 +11681,16 @@ mr_writeval_char_internal (OR_BUF * buf, DB_VALUE * value, int align)
       /* store the size prefix */
       if (align == INT_ALIGNMENT)
 	{
-	  rc = or_put_int (buf, packed_length);
+	  or_put_int (buf, packed_length);
 	}
       else
 	{
-	  rc = or_put_data (buf, (char *) (&packed_length), OR_INT_SIZE);
+	  or_put_data (buf, (char *) (&packed_length), OR_INT_SIZE);
 	}
-      if (rc == NO_ERROR)
-	{
-	  /* store the data */
-	  rc = or_put_data (buf, src, packed_length);
-	  /* there is no blank padding in this case */
-	}
+      /* store the data */
+      or_put_data (buf, src, packed_length);
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -11953,7 +11714,6 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
   int mem_length, padding;
   int str_length, precision;
   char *new_;
-  int rc = NO_ERROR;
   precision = domain->precision;
   if (TP_DOMAIN_COLLATION_FLAG (domain) != TP_DOMAIN_COLL_NORMAL)
     {
@@ -11965,27 +11725,24 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
     {
       if (align == INT_ALIGNMENT)
 	{
-	  mem_length = or_get_int (buf, &rc);
+	  mem_length = or_get_int (buf);
 	}
       else
 	{
-	  rc = or_get_data (buf, (char *) (&mem_length), OR_INT_SIZE);
+	  or_get_data (buf, (char *) (&mem_length), OR_INT_SIZE);
 	}
-      if (rc != NO_ERROR)
-	{
-	  return rc;
-	}
+
 
       if (value == NULL)
 	{
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else if (!copy)
 	{
 	  db_make_char (value, TP_FLOATING_PRECISION_VALUE, buf->ptr, mem_length, TP_DOMAIN_CODESET (domain),
 			TP_DOMAIN_COLLATION (domain));
 	  value->need_clear = false;
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else
 	{
@@ -12004,21 +11761,12 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	      or_abort (buf);
-
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
 	    {
-	      rc = or_get_data (buf, new_, mem_length);
-	      if (rc != NO_ERROR)
-		{
-		  if (new_ != copy_buf)
-		    {
-		      db_private_free_and_init (NULL, new_);
-		    }
-		  return rc;
-		}
+	      or_get_data (buf, new_, mem_length);
 	      new_[mem_length] = '\0';	/* append the kludge NULL terminator */
 	      db_make_char (value, TP_FLOATING_PRECISION_VALUE, new_, mem_length, TP_DOMAIN_CODESET (domain),
 			    TP_DOMAIN_COLLATION (domain));
@@ -12041,13 +11789,13 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	   * smaller value.  Still the domain should match at this point.
 	   */
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+	  assert (false);
 	  return ER_FAILED;
 	}
 
       if (value == NULL)
 	{
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else if (disk_size == 0)
 	{
@@ -12063,7 +11811,7 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	  db_make_char (value, precision, buf->ptr, str_length, TP_DOMAIN_CODESET (domain),
 			TP_DOMAIN_COLLATION (domain));
 	  value->need_clear = false;
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else
 	{
@@ -12084,22 +11832,13 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), domain->precision, 0);
-	      or_abort (buf);
-
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
 	    {
 	      int actual_size = 0;
-	      rc = or_get_data (buf, new_, mem_length);
-	      if (rc != NO_ERROR)
-		{
-		  if (new_ != copy_buf)
-		    {
-		      db_private_free_and_init (NULL, new_);
-		    }
-		  return rc;
-		}
+	      or_get_data (buf, new_, mem_length);
 	      intl_char_size ((unsigned char *) new_, domain->precision, TP_DOMAIN_CODESET (domain), &actual_size);
 	      if (actual_size == 0)
 		{
@@ -12112,24 +11851,21 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	    }
 	}
 
-      if (rc == NO_ERROR)
+      /*
+       * We should only see padding if the string is contained within a
+       * packed value that had extra padding to ensure alignment.  If we
+       * see these, just pop them out of the buffer.
+       */
+      if (disk_size != -1)
 	{
-	  /*
-	   * We should only see padding if the string is contained within a
-	   * packed value that had extra padding to ensure alignment.  If we
-	   * see these, just pop them out of the buffer.
-	   */
-	  if (disk_size != -1)
+	  padding = disk_size - mem_length;
+	  if (padding > 0)
 	    {
-	      padding = disk_size - mem_length;
-	      if (padding > 0)
-		{
-		  rc = or_advance (buf, padding);
-		}
+	      or_advance (buf, padding);
 	    }
 	}
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -12542,7 +12278,8 @@ mr_data_readmem_nchar (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
       if (size != -1 && mem_length > size)
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+	  assert (false);
+	  return;
 	}
       or_get_data (buf, (char *) mem, mem_length);
 
@@ -12736,12 +12473,11 @@ mr_writeval_nchar_internal (OR_BUF * buf, DB_VALUE * value, int align)
   int pad_charsize;
   char pad_char[2];
   char *converted_string = NULL;
-  int rc = NO_ERROR;
 
   src = db_get_string (value);
   if (src == NULL)
     {
-      return rc;
+      return NO_ERROR;
     }
 
   src_precision = db_value_precision (value);
@@ -12787,34 +12523,29 @@ mr_writeval_nchar_internal (OR_BUF * buf, DB_VALUE * value, int align)
       if (packed_size < src_size)
 	{
 	  /* should have caught this by now, truncate silently */
-	  rc = or_put_data (buf, src, packed_size);
+	  or_put_data (buf, src, packed_size);
 	}
       else
 	{
-	  if ((rc = or_put_data (buf, src, src_size)) == NO_ERROR)
+	  or_put_data (buf, src, src_size);
+	  /*
+	   * Check for space padding, if this were a national string, we
+	   * would need to be padding with the appropriate space character!
+	   */
+	  pad = packed_size - src_size;
+	  if (pad)
 	    {
-	      /*
-	       * Check for space padding, if this were a national string, we
-	       * would need to be padding with the appropriate space character!
-	       */
-	      pad = packed_size - src_size;
-	      if (pad)
+	      int i;
+	      for (i = src_size; i < packed_size; i += pad_charsize)
 		{
-		  int i;
-		  for (i = src_size; i < packed_size; i += pad_charsize)
+		  or_put_byte (buf, pad_char[0]);
+		  if (i + 1 < packed_size && pad_charsize == 2)
 		    {
-		      rc = or_put_byte (buf, pad_char[0]);
-		      if (i + 1 < packed_size && pad_charsize == 2)
-			{
-			  rc = or_put_byte (buf, pad_char[1]);
-			}
+		      or_put_byte (buf, pad_char[1]);
 		    }
 		}
 	    }
-	}
-      if (rc != NO_ERROR)
-	{
-	  goto error;
+
 	}
     }
   else
@@ -12829,19 +12560,16 @@ mr_writeval_nchar_internal (OR_BUF * buf, DB_VALUE * value, int align)
       /* store the size prefix */
       if (align == INT_ALIGNMENT)
 	{
-	  rc = or_put_int (buf, src_size);
+	  or_put_int (buf, src_size);
 	}
       else
 	{
-	  rc = or_put_data (buf, (char *) (&src_size), OR_INT_SIZE);
+	  or_put_data (buf, (char *) (&src_size), OR_INT_SIZE);
 	}
 
-      if (rc == NO_ERROR)
-	{
-	  /* store the data */
-	  rc = or_put_data (buf, src, src_size);
-	  /* there is no blank padding in this case */
-	}
+      /* store the data */
+      or_put_data (buf, src, src_size);
+      /* there is no blank padding in this case */
     }
 
 error:
@@ -12850,7 +12578,7 @@ error:
       db_private_free_and_init (NULL, converted_string);
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -12873,7 +12601,6 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 {
   int mem_length, padding;
   char *new_;
-  int rc = NO_ERROR;
 
   if (TP_DOMAIN_COLLATION_FLAG (domain) != TP_DOMAIN_COLL_NORMAL)
     {
@@ -12885,27 +12612,23 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
     {
       if (align == INT_ALIGNMENT)
 	{
-	  mem_length = or_get_int (buf, &rc);
+	  mem_length = or_get_int (buf);
 	}
       else
 	{
-	  rc = or_get_data (buf, (char *) (&mem_length), OR_INT_SIZE);
-	}
-      if (rc != NO_ERROR)
-	{
-	  return ER_FAILED;
+	  or_get_data (buf, (char *) (&mem_length), OR_INT_SIZE);
 	}
 
       if (value == NULL)
 	{
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else if (!copy)
 	{
 	  db_make_nchar (value, TP_FLOATING_PRECISION_VALUE, buf->ptr, mem_length, TP_DOMAIN_CODESET (domain),
 			 TP_DOMAIN_COLLATION (domain));
 	  value->need_clear = false;
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else
 	{
@@ -12927,21 +12650,12 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	      or_abort (buf);
-
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
 	    {
-	      rc = or_get_data (buf, new_, mem_length);
-	      if (rc != NO_ERROR)
-		{
-		  if (new_ != copy_buf)
-		    {
-		      db_private_free_and_init (NULL, new_);
-		    }
-		  return rc;
-		}
+	      or_get_data (buf, new_, mem_length);
 	      new_[mem_length] = '\0';	/* append the kludge NULL terminator */
 	      db_make_nchar (value, TP_FLOATING_PRECISION_VALUE, new_, mem_length, TP_DOMAIN_CODESET (domain),
 			     TP_DOMAIN_COLLATION (domain));
@@ -12960,14 +12674,14 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 	   * smaller value.  Still the domain should match at this point.
 	   */
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+
 
 	  return ER_FAILED;
 	}
 
       if (value == NULL)
 	{
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else if (!copy)
 	{
@@ -12981,7 +12695,7 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 	  db_make_nchar (value, domain->precision, buf->ptr, str_length, TP_DOMAIN_CODESET (domain),
 			 TP_DOMAIN_COLLATION (domain));
 	  value->need_clear = false;
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else
 	{
@@ -13003,24 +12717,14 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), domain->precision, 0);
-	      or_abort (buf);
-
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
 	    {
 	      int actual_size = 0;
 
-	      rc = or_get_data (buf, new_, mem_length);
-	      if (rc != NO_ERROR)
-		{
-		  if (new_ != copy_buf)
-		    {
-		      db_private_free_and_init (NULL, new_);
-		    }
-
-		  return rc;
-		}
+	      or_get_data (buf, new_, mem_length);
 	      intl_char_size ((unsigned char *) new_, domain->precision, TP_DOMAIN_CODESET (domain), &actual_size);
 	      if (actual_size == 0)
 		{
@@ -13033,17 +12737,14 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 	    }
 	}
 
-      if (rc == NO_ERROR)
+      /* We should only see padding if the string is contained within a packed value that had extra padding to
+       * ensure alignment.  If we see these, just pop them out of the buffer. */
+      if (disk_size != -1)
 	{
-	  /* We should only see padding if the string is contained within a packed value that had extra padding to
-	   * ensure alignment.  If we see these, just pop them out of the buffer. */
-	  if (disk_size != -1)
+	  padding = disk_size - mem_length;
+	  if (padding > 0)
 	    {
-	      padding = disk_size - mem_length;
-	      if (padding > 0)
-		{
-		  rc = or_advance (buf, padding);
-		}
+	      or_advance (buf, padding);
 	    }
 	}
     }
@@ -13069,7 +12770,7 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
     }
 #endif /* !SERVER_MODE */
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -13798,13 +13499,13 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
     {
       if (size == -1)
 	{
-	  rc = or_skip_varchar (buf, align);
+	  or_skip_varchar (buf, align);
 	}
       else
 	{
 	  if (size)
 	    {
-	      rc = or_advance (buf, size);
+	      or_advance (buf, size);
 	    }
 	}
     }
@@ -13843,11 +13544,7 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 	   * If compressed_size is set to -1, then the string is not compressed at all.
 	   * If compressed_size is set to 0, the string was attempted to be compressed, however it failed.
 	   */
-	  rc = or_get_varchar_compression_lengths (buf, &compressed_size, &expected_decompressed_size);
-	  if (rc != NO_ERROR)
-	    {
-	      return rc;
-	    }
+	  or_get_varchar_compression_lengths (buf, &compressed_size, &expected_decompressed_size);
 
 	  if (compressed_size > 0)
 	    {
@@ -13920,11 +13617,7 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 	      start = buf->ptr;
 	    }			/* size != -1 */
 
-	  rc = or_get_varchar_compression_lengths (buf, &compressed_size, &expected_decompressed_size);
-	  if (rc != NO_ERROR)
-	    {
-	      return ER_FAILED;
-	    }
+	  or_get_varchar_compression_lengths (buf, &compressed_size, &expected_decompressed_size);
 
 	  if (compressed_size <= 0)
 	    {
@@ -13957,7 +13650,7 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 		{
 		  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
 		}
-	      or_abort (buf);
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
@@ -13965,25 +13658,13 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 	      if (align == INT_ALIGNMENT)
 		{
 		  /* read the kludge NULL terminator */
-		  rc = or_get_data (buf, new_, str_length + 1);
-		  if (rc == NO_ERROR)
-		    {
-		      /* round up to a word boundary */
-		      rc = or_get_align32 (buf);
-		    }
+		  or_get_data (buf, new_, str_length + 1);
+		  /* round up to a word boundary */
+		  or_get_align32 (buf);
 		}
 	      else
 		{
-		  rc = or_get_data (buf, new_, str_length);
-		}
-
-	      if (rc != NO_ERROR)
-		{
-		  if (new_ != copy_buf)
-		    {
-		      db_private_free_and_init (NULL, new_);
-		    }
-		  return ER_FAILED;
+		  or_get_data (buf, new_, str_length);
 		}
 
 	      if (compressed_size > 0)
@@ -14073,7 +13754,7 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 		  pad = size - (int) (buf->ptr - start);
 		  if (pad > 0)
 		    {
-		      rc = or_advance (buf, pad);
+		      or_advance (buf, pad);
 		    }
 		}		/* size != -1 */
 	    }			/* else if (new_ == NULL) */
@@ -14171,11 +13852,7 @@ mr_data_cmpdisk_varnchar (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coe
   or_init (&buf1, str1, 0);
   if (str_length1 == OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION)
     {
-      rc = or_get_varchar_compression_lengths (&buf1, &str1_compressed_length, &str1_decompressed_length);
-      if (rc != NO_ERROR)
-	{
-	  goto cleanup;
-	}
+      or_get_varchar_compression_lengths (&buf1, &str1_compressed_length, &str1_decompressed_length);
 
       string1 = (char *) db_private_alloc (NULL, str1_decompressed_length + 1);
       if (string1 == NULL)
@@ -14211,11 +13888,7 @@ mr_data_cmpdisk_varnchar (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coe
   or_init (&buf2, str2, 0);
   if (str_length2 == OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION)
     {
-      rc = or_get_varchar_compression_lengths (&buf2, &str2_compressed_length, &str2_decompressed_length);
-      if (rc != NO_ERROR)
-	{
-	  goto cleanup;
-	}
+      or_get_varchar_compression_lengths (&buf2, &str2_compressed_length, &str2_decompressed_length);
 
       string2 = (char *) db_private_alloc (NULL, str2_decompressed_length + 1);
       if (string2 == NULL)
@@ -14557,7 +14230,8 @@ mr_data_readmem_bit (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int size)
       if (size != -1 && mem_length > size)
 	{
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
+	  assert (false);
+	  return;
 	}
       or_get_data (buf, (char *) mem, mem_length);
 
@@ -14730,12 +14404,11 @@ mr_writeval_bit_internal (OR_BUF * buf, DB_VALUE * value, int align)
 {
   int src_precision, src_length, packed_length, pad;
   const char *src;
-  int rc = NO_ERROR;
 
   src = db_get_string (value);
   if (src == NULL)
     {
-      return rc;
+      return NO_ERROR;
     }
 
   src_precision = db_value_precision (value);
@@ -14753,19 +14426,16 @@ mr_writeval_bit_internal (OR_BUF * buf, DB_VALUE * value, int align)
 	}
       else
 	{
-	  rc = or_put_data (buf, src, src_length);
-	  if (rc == NO_ERROR)
+	  or_put_data (buf, src, src_length);
+	  /* Check for padding */
+	  pad = packed_length - src_length;
+	  if (pad)
 	    {
-	      /* Check for padding */
-	      pad = packed_length - src_length;
-	      if (pad)
-		{
-		  int i;
+	      int i;
 
-		  for (i = src_length; i < packed_length; i++)
-		    {
-		      rc = or_put_byte (buf, (int) '\0');
-		    }
+	      for (i = src_length; i < packed_length; i++)
+		{
+		  or_put_byte (buf, (int) '\0');
 		}
 	    }
 	}
@@ -14783,22 +14453,21 @@ mr_writeval_bit_internal (OR_BUF * buf, DB_VALUE * value, int align)
       /* store the size prefix */
       if (align == INT_ALIGNMENT)
 	{
-	  rc = or_put_int (buf, packed_length);
+	  or_put_int (buf, packed_length);
 	}
       else
 	{
-	  rc = or_put_data (buf, (char *) (&packed_length), OR_INT_SIZE);
+	  or_put_data (buf, (char *) (&packed_length), OR_INT_SIZE);
 	}
 
-      if (rc == NO_ERROR)
-	{
-	  /* store the data */
-	  rc = or_put_data (buf, src, BITS_TO_BYTES (packed_length));
-	  /* there is no blank padding in this case */
-	}
+
+      /* store the data */
+      or_put_data (buf, src, BITS_TO_BYTES (packed_length));
+      /* there is no blank padding in this case */
+
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static int
@@ -14822,33 +14491,29 @@ mr_readval_bit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
   int mem_length, padding;
   int bit_length;
   char *new_;
-  int rc = NO_ERROR;
 
   if (IS_FLOATING_PRECISION (domain->precision))
     {
       if (align == INT_ALIGNMENT)
 	{
-	  bit_length = or_get_int (buf, &rc);
+	  bit_length = or_get_int (buf);
 	}
       else
 	{
-	  rc = or_get_data (buf, (char *) (&bit_length), OR_INT_SIZE);
+	  or_get_data (buf, (char *) (&bit_length), OR_INT_SIZE);
 	}
-      if (rc != NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+
 
       mem_length = BITS_TO_BYTES (bit_length);
       if (value == NULL)
 	{
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else if (!copy)
 	{
 	  db_make_bit (value, TP_FLOATING_PRECISION_VALUE, buf->ptr, bit_length);
 	  value->need_clear = false;
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else
 	{
@@ -14870,22 +14535,12 @@ mr_readval_bit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	      or_abort (buf);
-
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
 	    {
-	      rc = or_get_data (buf, new_, mem_length);
-	      if (rc != NO_ERROR)
-		{
-		  if (new_ != copy_buf)
-		    {
-		      db_private_free_and_init (NULL, new_);
-		    }
-
-		  return rc;
-		}
+	      or_get_data (buf, new_, mem_length);
 	      new_[mem_length] = '\0';	/* append the kludge NULL terminator */
 	      db_make_bit (value, TP_FLOATING_PRECISION_VALUE, new_, bit_length);
 	      value->need_clear = (new_ != copy_buf) ? true : false;
@@ -14904,20 +14559,19 @@ mr_readval_bit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
 	   * smaller value.  Still the domain should match at this point.
 	   */
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_SM_CORRUPTED, 0);
-	  or_abort (buf);
-
+	  assert (false);
 	  return ER_FAILED;
 	}
 
       if (value == NULL)
 	{
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else if (!copy)
 	{
 	  db_make_bit (value, domain->precision, buf->ptr, domain->precision);
 	  value->need_clear = false;
-	  rc = or_advance (buf, mem_length);
+	  or_advance (buf, mem_length);
 	}
       else
 	{
@@ -14939,46 +14593,36 @@ mr_readval_bit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), domain->precision, 0);
-	      or_abort (buf);
-
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (mem_length + 1) * sizeof (char));
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
 	    {
-	      rc = or_get_data (buf, new_, mem_length);
-	      if (rc != NO_ERROR)
-		{
-		  if (new_ != copy_buf)
-		    {
-		      db_private_free_and_init (NULL, new_);
-		    }
-
-		  return rc;
-		}
+	      or_get_data (buf, new_, mem_length);
 	      new_[mem_length] = '\0';	/* append the kludge NULL terminator */
 	      db_make_bit (value, domain->precision, new_, domain->precision);
 	      value->need_clear = (new_ != copy_buf) ? true : false;
 	    }
 	}
-      if (rc == NO_ERROR)
+
+      /*
+       * We should only see padding if the string is contained within a
+       * packed value that had extra padding to ensure alignment.  If we see
+       * these, just pop them out of the buffer.
+       */
+      if (disk_size != -1)
 	{
-	  /*
-	   * We should only see padding if the string is contained within a
-	   * packed value that had extra padding to ensure alignment.  If we see
-	   * these, just pop them out of the buffer.
-	   */
-	  if (disk_size != -1)
+	  padding = disk_size - mem_length;
+	  if (padding > 0)
 	    {
-	      padding = disk_size - mem_length;
-	      if (padding > 0)
-		{
-		  rc = or_advance (buf, padding);
-		}
+	      or_advance (buf, padding);
 	    }
 	}
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -15266,7 +14910,7 @@ mr_index_lengthmem_varbit (void *memptr, TP_DOMAIN * domain)
 
   or_init (&buf, (char *) memptr, -1);
 
-  bitlen = or_get_varbit_length (&buf, &rc);
+  bitlen = or_get_varbit_length (&buf);
 
   return or_varbit_length (bitlen);
 }
@@ -15338,7 +14982,7 @@ mr_data_readmem_varbit (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	   * in another specialized or_ function. */
 
 	  /* Get just the length prefix. */
-	  bit_len = or_get_varbit_length (buf, &rc);
+	  bit_len = or_get_varbit_length (buf);
 
 	  /*
 	   * Allocate storage for this string, including our own full word size
@@ -15349,7 +14993,7 @@ mr_data_readmem_varbit (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	  new_ = (char *) db_private_alloc (NULL, mem_length);
 	  if (new_ == NULL)
 	    {
-	      or_abort (buf);
+	      assert (false);
 	    }
 	  else
 	    {
@@ -15517,23 +15161,24 @@ mr_writeval_varbit_internal (OR_BUF * buf, DB_VALUE * value, int align)
 {
   int src_bit_length;
   const char *str;
-  int rc = NO_ERROR;
 
   if (value != NULL && (str = db_get_string (value)) != NULL)
     {
       src_bit_length = db_get_string_length (value);	/* size in bits */
+      assert (buf->ptr + src_bit_length <= buf->endptr);	/* safety check in heap_file.c */
+
 
       if (align == INT_ALIGNMENT)
 	{
-	  rc = or_packed_put_varbit (buf, str, src_bit_length);
+	  or_packed_put_varbit (buf, str, src_bit_length);
 	}
       else
 	{
-	  rc = or_put_varbit (buf, str, src_bit_length);
+	  or_put_varbit (buf, str, src_bit_length);
 	}
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 /*
@@ -15553,18 +15198,17 @@ mr_readval_varbit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
   int pad, precision;
   int str_bit_length, str_length;
   char *new_, *start = NULL;
-  int rc = NO_ERROR;
 
   if (value == NULL)
     {
       if (size == -1)
 	{
-	  rc = or_skip_varbit (buf, align);
+	  or_skip_varbit (buf, align);
 	}
       else
 	{
 	  if (size)
-	    rc = or_advance (buf, size);
+	    or_advance (buf, size);
 	}
     }
   else
@@ -15585,13 +15229,11 @@ mr_readval_varbit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 	}
       else if (!copy)
 	{
-	  str_bit_length = or_get_varbit_length (buf, &rc);
-	  if (rc == NO_ERROR)
-	    {
-	      db_make_varbit (value, precision, buf->ptr, str_bit_length);
-	      value->need_clear = false;
-	      rc = or_skip_varbit_remainder (buf, str_bit_length, align);
-	    }
+	  str_bit_length = or_get_varbit_length (buf);
+	  db_make_varbit (value, precision, buf->ptr, str_bit_length);
+	  value->need_clear = false;
+	  or_skip_varbit_remainder (buf, str_bit_length, align);
+
 	}
       else
 	{
@@ -15608,11 +15250,7 @@ mr_readval_varbit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 	      start = buf->ptr;
 	    }			/* size != -1 */
 
-	  str_bit_length = or_get_varbit_length (buf, &rc);
-	  if (rc != NO_ERROR)
-	    {
-	      return ER_FAILED;
-	    }
+	  str_bit_length = or_get_varbit_length (buf);
 	  /* get the string byte length */
 	  str_length = BITS_TO_BYTES (str_bit_length);
 
@@ -15637,27 +15275,21 @@ mr_readval_varbit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 		{
 		  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
 		}
-	      or_abort (buf);
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
+		      (size_t) (str_length + 1) * sizeof (char));
+	      assert (false);
 	      return ER_FAILED;
 	    }
 	  else
 	    {
 	      /* do not read the kludge NULL terminator */
-	      rc = or_get_data (buf, new_, str_length);
-	      if (rc == NO_ERROR && align == INT_ALIGNMENT)
+	      or_get_data (buf, new_, str_length);
+	      if (align == INT_ALIGNMENT)
 		{
 		  /* round up to a word boundary */
-		  rc = or_get_align32 (buf);
+		  or_get_align32 (buf);
 		}
 
-	      if (rc != NO_ERROR)
-		{
-		  if (new_ != copy_buf)
-		    {
-		      db_private_free_and_init (NULL, new_);
-		    }
-		  return ER_FAILED;
-		}
 
 	      new_[str_length] = '\0';	/* append the kludge NULL terminator */
 	      db_make_varbit (value, precision, new_, str_bit_length);
@@ -15676,14 +15308,14 @@ mr_readval_varbit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 		  pad = size - (int) (buf->ptr - start);
 		  if (pad > 0)
 		    {
-		      rc = or_advance (buf, pad);
+		      or_advance (buf, pad);
 		    }
 		}		/* size != -1 */
 	    }			/* else */
 	}
 
     }
-  return rc;
+  return NO_ERROR;
 }
 
 static DB_VALUE_COMPARE_RESULT
@@ -15701,19 +15333,16 @@ mr_data_cmpdisk_varbit (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coerc
   int bit_length1, bit_length2;
   int mem_length1, mem_length2, bitc;
   OR_BUF buf1, buf2;
-  int error = NO_ERROR;
 
   assert (domain != NULL);
 
   or_init (&buf1, (char *) mem1, 0);
-  bit_length1 = or_get_varbit_length (&buf1, &error);
+  bit_length1 = or_get_varbit_length (&buf1);
   mem_length1 = BITS_TO_BYTES (bit_length1);
-  assert (error == NO_ERROR);
 
   or_init (&buf2, (char *) mem2, 0);
-  bit_length2 = or_get_varbit_length (&buf2, &error);
+  bit_length2 = or_get_varbit_length (&buf2);
   mem_length2 = BITS_TO_BYTES (bit_length2);
-  assert (error == NO_ERROR);
 
   bitc = varbit_compare ((unsigned char *) buf1.ptr, mem_length1, (unsigned char *) buf2.ptr, mem_length2);
   c = MR_CMP_RETURN_CODE (bitc);
@@ -15891,7 +15520,7 @@ mr_data_readmem_enumeration (OR_BUF * buf, void *mem, TP_DOMAIN * domain, int si
     }
   else
     {
-      *(unsigned short *) mem = (unsigned short) or_get_short (buf, &rc);
+      *(unsigned short *) mem = (unsigned short) or_get_short (buf);
     }
 }
 
@@ -15970,20 +15599,17 @@ static int
 mr_data_readval_enumeration (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int size, bool copy, char *copy_buf,
 			     int copy_buf_len)
 {
-  int rc = NO_ERROR;
   unsigned short s;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Enumeration.disksize);
-      return rc;
+      or_advance (buf, tp_Enumeration.disksize);
+      return NO_ERROR;
+
     }
 
-  s = (unsigned short) or_get_short (buf, &rc);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
+  s = (unsigned short) or_get_short (buf);
+
 
   return mr_setval_enumeration_internal (value, domain, s, size, copy, copy_buf, copy_buf_len);
 }
@@ -15991,7 +15617,8 @@ mr_data_readval_enumeration (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain,
 static int
 mr_data_writeval_enumeration (OR_BUF * buf, DB_VALUE * value)
 {
-  return or_put_short (buf, db_get_enum_short (value));
+  or_put_short (buf, db_get_enum_short (value));
+  return NO_ERROR;
 }
 
 static int
@@ -15999,27 +15626,23 @@ mr_index_writeval_enumeration (OR_BUF * buf, DB_VALUE * value)
 {
   unsigned short s = db_get_enum_short (value);
 
-  return or_put_data (buf, (char *) (&s), tp_Enumeration.disksize);
+  or_put_data (buf, (char *) (&s), tp_Enumeration.disksize);
+  return NO_ERROR;
 }
 
 static int
 mr_index_readval_enumeration (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int size, bool copy, char *copy_buf,
 			      int copy_buf_len)
 {
-  int rc = NO_ERROR;
   unsigned short s;
 
   if (value == NULL)
     {
-      rc = or_advance (buf, tp_Enumeration.disksize);
-      return rc;
+      or_advance (buf, tp_Enumeration.disksize);
+      return NO_ERROR;
     }
 
-  rc = or_get_data (buf, (char *) (&s), tp_Enumeration.disksize);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
+  or_get_data (buf, (char *) (&s), tp_Enumeration.disksize);
 
   return mr_setval_enumeration_internal (value, domain, s, size, copy, copy_buf, copy_buf_len);
 }
@@ -16076,8 +15699,6 @@ mr_cmpval_enumeration (DB_VALUE * value1, DB_VALUE * value2, int do_coercion, in
 int
 pr_get_compressed_data_from_buffer (struct or_buf *buf, char *data, int compressed_size, int expected_decompressed_size)
 {
-  int rc = NO_ERROR;
-
   /* Check if the string needs decompression */
   if (compressed_size > 0)
     {
@@ -16101,11 +15722,11 @@ pr_get_compressed_data_from_buffer (struct or_buf *buf, char *data, int compress
       /* String is not compressed and buf->ptr is pointing towards an array of chars of length equal to
        * decompressed_size */
 
-      rc = or_get_data (buf, data, expected_decompressed_size);
+      or_get_data (buf, data, expected_decompressed_size);
       data[expected_decompressed_size] = '\0';
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 /*
@@ -16197,14 +15818,11 @@ pr_get_size_and_write_string_to_buffer (struct or_buf *buf, char *val_p, DB_VALU
   int rc = NO_ERROR, str_length = 0, length = 0;
   int compression_length = 0, compress_buffer_size;
   bool compressed = false;
-  int save_error_abort = 0;
 
   /* Checks to be sure that we have the correct input */
   assert (DB_VALUE_DOMAIN_TYPE (value) == DB_TYPE_VARNCHAR || DB_VALUE_DOMAIN_TYPE (value) == DB_TYPE_STRING);
   assert (db_get_string_size (value) >= OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION);
 
-  save_error_abort = buf->error_abort;
-  buf->error_abort = 0;
 
   string = db_get_string (value);
   str_length = db_get_string_size (value);
@@ -16296,7 +15914,6 @@ after_compression:
 
 cleanup:
 
-  buf->error_abort = save_error_abort;
 
   if (compressed_string != NULL)
     {
@@ -16305,7 +15922,7 @@ cleanup:
 
   if (rc == ER_TF_BUFFER_OVERFLOW)
     {
-      return or_overflow (buf);
+      return ER_TF_BUFFER_OVERFLOW;
     }
 
   return rc;
@@ -16327,33 +15944,21 @@ pr_write_compressed_string_to_buffer (OR_BUF * buf, const char *compressed_strin
 				      int decompressed_length, int align)
 {
   int storage_length = 0;
-  int rc = NO_ERROR;
 
   assert (decompressed_length >= OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION
 	  && (compressed_length <= 0 || decompressed_length <= LZ4_MAX_INPUT_SIZE));
 
   /* store the size prefix */
-  rc = or_put_byte (buf, 0xFF);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
+  or_put_byte (buf, 0xFF);
+
 
   /* Store the compressed size */
   OR_PUT_INT (&storage_length, compressed_length);
-  rc = or_put_data (buf, (char *) &storage_length, OR_INT_SIZE);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
+  or_put_data (buf, (char *) &storage_length, OR_INT_SIZE);
 
   /* Store the decompressed size */
   OR_PUT_INT (&storage_length, decompressed_length);
-  rc = or_put_data (buf, (char *) &storage_length, OR_INT_SIZE);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
+  or_put_data (buf, (char *) &storage_length, OR_INT_SIZE);
 
   /* Get the string disk size */
   if (compressed_length > 0)
@@ -16366,26 +15971,18 @@ pr_write_compressed_string_to_buffer (OR_BUF * buf, const char *compressed_strin
     }
 
   /* store the string bytes */
-  rc = or_put_data (buf, compressed_string, storage_length);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
+  or_put_data (buf, compressed_string, storage_length);
 
   if (align == INT_ALIGNMENT)
     {
       /* kludge, temporary NULL terminator */
-      rc = or_put_byte (buf, 0);
-      if (rc != NO_ERROR)
-	{
-	  return rc;
-	}
+      or_put_byte (buf, 0);
 
       /* round up to a word boundary */
-      rc = or_put_align32 (buf);
+      or_put_align32 (buf);
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 /*
@@ -16402,38 +15999,25 @@ pr_write_compressed_string_to_buffer (OR_BUF * buf, const char *compressed_strin
 static int
 pr_write_uncompressed_string_to_buffer (OR_BUF * buf, const char *string, int size, int align)
 {
-  int rc = NO_ERROR;
 
   assert (size < OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION);
 
   /* Store the size prefix */
-  rc = or_put_byte (buf, size);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
+  or_put_byte (buf, size);
 
   /* store the string bytes */
-  rc = or_put_data (buf, string, size);
-  if (rc != NO_ERROR)
-    {
-      return rc;
-    }
+  or_put_data (buf, string, size);
 
   if (align == INT_ALIGNMENT)
     {
       /* kludge, temporary NULL terminator */
-      rc = or_put_byte (buf, 0);
-      if (rc != NO_ERROR)
-	{
-	  return rc;
-	}
+      or_put_byte (buf, 0);
 
       /* round up to a word boundary */
-      rc = or_put_align32 (buf);
+      or_put_align32 (buf);
     }
 
-  return rc;
+  return NO_ERROR;
 }
 
 /*
@@ -16806,10 +16390,7 @@ mr_data_readmem_json (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size)
     {
       if (size != 0)
 	{
-	  if (or_advance (buf, size) != NO_ERROR)
-	    {
-	      assert (false);
-	    }
+	  or_advance (buf, size);
 	}
       return;
     }
@@ -16926,20 +16507,6 @@ mr_data_writeval_json (OR_BUF * buf, DB_VALUE * value)
     {
       assert (false);
       return ER_FAILED;
-    }
-
-  if (buf->error_abort)
-    {
-      int estimated_length = mr_data_lengthval_json (value, true);
-
-      if ((ptrdiff_t) estimated_length > ((ptrdiff_t) (buf->endptr - buf->ptr)))
-	{
-	  /* this will make string_data_writeval jump because
-	   * of buffer overflow, leaking memory in the process,
-	   * we need to take care of it here
-	   */
-	  (void) or_overflow (buf);
-	}
     }
 
   JSON_DOC *json_doc = db_get_json_document (value);

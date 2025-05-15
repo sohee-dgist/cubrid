@@ -116,8 +116,8 @@ static int log_recovery_find_first_postpone (THREAD_ENTRY * thread_p, LOG_LSA * 
 					     LOG_TDES * tdes);
 
 static int log_rv_record_modify_internal (THREAD_ENTRY * thread_p, LOG_RCV * rcv, bool is_undo);
-static int log_rv_undoredo_partial_changes_recursive (THREAD_ENTRY * thread_p, OR_BUF * rcv_buf, RECDES * record,
-						      bool is_undo);
+static void log_rv_undoredo_partial_changes_recursive (THREAD_ENTRY * thread_p, OR_BUF * rcv_buf, RECDES * record,
+						       bool is_undo);
 
 STATIC_INLINE PAGE_PTR log_rv_redo_fix_page (THREAD_ENTRY * thread_p, const VPID * vpid_rcv)
   __attribute__ ((ALWAYS_INLINE));
@@ -6029,10 +6029,9 @@ end:
  *	 Redo will apply all changes in the same order, but undo will have
  *	 to apply them in reversed order.
  */
-static int
+static void
 log_rv_undoredo_partial_changes_recursive (THREAD_ENTRY * thread_p, OR_BUF * rcv_buf, RECDES * record, bool is_undo)
 {
-  int error_code = NO_ERROR;	/* Error code. */
   int offset_to_data;		/* Offset to data being modified. */
   int old_data_size;		/* Size of old data. */
   int new_data_size;		/* Size of new data. */
@@ -6041,50 +6040,26 @@ log_rv_undoredo_partial_changes_recursive (THREAD_ENTRY * thread_p, OR_BUF * rcv
   if (rcv_buf->ptr == rcv_buf->endptr)
     {
       /* Finished. */
-      return NO_ERROR;
+      return;
     }
 
   /* At least offset_to_data, old_data_size and new_data_size should be stored. */
-  if (rcv_buf->ptr + OR_SHORT_SIZE + 2 * OR_BYTE_SIZE > rcv_buf->endptr)
-    {
-      assert_release (false);
-      return or_overflow (rcv_buf);
-    }
+  assert (rcv_buf->ptr + OR_SHORT_SIZE + 2 * OR_BYTE_SIZE <= rcv_buf->endptr);
 
   /* Get offset_to_data. */
-  offset_to_data = (int) or_get_short (rcv_buf, &error_code);
-  if (error_code != NO_ERROR)
-    {
-      assert_release (false);
-      return error_code;
-    }
+  offset_to_data = (int) or_get_short (rcv_buf);
 
   /* Get old_data_size */
-  old_data_size = (int) or_get_byte (rcv_buf, &error_code);
-  if (error_code != NO_ERROR)
-    {
-      assert_release (false);
-      return error_code;
-    }
+  old_data_size = (int) or_get_byte (rcv_buf);
 
   /* Get new_data_size */
-  new_data_size = (int) or_get_byte (rcv_buf, &error_code);
-  if (error_code != NO_ERROR)
-    {
-      assert_release (false);
-      return error_code;
-    }
+  new_data_size = (int) or_get_byte (rcv_buf);
 
   if (new_data_size > 0)
     {
       /* Get new data. */
       new_data = rcv_buf->ptr;
-      error_code = or_advance (rcv_buf, new_data_size);
-      if (error_code != NO_ERROR)
-	{
-	  assert_release (false);
-	  return error_code;
-	}
+      or_advance (rcv_buf, new_data_size);
     }
   else
     {
@@ -6100,24 +6075,18 @@ log_rv_undoredo_partial_changes_recursive (THREAD_ENTRY * thread_p, OR_BUF * rcv
       /* Changes must be applied in the same order they are logged. Change record and then advance to next changes. */
       RECORD_REPLACE_DATA (record, offset_to_data, old_data_size, new_data_size, new_data);
     }
-  error_code = log_rv_undoredo_partial_changes_recursive (thread_p, rcv_buf, record, is_undo);
-  if (error_code != NO_ERROR)
-    {
-      assert_release (false);
-      return error_code;
-    }
+  log_rv_undoredo_partial_changes_recursive (thread_p, rcv_buf, record, is_undo);
   if (is_undo)
     {
       /* Changes must be made in reversed order. Change record after advancing to next changes. */
       RECORD_REPLACE_DATA (record, offset_to_data, old_data_size, new_data_size, new_data);
     }
-  return NO_ERROR;
+  return;
 }
 
 /*
  * log_rv_undoredo_record_partial_changes () - Undoredo record data changes.
  *
- * return		: Error code.
  * thread_p (in)	: Thread entry.
  * rcv_data (in)	: Recovery data pointer.
  * rcv_data_length (in) : Recovery data length.
@@ -6125,7 +6094,7 @@ log_rv_undoredo_partial_changes_recursive (THREAD_ENTRY * thread_p, OR_BUF * rcv
  *
  * TODO: Extend this to undo and undoredo.
  */
-int
+void
 log_rv_undoredo_record_partial_changes (THREAD_ENTRY * thread_p, char *rcv_data, int rcv_data_length,
 					RECDES * record, bool is_undo)
 {
@@ -6199,7 +6168,6 @@ log_rv_record_modify_internal (THREAD_ENTRY * thread_p, LOG_RCV * rcv, bool is_u
   RECDES record;
   char data_buffer[IO_MAX_PAGE_SIZE + MAX_ALIGNMENT];
   char *ptr = NULL;
-  int error_code = NO_ERROR;
 
   if ((!is_undo && LOG_RV_RECORD_IS_INSERT (flags)) || (is_undo && LOG_RV_RECORD_IS_DELETE (flags)))
     {
@@ -6259,19 +6227,14 @@ log_rv_record_modify_internal (THREAD_ENTRY * thread_p, LOG_RCV * rcv, bool is_u
 	  return ER_FAILED;
 	}
       /* Make recorded changes. */
-      error_code = log_rv_undoredo_record_partial_changes (thread_p, (char *) rcv->data, rcv->length, &record, is_undo);
-      if (error_code != NO_ERROR)
-	{
-	  assert_release (false);
-	  return error_code;
-	}
+      log_rv_undoredo_record_partial_changes (thread_p, (char *) rcv->data, rcv->length, &record, is_undo);
 
       /* Update in page. */
       if (spage_update (thread_p, rcv->pgptr, slotid, &record) != SP_SUCCESS)
 	{
 	  /* Unexpected. */
 	  assert_release (false);
-	  return error_code;
+	  return ER_FAILED;
 	}
       /* Success. */
     }

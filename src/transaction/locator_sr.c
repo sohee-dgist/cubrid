@@ -5801,11 +5801,8 @@ locator_update_force (THREAD_ENTRY * thread_p, HFID * hfid, OID * class_oid, OID
 	    {
 	      MVCC_REC_HEADER old_rec_header, new_rec_header;
 
-	      if (or_mvcc_get_header (oldrecdes, &old_rec_header) != NO_ERROR
-		  || or_mvcc_get_header (recdes, &new_rec_header) != NO_ERROR)
-		{
-		  goto error;
-		}
+	      or_mvcc_get_header (oldrecdes, &old_rec_header);
+	      or_mvcc_get_header (recdes, &new_rec_header);
 
 	      if (MVCC_IS_FLAG_SET (&old_rec_header, OR_MVCC_FLAG_VALID_INSID))
 		{
@@ -6885,12 +6882,7 @@ locator_repl_prepare_force (THREAD_ENTRY * thread_p, LC_COPYAREA_ONEOBJ * obj, R
 	}
 
       old_chn = or_chn (old_recdes);
-
-      error_code = or_replace_chn (recdes, old_chn + 1);
-      if (error_code != NO_ERROR)
-	{
-	  return error_code;
-	}
+      or_replace_chn (recdes, old_chn + 1);
     }
 
   return NO_ERROR;
@@ -13012,9 +13004,9 @@ locator_lock_and_get_object_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT 
 	      goto error;
 	    }
 	}
-      else if (or_mvcc_get_header (context->recdes_p, &recdes_header) != NO_ERROR)
+      else
 	{
-	  goto error;
+	  or_mvcc_get_header (context->recdes_p, &recdes_header);
 	}
 
       /* Check REPEATABLE READ/SERIALIZABLE isolation restrictions. */
@@ -13171,11 +13163,7 @@ locator_lock_and_get_object_with_evaluation (THREAD_ENTRY * thread_p, OID * oid,
 	  assert (scan == S_SUCCESS);
 	}
 
-      if (or_mvcc_get_header (recdes, &mvcc_header) != NO_ERROR)
-	{
-	  scan = S_ERROR;
-	  goto exit;
-	}
+      or_mvcc_get_header (recdes, &mvcc_header);
 
       if (scan_cache->mvcc_snapshot)
 	{

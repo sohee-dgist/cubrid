@@ -244,7 +244,7 @@ static int list_length (const BTREE_NODE * this_list);
 #if defined(CUBRID_DEBUG)
 static void list_print (const BTREE_NODE * this_list);
 #endif /* defined(CUBRID_DEBUG) */
-static int btree_pack_root_header (RECDES * Rec, BTREE_ROOT_HEADER * header, TP_DOMAIN * key_type);
+static void btree_pack_root_header (RECDES * Rec, BTREE_ROOT_HEADER * header, TP_DOMAIN * key_type);
 static void btree_rv_save_root_head (long long null_delta, long long oid_delta, long long key_delta, RECDES * recdes);
 static int btree_advance_to_next_slot_and_fix_page (THREAD_ENTRY * thread_p, BTID_INT * btid, VPID * vpid,
 						    PAGE_PTR * pg_ptr, INT16 * slot_id, DB_VALUE * key,
@@ -534,33 +534,20 @@ btree_change_root_header_delta (THREAD_ENTRY * thread_p, VFID * vfid, PAGE_PTR p
  * Note: Writes the first record (header record) for a root page.
  * rec must be long enough to hold the header record.
  */
-static int
+static void
 btree_pack_root_header (RECDES * rec, BTREE_ROOT_HEADER * root_header, TP_DOMAIN * key_type)
 {
   OR_BUF buf;
-  int rc = NO_ERROR;
   int fixed_size = (int) offsetof (BTREE_ROOT_HEADER, packed_key_domain);
 
   memcpy (rec->data, root_header, fixed_size);
 
   or_init (&buf, rec->data + fixed_size, (rec->area_size == -1) ? -1 : (rec->area_size - fixed_size));
 
-  rc = or_put_domain (&buf, key_type, 0, 0);
+  or_put_domain (&buf, key_type, 0, 0);
 
   rec->length = fixed_size + CAST_BUFLEN (buf.ptr - buf.buffer);
   rec->type = REC_HOME;
-
-  if (rc != NO_ERROR && er_errid () == NO_ERROR)
-    {
-      /* if an error occurs then set a generic error so that at least an error to be send to client. */
-      if (er_errid () == NO_ERROR)
-	{
-	  assert (false);
-	  er_set (ER_WARNING_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
-	}
-    }
-
-  return rc;
 }
 
 /*
@@ -586,11 +573,7 @@ btree_init_root_header (THREAD_ENTRY * thread_p, VFID * vfid, PAGE_PTR page_ptr,
   rec.area_size = DB_PAGESIZE;
   rec.data = PTR_ALIGN (copy_rec_buf, BTREE_MAX_ALIGN);
 
-  if (btree_pack_root_header (&rec, root_header, key_type) != NO_ERROR)
-    {
-      return ER_FAILED;
-    }
-
+  btree_pack_root_header (&rec, root_header, key_type);
   /* insert the root header information into the root page */
   if (spage_insert_at (thread_p, page_ptr, HEADER, &rec) != SP_SUCCESS)
     {
@@ -1925,12 +1908,7 @@ btree_build_nleafs (THREAD_ENTRY * thread_p, LOAD_ARGS * load_args, int n_nulls,
 #endif /* SA_MODE */
 
   /* change node header as root header */
-  ret = btree_pack_root_header (&rec, root_header, load_args->btid->key_type);
-  if (ret != NO_ERROR)
-    {
-      ASSERT_ERROR ();
-      goto end;
-    }
+  btree_pack_root_header (&rec, root_header, load_args->btid->key_type);
 
   if (spage_update (thread_p, load_args->nleaf.pgptr, HEADER, &rec) != SP_SUCCESS)
     {
@@ -2319,56 +2297,34 @@ bt_load_put_buf_to_record (RECDES * recdes, SORT_ARGS * sort_args, int value_has
   or_pad (&buf, next_size);	/* init as NULL */
 
   /* save has_null */
-  if (or_put_byte (&buf, value_has_null) != NO_ERROR)
-    {
-      return ER_FAILED;
-    }
-
+  or_put_byte (&buf, value_has_null);
   or_advance (&buf, (OR_INT_SIZE - OR_BYTE_SIZE));
   assert (buf.ptr == PTR_ALIGN (buf.ptr, INT_ALIGNMENT));
 
-  if (or_put_oid (&buf, &sort_args->cur_oid) != NO_ERROR)
-    {
-      return ER_FAILED;
-    }
+  or_put_oid (&buf, &sort_args->cur_oid);
 
   if (BTREE_IS_UNIQUE (sort_args->unique_pk))
     {
-      if (or_put_oid (&buf, &sort_args->class_ids[cur_class]) != NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+      or_put_oid (&buf, &sort_args->class_ids[cur_class]);
     }
 
   /* Pack insert and delete MVCCID's */
   if (MVCC_IS_HEADER_INSID_NOT_ALL_VISIBLE (mvcc_header))
     {
-      if (or_put_mvccid (&buf, MVCC_GET_INSID (mvcc_header)) != NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+      or_put_mvccid (&buf, MVCC_GET_INSID (mvcc_header));
     }
   else
     {
-      if (or_put_mvccid (&buf, MVCCID_ALL_VISIBLE) != NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+      or_put_mvccid (&buf, MVCCID_ALL_VISIBLE);
     }
 
   if (MVCC_IS_HEADER_DELID_VALID (mvcc_header))
     {
-      if (or_put_mvccid (&buf, MVCC_GET_DELID (mvcc_header)) != NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+      or_put_mvccid (&buf, MVCC_GET_DELID (mvcc_header));
     }
   else
     {
-      if (or_put_mvccid (&buf, MVCCID_NULL) != NO_ERROR)
-	{
-	  return ER_FAILED;
-	}
+      or_put_mvccid (&buf, MVCCID_NULL);
     }
 
   if (is_btree_ops_log)
@@ -2425,37 +2381,21 @@ bt_load_get_buf_from_record (RECDES * recdes, LOAD_ARGS * load_args, S_PARAM_ST 
   assert (buf.ptr == PTR_ALIGN (buf.ptr, INT_ALIGNMENT));
 
   /* Get OID */
-  ret = or_get_oid (&buf, &pparam->rec_oid);
-  if (ret != NO_ERROR)
-    {
-      return ret;
-    }
+  or_get_oid (&buf, &pparam->rec_oid);
 
   /* Instance level uniqueness checking */
   if (BTREE_IS_UNIQUE (load_args->btid->unique_pk))
     {				/* unique index */
       /* extract class OID */
-      ret = or_get_oid (&buf, &pparam->class_oid);
-      if (ret != NO_ERROR)
-	{
-	  return ret;
-	}
+      or_get_oid (&buf, &pparam->class_oid);
     }
 
   /* Create MVCC header */
   BTREE_INIT_MVCC_HEADER (&pparam->mvcc_header);
 
-  ret = or_get_mvccid (&buf, &MVCC_GET_INSID (&pparam->mvcc_header));
-  if (ret != NO_ERROR)
-    {
-      return ret;
-    }
+  or_get_mvccid (&buf, &MVCC_GET_INSID (&pparam->mvcc_header));
+  or_get_mvccid (&buf, &MVCC_GET_DELID (&pparam->mvcc_header));
 
-  ret = or_get_mvccid (&buf, &MVCC_GET_DELID (&pparam->mvcc_header));
-  if (ret != NO_ERROR)
-    {
-      return ret;
-    }
 
 #if defined(SERVER_MODE)
   if (MVCC_GET_INSID (&pparam->mvcc_header) != MVCCID_ALL_VISIBLE)
@@ -3353,10 +3293,7 @@ btree_sort_get_next (THREAD_ENTRY * thread_p, RECDES * temp_recdes, void *arg)
        */
 
       /* filter out dead records before any more checks */
-      if (or_mvcc_get_header (&sort_args->in_recdes, &mvcc_header) != NO_ERROR)
-	{
-	  return SORT_ERROR_OCCURRED;
-	}
+      or_mvcc_get_header (&sort_args->in_recdes, &mvcc_header);
       if (MVCC_IS_HEADER_DELID_VALID (&mvcc_header) && MVCC_GET_DELID (&mvcc_header) < sort_args->oldest_visible_mvccid)
 	{
 	  continue;

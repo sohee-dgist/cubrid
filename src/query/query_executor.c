@@ -8698,11 +8698,7 @@ qexec_hash_join_fetch_key (THREAD_ENTRY * thread_p, HASHJOIN_PROC_NODE * hashjoi
   or_init (&iterator, tuple_record->tpl, QFILE_GET_TUPLE_LENGTH (tuple_record->tpl));
 
   /* Skip the header of the tuple. */
-  error = or_advance (&iterator, QFILE_TUPLE_LENGTH_SIZE);
-  if (error != NO_ERROR)
-    {
-      goto exit_on_error;
-    }
+  or_advance (&iterator, QFILE_TUPLE_LENGTH_SIZE);
 
   /* Since the number of values ​​in the tuple is unknown, this routine is executed until ptr reaches endptr. */
   for (value_index = 0; iterator.ptr < iterator.endptr; value_index++)
@@ -8780,11 +8776,7 @@ qexec_hash_join_fetch_key (THREAD_ENTRY * thread_p, HASHJOIN_PROC_NODE * hashjoi
 	}
 
       /* Skip the current tuple. */
-      error = or_advance (&iterator, QFILE_TUPLE_VALUE_HEADER_SIZE + QFILE_GET_TUPLE_VALUE_LENGTH (iterator.ptr));
-      if (error != NO_ERROR)
-	{
-	  goto exit_on_error;
-	}
+      or_advance (&iterator, QFILE_TUPLE_VALUE_HEADER_SIZE + QFILE_GET_TUPLE_VALUE_LENGTH (iterator.ptr));
 
       /* When ptr reaches endptr, exit this routine. */
     }
@@ -13579,16 +13571,10 @@ qexec_get_attr_default (THREAD_ENTRY * thread_p, OR_ATTRIBUTE * attr, DB_VALUE *
   bool copy = (pr_is_set_type (attr->type)) ? true : false;
   if (pr_type != NULL)
     {
+      /* initialized buffer size equals to the read size, so no overflow */
       or_init (&buf, (char *) attr->current_default_value.value, attr->current_default_value.val_length);
-      buf.error_abort = 1;
-      switch (_setjmp (buf.env))
-	{
-	case 0:
-	  return pr_type->data_readval (&buf, default_val, attr->domain, attr->current_default_value.val_length, copy,
-					NULL, 0);
-	default:
-	  return ER_FAILED;
-	}
+      return pr_type->data_readval (&buf, default_val, attr->domain, attr->current_default_value.val_length, copy,
+				    NULL, 0);
     }
   else
     {
@@ -20931,11 +20917,7 @@ bf2df_str_cmpdisk (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coercion, 
   or_init (&buf1, str1, 0);
   if (str_length1 == OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION)
     {
-      rc = or_get_varchar_compression_lengths (&buf1, &str1_compressed_length, &str1_decompressed_length);
-      if (rc != NO_ERROR)
-	{
-	  goto cleanup;
-	}
+      or_get_varchar_compression_lengths (&buf1, &str1_compressed_length, &str1_decompressed_length);
 
       string1 = (char *) db_private_alloc (NULL, str1_decompressed_length + 1);
       if (string1 == NULL)
@@ -20972,11 +20954,7 @@ bf2df_str_cmpdisk (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coercion, 
   or_init (&buf2, str2, 0);
   if (str_length2 == OR_MINIMUM_STRING_LENGTH_FOR_COMPRESSION)
     {
-      rc = or_get_varchar_compression_lengths (&buf2, &str2_compressed_length, &str2_decompressed_length);
-      if (rc != NO_ERROR)
-	{
-	  goto cleanup;
-	}
+      or_get_varchar_compression_lengths (&buf2, &str2_compressed_length, &str2_decompressed_length);
 
       string2 = (char *) db_private_alloc (NULL, str2_decompressed_length + 1);
       if (string2 == NULL)

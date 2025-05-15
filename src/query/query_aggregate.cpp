@@ -746,11 +746,8 @@ qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 	    {
 	      or_init (&buf, disk_repr_p, dbval_size);
 	      error = pr_type_p->data_writeval (&buf, db_value_p);
-	      if (error != NO_ERROR)
+	      if (buf.ptr > buf.endptr)
 		{
-		  /* ER_TF_BUFFER_OVERFLOW means that val_size or packing is bad. */
-		  assert (error != ER_TF_BUFFER_OVERFLOW);
-
 		  db_private_free_and_init (thread_p, disk_repr_p);
 		  pr_clear_value_vector (db_values);
 		  return ER_FAILED;
@@ -2487,7 +2484,7 @@ qdata_load_agg_hentry_from_tuple (cubthread::entry *thread_p, QFILE_TUPLE tuple,
   /* initialize buffer */
   db_make_int (&int_val, 0);
   or_init (&iterator, tuple, QFILE_GET_TUPLE_LENGTH (tuple));
-  rc = or_advance (&iterator, QFILE_TUPLE_LENGTH_SIZE);
+  or_advance (&iterator, QFILE_TUPLE_LENGTH_SIZE);
   if (rc != NO_ERROR)
     {
       return rc;

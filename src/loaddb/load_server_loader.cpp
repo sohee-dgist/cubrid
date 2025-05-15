@@ -365,7 +365,7 @@ namespace cubload
 
 	attr_repr = &or_attributes[attrib_order[attr_index]];
 
-	error_code = or_get_attrname (&recdes, attr_repr->id, &attr_name, &free_attr_name);
+	or_get_attrname (&recdes, attr_repr->id, &attr_name, &free_attr_name);
 	if (error_code != NO_ERROR)
 	  {
 	    heap_scancache_end (&thread_ref, &scancache);
