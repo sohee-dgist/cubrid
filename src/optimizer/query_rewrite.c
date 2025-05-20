@@ -7629,6 +7629,42 @@ qo_rewrite_innerjoin (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *c
 }
 
 /*
+ * qo_add_keylimit_clause () - Add keylimit clause to subquery exists
+ *   return: void
+ *   parser(in):
+ *   node(in): QUERY node
+ */
+void
+qo_add_keylimit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
+{
+  PT_NODE *ins_num = parser_new_node (parser, PT_VALUE);
+  ins_num->type_enum = PT_TYPE_INTEGER;
+  ins_num->info.value.data_value.i = 1;
+
+  node->info.query.limit = ins_num;
+  node->info.query.limit->next = NULL;
+  node->info.query.flag.rewrite_limit = 0;
+
+  PT_NODE *ins_num_pred = parser_new_node (parser, PT_EXPR);
+  ins_num_pred->type_enum = PT_TYPE_LOGICAL;
+  ins_num_pred->info.expr.op = PT_LE;
+
+  PT_NODE *ins_num_pred_arg1 = parser_new_node (parser, PT_EXPR);
+  ins_num_pred_arg1->type_enum = PT_TYPE_BIGINT;
+  ins_num_pred_arg1->info.expr.op = PT_INST_NUM;
+  PT_EXPR_INFO_SET_FLAG (ins_num_pred_arg1, PT_EXPR_INFO_INSTNUM_C);
+
+  PT_NODE *ins_num_pred_arg2 = parser_new_node (parser, PT_VALUE);
+  ins_num_pred_arg2->type_enum = PT_TYPE_INTEGER;
+  ins_num_pred_arg2->info.value.data_value.i = 1;
+
+  ins_num_pred->info.expr.arg1 = ins_num_pred_arg1;
+  ins_num_pred->info.expr.arg2 = ins_num_pred_arg2;
+
+  parser_append_node (ins_num_pred, node->info.query.q.select.where);
+}
+
+/*
  * qo_rewrite_hidden_col_as_derived () - Rewrite subquery with ORDER BY
  *				      hidden column as derived one
  *   return: PT_NODE *
@@ -8968,6 +9004,13 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 	case PT_IS_IN:
 	case PT_IS_NOT_IN:
 	  node->info.expr.arg2 = qo_rewrite_hidden_col_as_derived (parser, node->info.expr.arg2, node);
+	  break;
+	case PT_EXISTS:
+	  node->info.expr.arg1 = qo_rewrite_hidden_col_as_derived (parser, node->info.expr.arg1, node);
+	  if (pt_is_query (node->info.expr.arg1))
+	    {
+	      qo_add_keylimit_clause (parser, node->info.expr.arg1);
+	    }
 	  break;
 	default:
 	  break;
