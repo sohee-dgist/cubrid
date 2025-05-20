@@ -764,8 +764,7 @@ static SCAN_CODE heap_get_record_info (THREAD_ENTRY * thread_p, const OID oid, R
 				       DB_VALUE ** record_info);
 static SCAN_CODE heap_next_internal (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid,
 				     RECDES * recdes, HEAP_SCANCACHE * scan_cache, bool ispeeking,
-				     bool reversed_direction, DB_VALUE ** cache_recordinfo, sampling_info * sampling,
-				     bool mvcc_disabled_class);
+				     bool reversed_direction, DB_VALUE ** cache_recordinfo, sampling_info * sampling);
 
 static SCAN_CODE heap_get_page_info (THREAD_ENTRY * thread_p, const OID * cls_oid, const HFID * hfid, const VPID * vpid,
 				     const PAGE_PTR pgptr, DB_VALUE ** page_info);
