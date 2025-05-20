@@ -8139,7 +8139,7 @@ heap_next_internal (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid,
 
 	  scan =
 	    heap_scan_get_visible_version (thread_p, &oid, class_oid, recdes, &forward_recdes, scan_cache, ispeeking,
-					   NULL_CHN, scan_cache->mvcc_disabled_class);
+					   NULL_CHN);
 	  scan_cache->cache_last_fix_page = cache_last_fix_page_save;
 	}
 
@@ -25066,8 +25066,7 @@ heap_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * class_
 */
 SCAN_CODE
 heap_scan_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * class_oid, RECDES * recdes,
-			       RECDES * peeked_recdes, HEAP_SCANCACHE * scan_cache, int ispeeking, int old_chn,
-			       bool mvcc_disabled_class)
+			       RECDES * peeked_recdes, HEAP_SCANCACHE * scan_cache, int ispeeking, int old_chn)
 {
   SCAN_CODE scan = S_SUCCESS;
   HEAP_GET_CONTEXT context;
@@ -25103,7 +25102,7 @@ heap_scan_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * c
 
       if (class_oid != NULL)
 	{
-	  if (!mvcc_disabled_class)
+	  if (!scan_cache->mvcc_disabled_class)
 	    {
 	      if (scan_cache->mvcc_snapshot != NULL && scan_cache->mvcc_snapshot->snapshot_fnc != NULL)
 		{
