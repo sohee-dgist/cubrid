@@ -769,6 +769,8 @@ static const char sysprm_ha_conf_file_name[] = "cubrid_ha.conf";
 
 #define PRM_NAME_DBLINK_AUTO_COMMIT "dblink_auto_commit"
 
+#define PRM_NAME_ENABLE_JVM_HEAP_DUMP "enable_jvm_heap_dump"
+
 /*
  * Note about ERROR_LIST and INTEGER_LIST type
  * ERROR_LIST type is an array of bool type with the size of -(ER_LAST_ERROR)
@@ -1195,7 +1197,7 @@ static unsigned int prm_pb_num_LRU_chains_flag = 0;
 
 int PRM_PAGE_BG_FLUSH_INTERVAL_MSEC = 1000;
 static int prm_page_bg_flush_interval_msec_default = 1000;
-static int prm_page_bg_flush_interval_msec_lower = -1;
+static int prm_page_bg_flush_interval_msec_lower = 0;
 static unsigned int prm_page_bg_flush_interval_msec_flag = 0;
 
 bool PRM_ADAPTIVE_FLUSH_CONTROL = true;
@@ -2488,6 +2490,15 @@ static unsigned int prm_max_subquery_cache_size_flag = 0;
 static bool PRM_DBLINK_AUTO_COMMIT = true;
 static bool prm_dblink_auto_commit_default = true;
 static unsigned int prm_dblink_auto_commit_flag = 0;
+
+#if defined(NDEBUG)
+static bool PRM_ENABLE_JVM_HEAP_DUMP = false;
+static bool prm_enable_jvm_heap_dump_default = false;
+#else
+static bool PRM_ENABLE_JVM_HEAP_DUMP = true;
+static bool prm_enable_jvm_heap_dump_default = true;
+#endif
+static unsigned int prm_enable_jvm_heap_dump_flag = 0;
 
 typedef int (*DUP_PRM_FUNC) (void *, SYSPRM_DATATYPE, void *, SYSPRM_DATATYPE);
 
@@ -6078,7 +6089,7 @@ SYSPRM_PARAM prm_Def[] = {
    (char *) NULL,
    (DUP_PRM_FUNC) NULL,
    (DUP_PRM_FUNC) NULL},
-  {PRM_ID_STORED_PROCEDURE_JVM_OPTIONS,
+  {PRM_ID_JAVA_STORED_PROCEDURE_JVM_OPTIONS,
    PRM_NAME_JAVA_STORED_PROCEDURE_JVM_OPTIONS,
    (PRM_FOR_SERVER | PRM_HIDDEN),
    PRM_STRING,
@@ -6566,6 +6577,17 @@ SYSPRM_PARAM prm_Def[] = {
    &prm_dblink_auto_commit_flag,
    (void *) &prm_dblink_auto_commit_default,
    (void *) &PRM_DBLINK_AUTO_COMMIT,
+   (void *) NULL, (void *) NULL,
+   (char *) NULL,
+   (DUP_PRM_FUNC) NULL,
+   (DUP_PRM_FUNC) NULL},
+  {PRM_ID_ENABLE_JVM_HEAP_DUMP,
+   PRM_NAME_ENABLE_JVM_HEAP_DUMP,
+   (PRM_FOR_SERVER | PRM_HIDDEN),
+   PRM_BOOLEAN,
+   &prm_enable_jvm_heap_dump_flag,
+   (void *) &prm_enable_jvm_heap_dump_default,
+   (void *) &PRM_ENABLE_JVM_HEAP_DUMP,
    (void *) NULL, (void *) NULL,
    (char *) NULL,
    (DUP_PRM_FUNC) NULL,

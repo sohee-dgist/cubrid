@@ -143,7 +143,7 @@ extern int catcls_get_db_collation (THREAD_ENTRY * thread_p, LANG_COLL_COMPAT **
 extern int catcls_find_and_set_cached_class_oid (THREAD_ENTRY * thread_p);
 
 #if defined(SA_MODE)
-extern void boot_client_all_finalize (bool is_er_final);
+extern void boot_client_all_finalize (int final_level);
 #endif /* SA_MODE */
 
 
@@ -2104,7 +2104,7 @@ boot_restart_server (THREAD_ENTRY * thread_p, bool print_restart, const char *db
     }
 
 #if defined(SERVER_MODE)
-  if (sysprm_load_and_init (NULL, NULL, SYSPRM_LOAD_ALL) != NO_ERROR)
+  if (sysprm_load_and_init (db_name, NULL, SYSPRM_LOAD_ALL) != NO_ERROR)
     {
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_BO_CANT_LOAD_SYSPRM, 0);
       error_code = ER_BO_CANT_LOAD_SYSPRM;
@@ -2222,13 +2222,6 @@ boot_restart_server (THREAD_ENTRY * thread_p, bool print_restart, const char *db
    * recovery managers
    */
 #if defined(SERVER_MODE)
-  if (sysprm_load_and_init (boot_Db_full_name, NULL, SYSPRM_LOAD_ALL) != NO_ERROR)
-    {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_BO_CANT_LOAD_SYSPRM, 0);
-      error_code = ER_BO_CANT_LOAD_SYSPRM;
-      goto error;
-    }
-
   if (common_ha_mode != prm_get_integer_value (PRM_ID_HA_MODE) && !HA_DISABLED ())
     {
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_PRM_CONFLICT_EXISTS_ON_MULTIPLE_SECTIONS, 6, "cubrid.conf", "common",
@@ -2781,11 +2774,11 @@ boot_restart_server (THREAD_ENTRY * thread_p, bool print_restart, const char *db
       strncpy_size (format, msgcat_message (MSGCAT_CATALOG_CUBRID, MSGCAT_SET_GENERAL, MSGCAT_GENERAL_DATABASE_INIT),
 		    BOOT_FORMAT_MAX_LENGTH);
       fprintf (stdout, format, rel_name ());
-      fflush (stdout);
 #else /* NDEBUG */
       fprintf (stdout, "\n%s (%s) (%d %s build)\n\n", rel_name (), rel_build_number (), rel_bit_platform (),
 	       rel_build_type ());
 #endif /* !NDEBUG */
+      fflush (stdout);
     }
 
   if (from_backup == true)
@@ -3438,7 +3431,12 @@ xboot_unregister_client (REFPTR (THREAD_ENTRY, thread_p), int tran_index)
 #endif /* SERVER_MODE */
 
       /* If the transaction is active abort it */
-      if (LOG_ISTRAN_ACTIVE (tdes))	/* logtb_is_current_active (thread_p) */
+      /* FIXME:
+       * Don't abort transactions in LOG_ISTRAN_2PC_PREPARE arbitrarily.
+       * Currently follows a temporary recovery policy (no coordinator).
+       * Must follow proper 2PC rules once coordinator is implemented.
+       */
+      if (LOG_ISTRAN_ACTIVE (tdes) || LOG_ISTRAN_2PC_PREPARE (tdes))	/* logtb_is_current_active (thread_p) */
 	{
 	  (void) xtran_server_abort (thread_p);
 	}
