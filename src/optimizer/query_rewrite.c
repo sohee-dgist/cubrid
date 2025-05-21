@@ -7637,6 +7637,10 @@ qo_rewrite_innerjoin (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *c
 void
 qo_add_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
 {
+  if (node->info.query.limit != NULL || node->info.query.q.select.group_by != NULL || node->node_type != PT_SELECT)
+    {
+      return;
+    }
 
   PT_NODE *ins_num = parser_new_node (parser, PT_VALUE);
   ins_num->type_enum = PT_TYPE_INTEGER;
@@ -7663,7 +7667,6 @@ qo_add_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
   ins_num_pred->info.expr.arg2 = ins_num_pred_arg2;
 
   parser_append_node (ins_num_pred, node->info.query.q.select.where);
-
 }
 
 /*
@@ -9013,7 +9016,6 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 	    {
 	      qo_add_limit_clause (parser, node->info.expr.arg1);
 	    }
-	  break;
 	default:
 	  break;
 	}
