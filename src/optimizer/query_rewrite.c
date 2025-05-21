@@ -7637,7 +7637,10 @@ qo_rewrite_innerjoin (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *c
 void
 qo_add_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
 {
-  if (node->info.query.limit != NULL || node->info.query.q.select.group_by != NULL || node->node_type != PT_SELECT)
+  bool inst_num = false;
+  (void) parser_walk_tree (parser, node->info.query.q.select.where, pt_check_instnum_pre, NULL, pt_check_instnum_post,
+			   &inst_num);
+  if (node->info.query.limit != NULL || node->info.query.q.select.group_by != NULL || inst_num)
     {
       return;
     }
@@ -7665,8 +7668,14 @@ qo_add_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
 
   ins_num_pred->info.expr.arg1 = ins_num_pred_arg1;
   ins_num_pred->info.expr.arg2 = ins_num_pred_arg2;
-
-  parser_append_node (ins_num_pred, node->info.query.q.select.where);
+  if (node->info.query.q.select.where != NULL)
+    {
+      parser_append_node (ins_num_pred, node->info.query.q.select.where);
+    }
+  else
+    {
+      node->info.query.q.select.where = ins_num_pred;
+    }
 }
 
 /*
@@ -9011,8 +9020,7 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 	  node->info.expr.arg2 = qo_rewrite_hidden_col_as_derived (parser, node->info.expr.arg2, node);
 	  break;
 	case PT_EXISTS:
-	  node->info.expr.arg1 = qo_rewrite_hidden_col_as_derived (parser, node->info.expr.arg1, node);
-	  if (pt_is_query (node->info.expr.arg1))
+	  if (pt_is_select (node->info.expr.arg1))
 	    {
 	      qo_add_limit_clause (parser, node->info.expr.arg1);
 	    }
