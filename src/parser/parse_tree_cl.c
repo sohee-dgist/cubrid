@@ -5401,7 +5401,20 @@ pt_append_name (const PARSER_CONTEXT * parser, PARSER_VARCHAR * string, const ch
       || parser->custom_print & PT_PRINT_QUOTES)
     {
       string = pt_append_nulstring (parser, string, "[");
-      string = pt_append_nulstring (parser, string, name);
+      if (parser->custom_print & PT_PRINT_LOWER)
+	{
+	  char *lcase_name;
+	  int name_size;
+	  name_size = intl_identifier_lower_string_size (name);
+	  lcase_name = (char *) db_private_alloc (NULL, name_size + 1);
+	  intl_identifier_lower (name, lcase_name);
+	  string = pt_append_nulstring (parser, string, lcase_name);
+	  db_private_free_and_init (NULL, lcase_name);
+	}
+      else
+	{
+	  string = pt_append_nulstring (parser, string, name);
+	}
       string = pt_append_nulstring (parser, string, "]");
     }
   else
@@ -13890,13 +13903,6 @@ pt_print_name (PARSER_CONTEXT * parser, PT_NODE * p)
       q = pt_append_nulstring (parser, q, " as [");
       q = pt_append_nulstring (parser, q, p->alias_print);
       q = pt_append_nulstring (parser, q, "]");
-    }
-  else if (q && (parser->custom_print & PT_PRINT_LOWER) != 0)
-    {
-      for (int i = 0; i < q->length; ++i)
-	{
-	  q->bytes[i] = (unsigned char) tolower ((unsigned char) q->bytes[i]);
-	}
     }
 
   parser->custom_print = save_custom;
