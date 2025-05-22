@@ -7651,7 +7651,7 @@ qo_add_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
 
   node->info.query.limit = ins_num;
   node->info.query.limit->next = NULL;
-  node->info.query.flag.rewrite_limit = 0;
+  node->info.query.flag.rewrite_limit = 1;
 
   PT_NODE *ins_num_pred = parser_new_node (parser, PT_EXPR);
   ins_num_pred->type_enum = PT_TYPE_LOGICAL;
@@ -9020,7 +9020,7 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 	  node->info.expr.arg2 = qo_rewrite_hidden_col_as_derived (parser, node->info.expr.arg2, node);
 	  break;
 	case PT_EXISTS:
-	  if (pt_is_select (node->info.expr.arg1))
+	  if (pt_is_query (node->info.expr.arg1))
 	    {
 	      qo_add_limit_clause (parser, node->info.expr.arg1);
 	    }
