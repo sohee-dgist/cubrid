@@ -102,8 +102,6 @@ class record_descriptor;
 /* A good space to accept insertions */
 #define HEAP_DROP_FREE_SPACE (int)(DB_PAGESIZE * 0.3)
 
-#define GET_MVCC_CHECK_CLASS_OID(class_oid_ptr, scan_cache_ptr) \
-    ((class_oid_ptr) && !OID_ISNULL(class_oid_ptr) ? (class_oid_ptr) : &(scan_cache_ptr)->node.class_oid)
 
 /*
  * Heap scan structures
