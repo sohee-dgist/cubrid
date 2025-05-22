@@ -895,15 +895,6 @@ abort_on_error:
  *    record(in): disk record
  *    obj(out): object descriptor
  */
-/*
- * desc_disk_to_obj - similar to tf_disk_to_mem except that it builds an
- * object descriptor structure rather than a workspace object.
- *    return: NO_ERROR if successful, error code otherwise
- *    classop(in): class MOP
- *    class(in): class structure
- *    record(in): disk record
- *    obj(out): object descriptor
- */
 int
 desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * obj, bool is_unloaddb)
 {

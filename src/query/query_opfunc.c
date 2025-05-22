@@ -383,8 +383,10 @@ qdata_copy_db_value_to_tuple_value (DB_VALUE * dbval_p, bool clear_compressed_st
       or_init (&buf, val_p, val_size);
       rc = pr_type->data_writeval (&buf, dbval_p);
 
-      if (buf.ptr > buf.endptr)
+      if (buf.ptr > buf.endptr || rc != NO_ERROR)
 	{
+	  /* This should not happen */
+	  assert_release (false);
 	  return ER_FAILED;
 	}
 
