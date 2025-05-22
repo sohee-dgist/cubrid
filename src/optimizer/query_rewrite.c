@@ -7640,7 +7640,10 @@ qo_add_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
   bool inst_num = false;
   (void) parser_walk_tree (parser, node->info.query.q.select.where, pt_check_instnum_pre, NULL, pt_check_instnum_post,
 			   &inst_num);
-  if (node->info.query.limit != NULL || node->info.query.q.select.group_by != NULL || inst_num)
+  bool orderby_num = false;
+  (void) parser_walk_tree (parser, node->info.query.order_by, pt_check_orderbynum_pre, NULL, pt_check_orderbynum_post,
+			   &orderby_num);
+  if (node->info.query.limit != NULL || node->info.query.q.select.group_by != NULL || inst_num || orderby_num)
     {
       return;
     }
