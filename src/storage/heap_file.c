@@ -25178,8 +25178,7 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
 	  || (!OID_ISNULL (&context->forward_oid) && context->fwd_page_watcher.pgptr != NULL));
 
   if (context->scan_cache != NULL && context->scan_cache->mvcc_snapshot != NULL
-      && context->scan_cache->mvcc_snapshot->snapshot_fnc != NULL
-      && !mvcc_is_mvcc_disabled_class (context->class_oid_p))
+      && context->scan_cache->mvcc_snapshot->snapshot_fnc != NULL)
     {
       mvcc_snapshot = context->scan_cache->mvcc_snapshot;
     }
