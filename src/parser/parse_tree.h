@@ -967,7 +967,7 @@ enum pt_custom_print
   PT_PRINT_SUPPRESS_FOR_DBLINK = (0x1 << 27),
   PT_PRINT_HOST_VAR_COUNT = (0x1 << 28),
   PT_PRINT_DBLINK_INFO = (0x1 << 29),	/* If you use DBLINK, specify it when generating the SHA hash value. */
-  PT_PRINT_LOWER = (0x1 << 29) /* print lower case */
+  PT_PRINT_LOWER = (0x1 << 30)	/* print lower case */
 };
 
 /* all statement node types should be assigned their API statement enumeration */
