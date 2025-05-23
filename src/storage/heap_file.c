@@ -6826,7 +6826,6 @@ heap_scancache_start_internal (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_ca
        * Scanning the instances of a specific class
        */
       scan_cache->node.class_oid = *class_oid;
-      scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (class_oid);
       if (is_queryscan == true)
 	{
 	  /*
@@ -6855,7 +6854,6 @@ heap_scancache_start_internal (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_ca
        * Scanning the instances of any class in the heap
        */
       OID_SET_NULL (&scan_cache->node.class_oid);
-      scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (&scan_cache->node.class_oid);
       if (hfid == NULL)
 	{
 	  HFID_SET_NULL (&scan_cache->node.hfid);
@@ -6881,7 +6879,7 @@ heap_scancache_start_internal (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_ca
     }
 
   scan_cache->page_latch = S_LOCK;
-
+  scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (&scan_cache->node.class_oid);
   scan_cache->node.classname = NULL;
   scan_cache->cache_last_fix_page = cache_last_fix_page;
   PGBUF_INIT_WATCHER (&(scan_cache->page_watcher), PGBUF_ORDERED_HEAP_NORMAL, hfid);
@@ -25156,6 +25154,7 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
     {
       /* we need class_oid to check if the class is mvcc enabled */
       context->class_oid_p = &class_oid_local;
+      context->scan_cache->mvcc_disabled_class = false;
     }
 
   if (context->scan_cache && context->ispeeking == COPY && context->recdes_p != NULL)
@@ -25178,8 +25177,9 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
 	  || (!OID_ISNULL (&context->forward_oid) && context->fwd_page_watcher.pgptr != NULL));
 
   if (context->scan_cache != NULL && context->scan_cache->mvcc_snapshot != NULL
-      && context->scan_cache->mvcc_snapshot->snapshot_fnc != NULL)
+      && context->scan_cache->mvcc_snapshot->snapshot_fnc != NULL && !context->scan_cache->mvcc_disabled_class)
     {
+      assert_release (!mvcc_is_mvcc_disabled_class (context->class_oid_p));
       mvcc_snapshot = context->scan_cache->mvcc_snapshot;
     }
 
