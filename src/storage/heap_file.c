@@ -25264,6 +25264,12 @@ heap_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * class_
   SCAN_CODE scan = S_SUCCESS;
   HEAP_GET_CONTEXT context;
 
+  if (class_oid != NULL && !OID_EQ (class_oid, &scan_cache->node.class_oid))
+  {
+    scan_cache->node.class_oid = *class_oid;
+    scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (class_oid);
+  }
+
   heap_init_get_context (thread_p, &context, oid, class_oid, recdes, scan_cache, ispeeking, old_chn);
 
   scan = heap_get_visible_version_internal (thread_p, &context, false);
@@ -25388,7 +25394,7 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
     {
       /* we need class_oid to check if the class is mvcc enabled */
       context->class_oid_p = &class_oid_local;
-      context->scan_cache->mvcc_disabled_class = false;
+      context->scan_cache->mvcc_disabled_class = true;
     }
 
   if (context->scan_cache && context->ispeeking == COPY && context->recdes_p != NULL)
@@ -25414,9 +25420,9 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
   if (context->scan_cache != NULL && context->scan_cache->mvcc_snapshot != NULL
       && context->scan_cache->mvcc_snapshot->snapshot_fnc != NULL && !context->scan_cache->mvcc_disabled_class)
     {
-      assert_release (!mvcc_is_mvcc_disabled_class (context->class_oid_p));
       mvcc_snapshot = context->scan_cache->mvcc_snapshot;
     }
+  assert_release (mvcc_is_mvcc_disabled_class (context->class_oid_p) == context->scan_cache->mvcc_disabled_class);
 
   if (mvcc_snapshot != NULL || context->old_chn != NULL_CHN)
     {
@@ -25745,6 +25751,7 @@ heap_init_get_context (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context, cons
 		       RECDES * recdes, HEAP_SCANCACHE * scan_cache, int ispeeking, int old_chn)
 {
   context->oid_p = oid;
+  if (class_oid != NULL)
   context->class_oid_p = class_oid;
   OID_SET_NULL (&context->forward_oid);
   context->recdes_p = recdes;
