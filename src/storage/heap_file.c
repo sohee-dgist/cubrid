@@ -25380,6 +25380,7 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
   MVCC_SNAPSHOT *mvcc_snapshot = NULL;
   MVCC_REC_HEADER mvcc_header = MVCC_REC_HEADER_INITIALIZER;
   OID class_oid_local = OID_INITIALIZER;
+  bool save_mvcc_disabled_class = context->scan_cache->mvcc_disabled_class;
 
   assert (context->scan_cache != NULL);
 
@@ -25395,6 +25396,7 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
       /* Allocate an area to hold the object. Assume that the object will fit in two pages for not better estimates. */
       if (heap_scan_cache_allocate_area (thread_p, context->scan_cache, DB_PAGESIZE * 2) != NO_ERROR)
 	{
+	  context->scan_cache->mvcc_disabled_class = save_mvcc_disabled_class;
 	  return S_ERROR;
 	}
     }
@@ -25463,6 +25465,7 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
   /* Fall through to exit. */
 
 exit:
+  context->scan_cache->mvcc_disabled_class = save_mvcc_disabled_class;
   return scan;
 }
 
