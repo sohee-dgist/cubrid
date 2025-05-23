@@ -25265,10 +25265,10 @@ heap_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * class_
   HEAP_GET_CONTEXT context;
 
   if (class_oid != NULL && !OID_EQ (class_oid, &scan_cache->node.class_oid))
-  {
-    scan_cache->node.class_oid = *class_oid;
-    scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (class_oid);
-  }
+    {
+      scan_cache->node.class_oid = *class_oid;
+      scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (class_oid);
+    }
 
   heap_init_get_context (thread_p, &context, oid, class_oid, recdes, scan_cache, ispeeking, old_chn);
 
@@ -25752,7 +25752,7 @@ heap_init_get_context (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context, cons
 {
   context->oid_p = oid;
   if (class_oid != NULL)
-  context->class_oid_p = class_oid;
+    context->class_oid_p = class_oid;
   OID_SET_NULL (&context->forward_oid);
   context->recdes_p = recdes;
 
