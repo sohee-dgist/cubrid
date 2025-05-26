@@ -7655,30 +7655,6 @@ qo_add_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
   node->info.query.limit = ins_num;
   node->info.query.limit->next = NULL;
   node->info.query.flag.rewrite_limit = 1;
-
-  PT_NODE *ins_num_pred = parser_new_node (parser, PT_EXPR);
-  ins_num_pred->type_enum = PT_TYPE_LOGICAL;
-  ins_num_pred->info.expr.op = PT_LE;
-
-  PT_NODE *ins_num_pred_arg1 = parser_new_node (parser, PT_EXPR);
-  ins_num_pred_arg1->type_enum = PT_TYPE_BIGINT;
-  ins_num_pred_arg1->info.expr.op = PT_INST_NUM;
-  PT_EXPR_INFO_SET_FLAG (ins_num_pred_arg1, PT_EXPR_INFO_INSTNUM_C);
-
-  PT_NODE *ins_num_pred_arg2 = parser_new_node (parser, PT_VALUE);
-  ins_num_pred_arg2->type_enum = PT_TYPE_INTEGER;
-  ins_num_pred_arg2->info.value.data_value.i = 1;
-
-  ins_num_pred->info.expr.arg1 = ins_num_pred_arg1;
-  ins_num_pred->info.expr.arg2 = ins_num_pred_arg2;
-  if (node->info.query.q.select.where != NULL)
-    {
-      parser_append_node (ins_num_pred, node->info.query.q.select.where);
-    }
-  else
-    {
-      node->info.query.q.select.where = ins_num_pred;
-    }
 }
 
 /*
