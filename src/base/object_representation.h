@@ -1708,23 +1708,6 @@ or_get_int (OR_BUF * buf, int *error)
   return value;
 }
 
-/*
- * or_get_int - get int value from or buffer (for only mr_data_readval)
- *    return: int value read
- *    buf(in/out): or buffer
- *    error(out): NO_ERROR or error code
- */
-STATIC_INLINE int
-or_get_int_no_error (OR_BUF * buf)
-{
-  int value = 0;
-
-  ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
-
-  value = OR_GET_INT (buf->ptr);
-  buf->ptr += OR_INT_SIZE;
-  return value;
-}
 
 /*
  * or_put_bigint - put bigint value to or buffer

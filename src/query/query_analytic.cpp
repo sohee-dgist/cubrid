@@ -226,7 +226,7 @@ qdata_evaluate_analytic_func (cubthread::entry *thread_p, ANALYTIC_TYPE *func_p,
 	{
 	  or_init (&buf, disk_repr_p, dbval_size);
 	  error = pr_type_p->data_writeval (&buf, &dbval);
-	  if (buf.ptr > buf.endptr)
+	  if (buf.ptr > buf.endptr || error != NO_ERROR)
 	    {
 	      db_private_free_and_init (thread_p, disk_repr_p);
 	      error = ER_FAILED;
