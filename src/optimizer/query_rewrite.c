@@ -7655,7 +7655,7 @@ qo_add_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
   node->info.query.limit = ins_num;
   node->info.query.limit->next = NULL;
   node->info.query.flag.rewrite_limit = 1;
-  node->info.query.flag.autoparameterize_limit = 1;
+  node->info.query.flag.do_autoparameterize_limit = 0;
 }
 
 /*
@@ -8678,7 +8678,7 @@ qo_move_on_clause_of_explicit_join_to_where_clause (PARSER_CONTEXT * parser, PT_
  *   bool(in): limit_from_exists
  */
 static PT_NODE *
-qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * limit, bool limit_from_exists)
+qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * limit, bool do_autoparameterize_limit)
 {
   PT_NODE *save_next, *add_limit;
 
@@ -8713,18 +8713,16 @@ qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * limit
 	    {
 	      node->info.query.limit = parser_copy_tree (parser, limit);
 	    }
-	  if (limit_from_exists)
-	    {
-	      node->info.query.flag.autoparameterize_limit = 1;
-	    }
+
+	  node->info.query.flag.do_autoparameterize_limit = do_autoparameterize_limit;
 	  node->info.query.flag.rewrite_limit = 1;
 	  return node;
 	}
       break;
 
     case PT_UNION:
-      qo_push_limit_to_union (parser, node->info.query.q.union_.arg1, limit, limit_from_exists);
-      qo_push_limit_to_union (parser, node->info.query.q.union_.arg2, limit, limit_from_exists);
+      qo_push_limit_to_union (parser, node->info.query.q.union_.arg1, limit, do_autoparameterize_limit);
+      qo_push_limit_to_union (parser, node->info.query.q.union_.arg2, limit, do_autoparameterize_limit);
       break;
 
     default:
@@ -8935,7 +8933,7 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 	    {
 	      PT_NODE *limit_node;
 	      bool single_tuple_bak;
-	      bool limit_from_exists_bak;
+	      bool do_not_autoparameterize_limit_bak;
 
 	      node->info.query.flag.rewrite_limit = 0;
 	      /* to move limit clause to derived */
@@ -8944,14 +8942,15 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 
 	      /* to move single tuple to derived */
 	      single_tuple_bak = node->info.query.flag.single_tuple;
-	      limit_from_exists_bak = node->info.query.flag.limit_from_exists;
+	      do_not_autoparameterize_limit_bak = node->info.query.flag.do_autoparameterize_limit;
 	      node->info.query.flag.single_tuple = false;
 
 	      /* push limit to union */
 	      if (node->info.query.order_by == NULL && !qo_check_distinct_union (parser, node)
 		  && !qo_check_hint_union (parser, node, PT_HINT_NO_PUSH_PRED))
 		{
-		  node = qo_push_limit_to_union (parser, node, limit_node, node->info.query.flag.autoparameterize_limit);
+		  node =
+		    qo_push_limit_to_union (parser, node, limit_node, node->info.query.flag.do_autoparameterize_limit);
 		}
 	      derived = mq_rewrite_query_as_derived (parser, node);
 	      if (derived != NULL)
@@ -8967,7 +8966,7 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 		}
 	      node->info.query.flag.single_tuple = single_tuple_bak;
 	      node->info.query.limit = limit_node;
-	      node->info.query.flag.limit_from_exists = limit_from_exists_bak;
+	      node->info.query.flag.do_autoparameterize_limit = do_not_autoparameterize_limit_bak;
 	    }
 	}
 
@@ -9593,7 +9592,7 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 
   /* auto parameterize for limit clause */
   if ((PT_IS_QUERY_NODE_TYPE (node->node_type) || node->node_type == PT_UPDATE || node->node_type == PT_DELETE)
-      && !node->info.query.flag.autoparameterize_limit)
+      && node->info.query.flag.do_autoparameterize_limit)
     {
       qo_do_auto_parameterize_limit_clause (parser, node);
 
