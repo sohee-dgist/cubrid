@@ -3026,7 +3026,7 @@ struct pt_query_info
     unsigned rewrite_limit:1;	/* need to rewrite the limit clause */
     unsigned has_system_class:1;	/* do not cache the query result */
     unsigned subquery_cached:1;	/* subquery is cached */
-    unsigned limit_from_exists:1;	/* limit clause is from exists clause */
+    unsigned autoparameterize_limit:1;	/* limit clause canbe auto-parameterized */
   } flag;
   PT_NODE *order_by;		/* PT_EXPR (list) */
   PT_NODE *orderby_for;		/* PT_EXPR (list) */

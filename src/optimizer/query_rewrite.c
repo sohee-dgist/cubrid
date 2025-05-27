@@ -7655,7 +7655,7 @@ qo_add_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
   node->info.query.limit = ins_num;
   node->info.query.limit->next = NULL;
   node->info.query.flag.rewrite_limit = 1;
-  node->info.query.flag.limit_from_exists = 1;
+  node->info.query.flag.autoparameterize_limit = 1;
 }
 
 /*
@@ -8715,7 +8715,7 @@ qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * limit
 	    }
 	  if (limit_from_exists)
 	    {
-	      node->info.query.flag.limit_from_exists = 1;
+	      node->info.query.flag.autoparameterize_limit = 1;
 	    }
 	  node->info.query.flag.rewrite_limit = 1;
 	  return node;
