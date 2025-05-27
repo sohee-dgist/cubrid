@@ -8951,7 +8951,7 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 	      if (node->info.query.order_by == NULL && !qo_check_distinct_union (parser, node)
 		  && !qo_check_hint_union (parser, node, PT_HINT_NO_PUSH_PRED))
 		{
-		  node = qo_push_limit_to_union (parser, node, limit_node, node->info.query.flag.limit_from_exists);
+		  node = qo_push_limit_to_union (parser, node, limit_node, node->info.query.flag.autoparameterize_limit);
 		}
 	      derived = mq_rewrite_query_as_derived (parser, node);
 	      if (derived != NULL)
@@ -9593,7 +9593,7 @@ qo_optimize_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *co
 
   /* auto parameterize for limit clause */
   if ((PT_IS_QUERY_NODE_TYPE (node->node_type) || node->node_type == PT_UPDATE || node->node_type == PT_DELETE)
-      && !node->info.query.flag.limit_from_exists)
+      && !node->info.query.flag.autoparameterize_limit)
     {
       qo_do_auto_parameterize_limit_clause (parser, node);
 
