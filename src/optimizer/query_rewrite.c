@@ -8674,7 +8674,6 @@ qo_move_on_clause_of_explicit_join_to_where_clause (PARSER_CONTEXT * parser, PT_
  *   return: PT_NODE *
  *   parser(in): parser environment
  *   node(in): possible query
- *   bool(in): limit_from_exists
  */
 static PT_NODE *
 qo_push_limit_to_union (PARSER_CONTEXT * parser, PT_NODE * node, PT_NODE * limit)
