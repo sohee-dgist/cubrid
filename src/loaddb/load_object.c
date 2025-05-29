@@ -535,6 +535,8 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
   /* see if there are any indexes */
   has_index = classobj_class_has_indexes (obj->class_);
 
+  /* should modify object_disk_size and put_varinfo together */
+  assert_release (buf->ptr + expected_disk_size + (OR_MVCC_MAX_HEADER_SIZE - OR_MVCC_INSERT_HEADER_SIZE) == buf->endptr);
   return NO_ERROR;
 }
 
