@@ -1515,6 +1515,7 @@ or_put_align32 (OR_BUF * buf)
   bits = (UINTPTR) buf->ptr & 3;
   if (bits)
     {
+      assert (buf->ptr + 4 - bits <= buf->endptr);
       rc = or_pad (buf, 4 - bits);
     }
 

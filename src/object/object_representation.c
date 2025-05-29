@@ -444,6 +444,8 @@ or_mvcc_get_repid_and_flags (OR_BUF * buf, int *error)
   ASSERT_ALIGN (buf->ptr, INT_ALIGNMENT);
 
   int repid_and_flag_bits = 0;
+  assert (buf->ptr + OR_INT_SIZE <= buf->endptr);
+
   repid_and_flag_bits = OR_GET_INT (buf->ptr);
   buf->ptr += OR_INT_SIZE;
   *error = NO_ERROR;
@@ -799,19 +801,21 @@ or_put_varbit_internal (OR_BUF * buf, const char *string, int bitlen, int align)
 
   bytelen = BITS_TO_BYTES (bitlen);
 
-  /* store the size prefix */
   if (bitlen < 0xFF)
     {
+      assert (buf->ptr + OR_BYTE_SIZE <= buf->endptr);
       or_put_byte (buf, bitlen);
     }
   else
     {
+      assert (buf->ptr + OR_BYTE_SIZE + OR_INT_SIZE <= buf->endptr);
       or_put_byte (buf, 0xFF);
       OR_PUT_INT (&net_bitlen, bitlen);
       or_put_data (buf, (char *) &net_bitlen, OR_INT_SIZE);
     }
 
   /* store the string bytes */
+  assert (buf->ptr + bytelen <= buf->endptr);
   or_put_data (buf, string, bytelen);
 
   if (align == INT_ALIGNMENT)
@@ -957,7 +961,7 @@ cleanup:
     }
 
 
-  if (rc == ER_TF_BUFFER_OVERFLOW)
+  if (buf->ptr > buf->endptr)
     {
       return ER_TF_BUFFER_OVERFLOW;
     }
@@ -4410,7 +4414,7 @@ or_get_set (OR_BUF * buf, TP_DOMAIN * domain)
   set = setobj_create (set_type, size);
   if (set == NULL)
     {
-      assert (false);
+      ASSERT_ERROR ();
       return NULL;
     }
 
@@ -4984,7 +4988,7 @@ or_get_value (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int expected, 
     {
       /* problems decoding the domain */
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
-      assert (false);
+      ASSERT_ERROR ();
       return ER_FAILED;
     }
   else
