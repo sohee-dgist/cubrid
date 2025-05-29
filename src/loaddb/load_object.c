@@ -567,7 +567,7 @@ get_desc_current (OR_BUF * buf, SM_CLASS * class_, DESC_OBJ * obj, int bound_bit
   /* need nicer way to store these */
   if (class_->variable_count)
     {
-      if (class_->variable_count <= (sizeof (zvar) / sizeof (zvar[0])))
+      if (class_->variable_count <= DIM (zvar))
 	{
 	  vars = zvar;
 	}
@@ -715,7 +715,7 @@ get_desc_old (OR_BUF * buf, SM_CLASS * class_, int repid, DESC_OBJ * obj, int bo
   if (oldrep->variable_count)
     {
       /* need nicer way to store these */
-      if (class_->variable_count <= (sizeof (zvar) / sizeof (zvar[0])))
+      if (class_->variable_count <= DIM (zvar))
 	{
 	  vars = zvar;
 	}
