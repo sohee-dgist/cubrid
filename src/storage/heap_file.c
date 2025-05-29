@@ -7069,7 +7069,7 @@ heap_scancache_reset_modify (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_cach
 
   if (class_oid != NULL)
     {
-      if (!OID_EQ (class_oid, &scan_cache->node.class_oid))
+      if (!HFID_EQ (&scan_cache->node.hfid, hfid) || !OID_EQ (class_oid, &scan_cache->node.class_oid))
 	{
 	  ret = heap_get_class_info (thread_p, class_oid, &scan_cache->node.hfid, &scan_cache->file_type, NULL);
 	  if (ret != NO_ERROR)
