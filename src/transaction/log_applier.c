@@ -3740,7 +3740,6 @@ static int
 la_disk_to_obj (MOBJ classobj, RECDES * record, DB_OTMPL * def, DB_VALUE * key)
 {
   OR_BUF orep, *buf;
-  int status;
   SM_CLASS *sm_class;
   unsigned int repid_bits;
   int bound_bit_flag;
@@ -3796,6 +3795,11 @@ la_disk_to_obj (MOBJ classobj, RECDES * record, DB_OTMPL * def, DB_VALUE * key)
 
   error = la_get_current (buf, sm_class, bound_bit_flag, def, key, offset_size);
 
+  if (buf->ptr > buf->endptr)
+    {
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_OVERFLOW, 0);
+      return ER_TF_BUFFER_OVERFLOW;
+    }
   return error;
 }
 
