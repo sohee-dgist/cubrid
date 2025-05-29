@@ -536,7 +536,8 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
   has_index = classobj_class_has_indexes (obj->class_);
 
   /* should modify object_disk_size and put_varinfo together */
-  assert_release (buf->ptr + expected_disk_size + (OR_MVCC_MAX_HEADER_SIZE - OR_MVCC_INSERT_HEADER_SIZE) == buf->endptr);
+  assert_release (buf->ptr + expected_disk_size + (OR_MVCC_MAX_HEADER_SIZE - OR_MVCC_INSERT_HEADER_SIZE) ==
+		  buf->endptr);
   return NO_ERROR;
 }
 
@@ -786,6 +787,7 @@ get_desc_old (OR_BUF * buf, SM_CLASS * class_, int repid, DESC_OBJ * obj, int bo
       bytes = OR_BOUND_BIT_BYTES (oldrep->fixed_count);
       if ((buf->ptr + bytes) > buf->endptr)
 	{
+	  assert (false);
 	  goto abort_on_error;
 	}
 
@@ -884,8 +886,6 @@ abort_on_error:
     {
       free (vars);
     }
-
-  assert (false);		// or abort do nothing here
 }
 
 /*
@@ -967,6 +967,7 @@ desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * ob
 
   if (buf->ptr > buf->endptr)
     {
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_UNDERFLOW, 0);
       return ER_TF_BUFFER_UNDERFLOW;
     }
 
