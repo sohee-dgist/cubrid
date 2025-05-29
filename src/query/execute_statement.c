@@ -17627,7 +17627,11 @@ do_prepare_merge (PARSER_CONTEXT * parser, PT_NODE * statement)
 	  pt_enter_packing_buf ();
 
 	  /* generate MERGE XASL */
+	  /* Note: Autoparameterization is redundant as the merge XASL generation is already performed. Therefore, this step can be safely omitted. */
+	  bool backup_flag = parser->flag.is_parsing_static_sql;
+	  parser->flag.is_parsing_static_sql = 1;
 	  contextp->xasl = pt_to_merge_xasl (parser, statement, &non_nulls_upd, &non_nulls_ins, default_expr_attrs);
+	  parser->flag.is_parsing_static_sql = backup_flag;
 
 	  stream.buffer = NULL;
 
