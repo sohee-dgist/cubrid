@@ -25424,7 +25424,7 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
     {
       mvcc_snapshot = context->scan_cache->mvcc_snapshot;
     }
-  assert_release (mvcc_is_mvcc_disabled_class (context->class_oid_p) == context->scan_cache->mvcc_disabled_class);
+  assert (mvcc_is_mvcc_disabled_class (context->class_oid_p) == context->scan_cache->mvcc_disabled_class);
 
   if (mvcc_snapshot != NULL || context->old_chn != NULL_CHN)
     {
