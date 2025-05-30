@@ -7205,7 +7205,6 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	    }
 	  else
 	    {
-	      assert (false);
 	      return ER_FAILED;
 	    }
 	}
