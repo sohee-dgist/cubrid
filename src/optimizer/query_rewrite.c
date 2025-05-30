@@ -7637,20 +7637,19 @@ qo_rewrite_innerjoin (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *c
 void
 qo_add_limit_clause (PARSER_CONTEXT * parser, PT_NODE * node)
 {
-  if (node->node_type == PT_SELECT)
+  bool has_instnum = false, has_orderbynum = false, has_groupbynum = false;
+  if (PT_IS_SELECT (node))
     {
-      bool has_instnum = false, has_orderbynum = false, has_groupbynum = false;
       (void) parser_walk_tree (parser, node->info.query.q.select.where, pt_check_instnum_pre, NULL,
 			       pt_check_instnum_post, &has_instnum);
       (void) parser_walk_tree (parser, node->info.query.orderby_for, pt_check_orderbynum_pre, NULL,
 			       pt_check_orderbynum_post, &has_orderbynum);
       (void) parser_walk_tree (parser, node->info.query.q.select.having, pt_check_groupbynum_pre, NULL,
 			       pt_check_groupbynum_post, &has_groupbynum);
-
-      if (has_instnum || has_orderbynum || has_groupbynum)
-	{
-	  return;		/* give up */
-	}
+    }
+  if (node->info.query.limit != NULL || has_instnum || has_orderbynum || has_groupbynum)
+    {
+      return;			/* give up */
     }
 
   PT_NODE *ins_num = parser_new_node (parser, PT_VALUE);
