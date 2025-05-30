@@ -2697,7 +2697,6 @@ css_make_access_status_exist_user (THREAD_ENTRY * thread_p, OID * class_oid, LAS
   attr_info_inited = true;
 
   heap_scancache_quick_start_root_hfid (thread_p, &scan_cache);
-  scan_cache.mvcc_disabled_class = mvcc_is_mvcc_disabled_class (class_oid);
   scan_cache_inited = true;
 
   if (heap_get_class_record (thread_p, class_oid, &recdes, &scan_cache, PEEK) != S_SUCCESS)
