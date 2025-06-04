@@ -7221,7 +7221,6 @@ heap_scancache_quick_end (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_cache)
       delete scan_cache->m_index_stats;
       scan_cache->m_index_stats = NULL;
       scan_cache->num_btids = 0;
-      scan_cache->mvcc_disabled_class = false;
       if (scan_cache->cache_last_fix_page == true)
 	{
 	  /* Free fetched page */
@@ -7249,8 +7248,9 @@ heap_scancache_quick_end (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_cache)
 
   HFID_SET_NULL (&scan_cache->node.hfid);
   scan_cache->node.hfid.vfid.volid = NULL_VOLID;
+  scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (&scan_cache->node.class_oid);
   scan_cache->node.classname = NULL;
-  OID_SET_NULL (&scan_cache->node.class_oid);
+  OID_SET_NULL (&scan_cache->node.class_oid);   
   scan_cache->page_latch = NULL_LOCK;
   assert (PGBUF_IS_CLEAN_WATCHER (&(scan_cache->page_watcher)));
   scan_cache->end_area ();
