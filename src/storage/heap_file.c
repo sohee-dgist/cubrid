@@ -7069,7 +7069,7 @@ heap_scancache_reset_modify (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_cach
 
   if (class_oid != NULL)
     {
-      if (!HFID_EQ (&scan_cache->node.hfid, hfid) || !OID_EQ (class_oid, &scan_cache->node.class_oid))
+      if (!OID_EQ (class_oid, &scan_cache->node.class_oid))
 	{
 	  ret = heap_get_class_info (thread_p, class_oid, &scan_cache->node.hfid, &scan_cache->file_type, NULL);
 	  if (ret != NO_ERROR)
@@ -7181,7 +7181,7 @@ heap_scancache_quick_start_internal (HEAP_SCANCACHE * scan_cache, const HFID * h
       PGBUF_INIT_WATCHER (&(scan_cache->page_watcher), PGBUF_ORDERED_HEAP_NORMAL, hfid);
     }
   OID_SET_NULL (&scan_cache->node.class_oid);
-  scan_cache->mvcc_disabled_class = false;
+  scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (&scan_cache->node.class_oid);
   scan_cache->node.classname = NULL;
   scan_cache->page_latch = S_LOCK;
   scan_cache->cache_last_fix_page = true;
@@ -25266,12 +25266,6 @@ heap_get_visible_version (THREAD_ENTRY * thread_p, const OID * oid, OID * class_
 
   heap_init_get_context (thread_p, &context, oid, class_oid, recdes, scan_cache, ispeeking, old_chn);
 
-  if (class_oid != NULL && !OID_EQ (class_oid, &scan_cache->node.class_oid))
-    {
-      scan_cache->node.class_oid = *class_oid;
-      scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (class_oid);
-    }
-
   scan = heap_get_visible_version_internal (thread_p, &context, false);
 
   heap_clean_get_context (thread_p, &context);
@@ -25405,11 +25399,6 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
     }
 
   scan = heap_prepare_get_context (thread_p, context, is_heap_scan, LOG_WARNING_IF_DELETED);
-  if (context->class_oid_p && context->scan_cache->node.class_oid != *context->class_oid_p)
-    {
-      context->scan_cache->node.class_oid = *context->class_oid_p;
-      context->scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (context->class_oid_p);
-    }
   if (scan != S_SUCCESS)
     {
       goto exit;
@@ -25420,11 +25409,14 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
 	  || (!OID_ISNULL (&context->forward_oid) && context->fwd_page_watcher.pgptr != NULL));
 
   if (context->scan_cache != NULL && context->scan_cache->mvcc_snapshot != NULL
-      && context->scan_cache->mvcc_snapshot->snapshot_fnc != NULL && !context->scan_cache->mvcc_disabled_class)
+      && context->scan_cache->mvcc_snapshot->snapshot_fnc != NULL
+      && (OID_EQ (context->class_oid_p, &context->scan_cache->node.class_oid) ? !context->scan_cache->
+	  mvcc_disabled_class : !mvcc_is_mvcc_disabled_class (context->class_oid_p)))
     {
       mvcc_snapshot = context->scan_cache->mvcc_snapshot;
     }
-  assert (mvcc_is_mvcc_disabled_class (context->class_oid_p) == context->scan_cache->mvcc_disabled_class);
+  assert (mvcc_is_mvcc_disabled_class (&context->scan_cache->node.class_oid) ==
+	  context->scan_cache->mvcc_disabled_class);
 
   if (mvcc_snapshot != NULL || context->old_chn != NULL_CHN)
     {
