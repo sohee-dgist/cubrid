@@ -1064,8 +1064,11 @@ xcache_find_xasl_id_for_execute (THREAD_ENTRY * thread_p, const XASL_ID * xid, X
   error_code =
     stx_map_stream_to_xasl (thread_p, &xclone->xasl, use_xasl_clone, (*xcache_entry)->stream.buffer,
 			    (*xcache_entry)->stream.buffer_size, &xclone->xasl_buf);
-  INT32 xasl_clone_size = xcache_entry_get_one_clonesize (*xcache_entry);
-  ATOMIC_INC_32 (&xcache_Memory_usage_clone, xasl_clone_size);
+  if (use_xasl_clone)
+    {
+      INT32 xasl_clone_size = xcache_entry_get_one_clonesize (*xcache_entry);
+      ATOMIC_INC_32 (&xcache_Memory_usage_clone, xasl_clone_size);
+    }
 
   if (save_heapid != 0)
     {
