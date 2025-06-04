@@ -1,9 +1,8 @@
 name: Comment trigger
 
-# Temporarily disabled - uncomment to re-enable
-# on:
-#   issue_comment:
-#     types: [created, edited]
+on:
+  issue_comment:
+    types: [created, edited]
 
 jobs:
   run_test:
@@ -19,7 +18,8 @@ jobs:
           echo "[debug] Comment: $COMMENT"
           
           # Define test types
-          TEST_TYPES="shell sql medium plcsql"
+          # TEST_TYPES="shell sql medium plcsql"
+          TEST_TYPES="sql medium plcsql"
           TEST_JSON="{"
           
           # Check for 'all' keyword or parse individual test types
