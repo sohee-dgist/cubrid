@@ -7250,7 +7250,7 @@ heap_scancache_quick_end (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_cache)
   scan_cache->node.hfid.vfid.volid = NULL_VOLID;
   scan_cache->mvcc_disabled_class = mvcc_is_mvcc_disabled_class (&scan_cache->node.class_oid);
   scan_cache->node.classname = NULL;
-  OID_SET_NULL (&scan_cache->node.class_oid);   
+  OID_SET_NULL (&scan_cache->node.class_oid);
   scan_cache->page_latch = NULL_LOCK;
   assert (PGBUF_IS_CLEAN_WATCHER (&(scan_cache->page_watcher)));
   scan_cache->end_area ();
@@ -25411,8 +25411,8 @@ heap_get_visible_version_internal (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * c
 
   if (context->scan_cache != NULL && context->scan_cache->mvcc_snapshot != NULL
       && context->scan_cache->mvcc_snapshot->snapshot_fnc != NULL
-      && (OID_EQ (context->class_oid_p, &context->scan_cache->node.class_oid) ? !context->
-	  scan_cache->mvcc_disabled_class : !mvcc_is_mvcc_disabled_class (context->class_oid_p)))
+      && (OID_EQ (context->class_oid_p, &context->scan_cache->node.class_oid) ?
+	  !context->scan_cache->mvcc_disabled_class : !mvcc_is_mvcc_disabled_class (context->class_oid_p)))
     {
       mvcc_snapshot = context->scan_cache->mvcc_snapshot;
     }
