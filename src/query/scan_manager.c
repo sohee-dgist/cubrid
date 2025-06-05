@@ -5493,6 +5493,7 @@ scan_next_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 	    }
 	}
 
+      assert (OID_EQ (&hsidp->cls_oid, &hsidp->scan_cache.node.class_oid));
       if (hsidp->scan_cache.mvcc_disabled_class)
 	{
 	  LOCK lock = NULL_LOCK;
@@ -6341,7 +6342,7 @@ scan_next_index_lookup_heap (THREAD_ENTRY * thread_p, SCAN_ID * scan_id, INDX_SC
 
       return S_ERROR;
     }
-
+  assert (OID_EQ (&isidp->cls_oid, &isidp->scan_cache.node.class_oid));
   if (!scan_id->mvcc_select_lock_needed && isidp->scan_cache.mvcc_disabled_class)
     {
       /* Data filter passed. If object should be locked and is not locked yet, lock it. */
