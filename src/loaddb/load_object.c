@@ -538,6 +538,22 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
   /* should modify object_disk_size and put_varinfo together */
   assert_release (buf->ptr + expected_disk_size + (OR_MVCC_MAX_HEADER_SIZE - OR_MVCC_INSERT_HEADER_SIZE) ==
 		  buf->endptr);
+
+  if (buf->ptr > buf->endptr)
+    {
+      assert (false);		/* impossible case */
+      /*
+       * error, currently can only be from buffer overflow
+       * might be nice to store the "size guess" from the class
+       * SHOULD BE USING TF_STATUS LIKE tf_mem_to_disk, need to
+       * merge these two programs !
+       */
+      record->length = -expected_disk_size;
+      *index_flag = false;
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_TF_BUFFER_UNDERFLOW, 0);
+      return (1);
+    }
+
   return NO_ERROR;
 }
 
@@ -927,8 +943,6 @@ desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * ob
   buf = &orep;
   or_init (buf, record->data, record->length);
   obj->classop = classop;
-
-
   char mvcc_flags;
   /* offset size */
   offset_size = OR_GET_OFFSET_SIZE (buf->ptr);

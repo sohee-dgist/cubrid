@@ -5377,7 +5377,6 @@ mr_data_readval_object (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int 
 	      db_make_object (value, ws_mop (&oid, NULL));
 	      if (db_get_object (value) == NULL)
 		{
-		  assert (false);
 		  return ER_FAILED;
 		}
 	    }
@@ -5993,7 +5992,7 @@ mr_data_readmem_elo (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size)
   elo = (DB_ELO *) db_private_alloc (NULL, sizeof (DB_ELO));
   if (elo == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, sizeof (DB_ELO));
+      ASSERT_ERROR ();
       return;
     }
   else
@@ -7679,7 +7678,6 @@ mr_index_readval_midxkey (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	{
 	  /* need to be able to return errors ! */
 	  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, size);
 	  return ER_FAILED;
 	}
       else
@@ -10360,7 +10358,6 @@ mr_data_readmem_string (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	  new_ = (char *) db_private_alloc (NULL, mem_length);
 	  if (new_ == NULL)
 	    {
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, mem_length);
 	      return;
 	    }
 	  else
@@ -10374,7 +10371,7 @@ mr_data_readmem_string (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	      if (rc != NO_ERROR)
 		{
 		  db_private_free (NULL, new_);
-		  assert (false);
+		  ASSERT_ERROR ();
 		  return;
 		}
 	      /* align like or_get_varchar */
@@ -10763,8 +10760,6 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 	      string = (char *) db_private_alloc (NULL, expected_decompressed_size + 1);
 	      if (string == NULL)
 		{
-		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-			  expected_decompressed_size * sizeof (char));
 		  rc = ER_OUT_OF_VIRTUAL_MEMORY;
 		  goto cleanup;
 		}
@@ -10784,8 +10779,6 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 	      compressed_string = (char *) db_private_alloc (NULL, compressed_size + 1);
 	      if (compressed_string == NULL)
 		{
-		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-			  (compressed_size + 1) * sizeof (char));
 		  rc = ER_OUT_OF_VIRTUAL_MEMORY;
 		  goto cleanup;
 		}
@@ -10862,8 +10855,6 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 		{
 		  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
 		}
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-		      (size_t) (str_length + 1) * sizeof (char));
 	      return ER_FAILED;
 	    }
 	  else
@@ -10905,8 +10896,6 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 		  decompressed_string = (char *) db_private_alloc (NULL, expected_decompressed_size + 1);
 		  if (decompressed_string == NULL)
 		    {
-		      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-			      (size_t) expected_decompressed_size * sizeof (char));
 		      rc = ER_OUT_OF_VIRTUAL_MEMORY;
 		      goto cleanup;
 		    }
@@ -10925,8 +10914,6 @@ mr_readval_string_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 		  compressed_string = (char *) db_private_alloc (NULL, compressed_size + 1);
 		  if (compressed_string == NULL)
 		    {
-		      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-			      (size_t) (compressed_size + 1) * sizeof (char));
 		      rc = ER_OUT_OF_VIRTUAL_MEMORY;
 		      goto cleanup;
 		    }
@@ -11069,8 +11056,6 @@ data_readval_string (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	      decompressed_string = (char *) db_private_alloc (NULL, expected_decompressed_size + 1);
 	      if (decompressed_string == NULL)
 		{
-		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-			  expected_decompressed_size * sizeof (char));
 		  rc = ER_OUT_OF_VIRTUAL_MEMORY;
 		  goto cleanup;
 		}
@@ -11114,8 +11099,6 @@ data_readval_string (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	  decompressed_string = (char *) db_private_alloc (NULL, expected_decompressed_size + 1);
 	  if (decompressed_string == NULL)
 	    {
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-		      expected_decompressed_size * sizeof (char));
 	      rc = ER_OUT_OF_VIRTUAL_MEMORY;
 	      goto cleanup;
 	    }
@@ -11233,7 +11216,6 @@ mr_data_cmpdisk_string (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coerc
       if (string1 == NULL)
 	{
 	  /* Error report */
-	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, str1_decompressed_length);
 	  goto cleanup;
 	}
 
@@ -11276,7 +11258,6 @@ mr_data_cmpdisk_string (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coerc
       if (string2 == NULL)
 	{
 	  /* Error report */
-	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, str2_decompressed_length);
 	  goto cleanup;
 	}
 
@@ -12009,8 +11990,6 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-		      (size_t) (mem_length + 1) * sizeof (char));
 	      return ER_FAILED;
 	    }
 	  else
@@ -12089,8 +12068,6 @@ mr_readval_char_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, in
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), domain->precision, 0);
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-		      (size_t) (mem_length + 1) * sizeof (char));
 	      return ER_FAILED;
 	    }
 	  else
@@ -12933,8 +12910,6 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-		      (size_t) (mem_length + 1) * sizeof (char));
 	      return ER_FAILED;
 	    }
 	  else
@@ -13008,8 +12983,6 @@ mr_readval_nchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, i
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), domain->precision, 0);
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-		      (size_t) (mem_length + 1) * sizeof (char));
 	      return ER_FAILED;
 	    }
 	  else
@@ -13860,8 +13833,6 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 	      string = (char *) db_private_alloc (NULL, expected_decompressed_size + 1);
 	      if (string == NULL)
 		{
-		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-			  expected_decompressed_size * sizeof (char));
 		  rc = ER_OUT_OF_VIRTUAL_MEMORY;
 		  return rc;
 		}
@@ -13883,8 +13854,6 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 	      compressed_string = (char *) db_private_alloc (NULL, compressed_size + 1);
 	      if (compressed_string == NULL)
 		{
-		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-			  (compressed_size + 1) * sizeof (char));
 		  rc = ER_OUT_OF_VIRTUAL_MEMORY;
 		  goto cleanup;
 		}
@@ -13962,8 +13931,6 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 		{
 		  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
 		}
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-		      (size_t) (str_length + 1) * sizeof (char));
 	      return ER_FAILED;
 	    }
 	  else
@@ -14004,8 +13971,6 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 
 		  if (decompressed_string == NULL)
 		    {
-		      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-			      (size_t) expected_decompressed_size * sizeof (char));
 		      rc = ER_OUT_OF_VIRTUAL_MEMORY;
 		      goto cleanup;
 		    }
@@ -14028,8 +13993,6 @@ mr_readval_varnchar_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain
 		  compressed_string = (char *) db_private_alloc (NULL, compressed_size + 1);
 		  if (compressed_string == NULL)
 		    {
-		      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-			      (size_t) (compressed_size + 1) * sizeof (char));
 		      rc = ER_OUT_OF_VIRTUAL_MEMORY;
 		      goto cleanup;
 		    }
@@ -14187,7 +14150,6 @@ mr_data_cmpdisk_varnchar (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coe
       if (string1 == NULL)
 	{
 	  /* Error report */
-	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, str1_decompressed_length);
 	  goto cleanup;
 	}
       alloced_string1 = true;
@@ -14227,7 +14189,6 @@ mr_data_cmpdisk_varnchar (void *mem1, void *mem2, TP_DOMAIN * domain, int do_coe
       if (string2 == NULL)
 	{
 	  /* Error report */
-	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, str2_decompressed_length);
 	  goto cleanup;
 	}
 
@@ -14877,9 +14838,6 @@ mr_readval_bit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
-
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-		      (size_t) (mem_length + 1) * sizeof (char));
 	      return ER_FAILED;
 	    }
 	  else
@@ -14947,8 +14905,6 @@ mr_readval_bit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int
 	    {
 	      /* need to be able to return errors ! */
 	      db_value_domain_init (value, TP_DOMAIN_TYPE (domain), domain->precision, 0);
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-		      (size_t) (mem_length + 1) * sizeof (char));
 	      return ER_FAILED;
 	    }
 	  else
@@ -15357,8 +15313,6 @@ mr_data_readmem_varbit (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size
 	  new_ = (char *) db_private_alloc (NULL, mem_length);
 	  if (new_ == NULL)
 	    {
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-		      (size_t) (mem_length + 1) * sizeof (char));
 	      return;
 	    }
 	  else
@@ -15648,8 +15602,6 @@ mr_readval_varbit_internal (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, 
 		{
 		  db_value_domain_init (value, TP_DOMAIN_TYPE (domain), TP_FLOATING_PRECISION_VALUE, 0);
 		}
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1,
-		      (size_t) (str_length + 1) * sizeof (char));
 	      return ER_FAILED;
 	    }
 	  else
@@ -16595,7 +16547,6 @@ pr_do_db_value_string_compression (DB_VALUE * value)
   compressed_string = (char *) db_private_alloc (NULL, compressed_size);
   if (compressed_string == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, compressed_size);
       rc = ER_OUT_OF_VIRTUAL_MEMORY;
       return rc;
     }
