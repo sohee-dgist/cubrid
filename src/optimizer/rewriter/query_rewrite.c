@@ -243,6 +243,12 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
 	case PT_IS_NOT_IN:
 	  node->info.expr.arg2 = qo_rewrite_hidden_col_as_derived (parser, node->info.expr.arg2, node);
 	  break;
+	case PT_EXISTS:
+	  if (pt_is_query (node->info.expr.arg1))
+	    {
+	      qo_add_limit_clause (parser, node->info.expr.arg1);
+	    }
+	  break;
 	default:
 	  break;
 	}
