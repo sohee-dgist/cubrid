@@ -6003,7 +6003,6 @@ mr_data_readmem_elo (OR_BUF * buf, void *memptr, TP_DOMAIN * domain, int size)
       if (rc != NO_ERROR)
 	{
 	  db_private_free_and_init (NULL, elo);
-	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, sizeof (DB_ELO));
 	  return;
 	}
     }
@@ -16878,11 +16877,12 @@ mr_data_writeval_json (OR_BUF * buf, DB_VALUE * value)
       return ER_FAILED;
     }
 
-#ifdef DEBUG
+#if !defined(NDEBUG)
   int estimated_length = mr_data_lengthval_json (value, true);
-  if (estimated_length > (int) (buf->endptr - buf->ptr))
+  if ((ptrdiff_t) estimated_length > ((ptrdiff_t) (buf->endptr - buf->ptr)))
     {
-    assert (false)}
+      assert (false);
+    }
 #endif
 
   JSON_DOC *json_doc = db_get_json_document (value);
