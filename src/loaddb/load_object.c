@@ -803,7 +803,6 @@ get_desc_old (OR_BUF * buf, SM_CLASS * class_, int repid, DESC_OBJ * obj, int bo
       bytes = OR_BOUND_BIT_BYTES (oldrep->fixed_count);
       if ((buf->ptr + bytes) > buf->endptr)
 	{
-	  assert (false);
 	  goto abort_on_error;
 	}
 

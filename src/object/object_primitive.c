@@ -7245,7 +7245,6 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	      ref = setobj_get_reference (set);
 	      if (ref == NULL)
 		{
-		  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, sizeof (DB_COLLECTION));
 		  return ER_FAILED;
 		}
 	      else
@@ -7273,7 +7272,6 @@ mr_data_readval_set (OR_BUF * buf, DB_VALUE * value, TP_DOMAIN * domain, int siz
 	  ref = set_make_reference ();
 	  if (ref == NULL)
 	    {
-	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, sizeof (DB_COLLECTION));
 	      return ER_FAILED;
 	    }
 	  else
