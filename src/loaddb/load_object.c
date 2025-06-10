@@ -976,12 +976,12 @@ desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * ob
       get_desc_old (buf, class_, repid, obj, bound_bit_flag, offset_size, is_unloaddb);
     }
 
+  pr_Inhibit_oid_promotion = save;
   if (er_errid () != NO_ERROR)
     {
       return er_errid ();
     }
 
-  pr_Inhibit_oid_promotion = save;
 
   if (buf->ptr > buf->endptr)
     {
