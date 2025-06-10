@@ -553,6 +553,7 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
       return (1);
     }
 
+  *index_flag = has_index;
   return NO_ERROR;
 }
 
