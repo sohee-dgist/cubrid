@@ -514,6 +514,10 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
       return (1);
     }
 
+  /* should modify object_disk_size and put_varinfo together */
+  assert_release (buf->ptr + expected_disk_size + (OR_MVCC_MAX_HEADER_SIZE - OR_MVCC_INSERT_HEADER_SIZE) ==
+		  buf->endptr);
+
   /* header */
   repid_bits = obj->class_->repid;
   if (obj->class_->fixed_count)
@@ -534,10 +538,6 @@ desc_obj_to_disk (DESC_OBJ * obj, RECDES * record, bool * index_flag)
   record->length = (int) (buf->ptr - buf->buffer);
   /* see if there are any indexes */
   has_index = classobj_class_has_indexes (obj->class_);
-
-  /* should modify object_disk_size and put_varinfo together */
-  assert_release (buf->ptr + expected_disk_size + (OR_MVCC_MAX_HEADER_SIZE - OR_MVCC_INSERT_HEADER_SIZE) ==
-		  buf->endptr);
 
   if (buf->ptr > buf->endptr)
     {
@@ -974,6 +974,11 @@ desc_disk_to_obj (MOP classop, SM_CLASS * class_, RECDES * record, DESC_OBJ * ob
   else
     {
       get_desc_old (buf, class_, repid, obj, bound_bit_flag, offset_size, is_unloaddb);
+    }
+
+  if (er_errid () != NO_ERROR)
+    {
+      return er_errid ();
     }
 
   pr_Inhibit_oid_promotion = save;
