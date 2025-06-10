@@ -547,8 +547,7 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
     }
 
   /* auto parameterize for limit clause */
-  if (PT_IS_QUERY_NODE_TYPE (node->node_type) || node->node_type == PT_UPDATE || node->node_type == PT_DELETE
-      && parser->flag.is_skip_auto_parameterize == 0)
+  if (PT_IS_QUERY_NODE_TYPE (node->node_type) || node->node_type == PT_UPDATE || node->node_type == PT_DELETE)
     {
       qo_auto_parameterize_limit_clause (parser, node);
 
