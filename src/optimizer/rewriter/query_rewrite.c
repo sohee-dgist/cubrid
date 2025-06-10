@@ -493,7 +493,7 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
       /* auto-parameterization is safe when it is done as the last step of rewrite optimization */
       if (!prm_get_bool_value (PRM_ID_HOSTVAR_LATE_BINDING)
 	  && prm_get_integer_value (PRM_ID_XASL_CACHE_MAX_ENTRIES) > 0 && node->flag.cannot_prepare == 0
-	  && parser->flag.is_parsing_static_sql == 0)
+	  && parser->flag.is_parsing_static_sql == 0 && parser->flag.is_skip_auto_parameterize == 0)
 	{
 	  call_auto_parameterize = true;
 	}
@@ -547,7 +547,8 @@ qo_rewrite_queries (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *con
     }
 
   /* auto parameterize for limit clause */
-  if (PT_IS_QUERY_NODE_TYPE (node->node_type) || node->node_type == PT_UPDATE || node->node_type == PT_DELETE)
+  if (PT_IS_QUERY_NODE_TYPE (node->node_type) || node->node_type == PT_UPDATE || node->node_type == PT_DELETE
+      && parser->flag.is_skip_auto_parameterize == 0)
     {
       qo_auto_parameterize_limit_clause (parser, node);
 
