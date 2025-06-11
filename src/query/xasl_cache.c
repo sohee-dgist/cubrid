@@ -919,6 +919,7 @@ xcache_find_xasl_id_for_execute (THREAD_ENTRY * thread_p, const XASL_ID * xid, X
   int lock_result;
   bool use_xasl_clone = false;
   xasl_cache_rt_check_result recompile_due_to_threshold = XASL_CACHE_RECOMPILE_NOT_NEEDED;
+  XASL_ID prev_xid;
 
   assert (xid != NULL);
   assert (xcache_entry != NULL && *xcache_entry == NULL);
@@ -977,6 +978,16 @@ xcache_find_xasl_id_for_execute (THREAD_ENTRY * thread_p, const XASL_ID * xid, X
 
   assert ((*xcache_entry) != NULL);
 
+  /* set xasl_id to tdes before getting locks */
+  int tran_index = LOG_FIND_THREAD_TRAN_INDEX (thread_p);
+  LOG_TDES *tdes_p = LOG_FIND_TDES (tran_index);
+  assert (tdes_p != NULL);
+  if (tdes_p != NULL)
+    {
+      XASL_ID_COPY (&prev_xid, &tdes_p->xasl_id);
+      XASL_ID_COPY (&tdes_p->xasl_id, xid);
+    }
+
   /* Get lock on all classes in xasl cache entry. */
   /* The reason we need to do the locking here is to confirm the entry validity. Without the locks, we cannot guarantee
    * the entry will remain valid (somebody holding SCH_M_LOCK may invalidate it). Moreover, in most cases, the
@@ -1005,7 +1016,7 @@ xcache_find_xasl_id_for_execute (THREAD_ENTRY * thread_p, const XASL_ID * xid, X
 		      XCACHE_LOG_ENTRY_ARGS (*xcache_entry),
 		      XCACHE_LOG_ENTRY_OBJECT_ARGS (*xcache_entry, oid_index), XCACHE_LOG_TRAN_ARGS (thread_p));
 
-	  return error_code;
+	  goto error;
 	}
     }
 
@@ -1087,7 +1098,7 @@ xcache_find_xasl_id_for_execute (THREAD_ENTRY * thread_p, const XASL_ID * xid, X
 			XCACHE_LOG_XASL_ID_TEXT ("xasl_id") XCACHE_LOG_TRAN_TEXT,
 			XCACHE_LOG_XASL_ID_ARGS (xid), XCACHE_LOG_TRAN_ARGS (thread_p));
 
-      return error_code;
+      goto error;
     }
   assert (xclone->xasl != NULL && xclone->xasl_buf != NULL);
 
@@ -1100,6 +1111,15 @@ xcache_find_xasl_id_for_execute (THREAD_ENTRY * thread_p, const XASL_ID * xid, X
 	      XCACHE_LOG_XASL_ID_ARGS (xid), XCACHE_LOG_CLONE_ARGS (xclone), XCACHE_LOG_TRAN_ARGS (thread_p));
 
   return NO_ERROR;
+
+error:
+  /* reset xasl_id of tdes */
+  if (tdes_p != NULL)
+    {
+      XASL_ID_COPY (&tdes_p->xasl_id, &prev_xid);
+    }
+
+  return error_code;
 }
 
 /*
