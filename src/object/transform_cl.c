@@ -4377,7 +4377,7 @@ tf_disk_to_class (OID * oid, RECDES * record)
 
   sm_bump_global_schema_version ();
 
-  if (buf->ptr > buf->endptr || er_errid () != NO_ERROR)
+  if (buf->ptr > buf->endptr)
     {
       /*
        * make sure to clear the class that was being created,
