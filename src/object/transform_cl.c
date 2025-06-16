@@ -876,7 +876,7 @@ tf_mem_to_disk (MOP classmop, MOBJ classobj, MOBJ volatile obj, RECDES * record,
        * assign permanent OID's and make the necessary adjustments in
        * the packed buffer.
        */
-      if (tf_do_fixup (buf->fixups) != NO_ERROR)
+      if (tf_do_fixup (buf->fixups) != NO_ERROR || er_errid () == ER_OUT_OF_VIRTUAL_MEMORY)
 	{
 	  status = TF_ERROR;
 	}
@@ -1373,8 +1373,12 @@ tf_disk_to_mem (MOBJ classobj, RECDES * record, int *convertp)
     {
       WS_CHN (obj) = chn;
     }
-
   *convertp = convert;
+
+  if (er_errid () == ER_OUT_OF_VIRTUAL_MEMORY)
+    {
+      return NULL;
+    }
   return (obj);
 }
 
