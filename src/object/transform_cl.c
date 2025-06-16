@@ -1866,7 +1866,10 @@ get_substructure_set (OR_BUF * buf, LREADER reader, int expected)
 	}
       else
 	{
-	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+	  if (er_errid () != NO_ERROR)
+	    {
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	    }
 	  return NULL;
 	}
     }
@@ -1983,7 +1986,10 @@ get_property_list (OR_BUF * buf, int expected_size)
       properties = db_get_set (&value);
       if (properties == NULL)
 	{
-	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+	  if (er_errid () != NO_ERROR)
+	    {
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	    }
 	  return NULL;
 	}
       else
@@ -2114,7 +2120,10 @@ disk_to_domain2 (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_domain.mc_n_variable);
   if (vars == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
       return NULL;
     }
 
@@ -2124,7 +2133,10 @@ disk_to_domain2 (OR_BUF * buf)
   if (domain == NULL)
     {
       free_var_table (vars);
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
       return NULL;
     }
 
@@ -2308,14 +2320,17 @@ disk_to_metharg (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_metharg.mc_n_variable);
   if (vars == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
       return NULL;
     }
 
   arg = classobj_make_method_arg (0);
   if (arg == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, sizeof (SM_METHOD_ARGUMENT));
       return NULL;
     }
   else
@@ -2433,7 +2448,10 @@ disk_to_methsig (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_methsig.mc_n_variable);
   if (vars == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
       return NULL;
     }
   else
@@ -2585,7 +2603,10 @@ disk_to_method (OR_BUF * buf, SM_METHOD * method)
   vars = read_var_table (buf, tf_Metaclass_method.mc_n_variable);
   if (vars == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
       return;
     }
   else
@@ -2706,7 +2727,10 @@ disk_to_methfile (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_methfile.mc_n_variable);
   if (vars == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
       return NULL;
     }
   else
@@ -2991,7 +3015,10 @@ disk_to_attribute (OR_BUF * buf, SM_ATTRIBUTE * att)
   vars = read_var_table (buf, tf_Metaclass_attribute.mc_n_variable);
   if (vars == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
       return;
     }
   else
@@ -3246,7 +3273,10 @@ disk_to_resolution (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_resolution.mc_n_variable);
   if (vars == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
       return NULL;
     }
   else
@@ -3362,8 +3392,10 @@ disk_to_repattribute (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_repattribute.mc_n_variable);
   if (vars == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
-      return NULL;
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
     }
 
   id = or_get_int (buf, &rc);
@@ -3473,7 +3505,10 @@ disk_to_representation (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_representation.mc_n_variable);
   if (vars == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
       return NULL;
     }
 
@@ -3755,8 +3790,10 @@ class_to_disk (OR_BUF * buf, SM_CLASS * class_)
    * conversion routines */
   if (!check_class_structure (class_))
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
-      return;
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
     }
   else
     {
@@ -4284,7 +4321,10 @@ disk_to_root (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_root.mc_n_variable);
   if (vars == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
       return NULL;
     }
   else
@@ -4918,7 +4958,10 @@ disk_to_partition_info (OR_BUF * buf)
   vars = read_var_table (buf, tf_Metaclass_partition.mc_n_variable);
   if (vars == NULL)
     {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NO_CONNECT, 0);
+      if (er_errid () != NO_ERROR)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+	}
       return NULL;
     }
 
