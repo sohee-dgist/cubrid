@@ -8397,6 +8397,14 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 					      return S_ERROR;
 					    }
 					}
+				      if (xasl->curr_spec->flags & ACCESS_SPEC_FLAG_ONLY_MIN_MAX_SCAN)
+					{
+					  if (qdata_evaluate_aggregate_min_max_finished
+					      (thread_p, xasl->proc.buildvalue.agg_list))
+					    {
+					      return S_SUCCESS;
+					    }
+					}
 				    }
 				  /* one iteration successfully completed */
 				  if (qexec_end_one_iteration (thread_p, xasl, xasl_state, tplrec) != NO_ERROR)

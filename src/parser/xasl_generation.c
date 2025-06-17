@@ -4451,6 +4451,51 @@ pt_find_attribute (PARSER_CONTEXT * parser, const PT_NODE * name, const PT_NODE 
   return -1;
 }
 
+void
+pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN * plan, AGGREGATE_TYPE * aggregate,
+			  ACCESS_SPEC_TYPE * access_spec)
+{
+  AGGREGATE_TYPE *agg;
+  bool min_max_scan = false;
+  bool min_max_only_scan = true;
+  bool dummy;
+
+  PT_NODE *select_list = select_node->info.query.q.select.list;
+
+  PT_NODE *iscan_sort_list = qo_plan_compute_iscan_sort_list (plan, NULL, &dummy);
+
+  for (agg = aggregate; agg != NULL; agg = agg->next)
+    {
+      switch (agg->function)
+	{
+	case PT_MIN:
+	  if (pt_sort_spec_cover (iscan_sort_list, select_list))
+	    {
+	      min_max_scan = true;
+	    }
+	  break;
+	case PT_MAX:
+	  if (pt_sort_spec_cover (iscan_sort_list, select_list))
+	    {
+	      min_max_scan = true;
+	    }
+	  break;
+	default:
+	  min_max_only_scan = false;
+	  break;
+	}
+      select_list = select_list->next;
+    }
+  if (min_max_scan)
+    {
+      access_spec->flags = (ACCESS_SPEC_FLAG) (access_spec->flags | ACCESS_SPEC_FLAG_MIN_MAX_SCAN);
+    }
+  if (min_max_only_scan)
+    {
+      access_spec->flags = (ACCESS_SPEC_FLAG) (access_spec->flags | ACCESS_SPEC_FLAG_ONLY_MIN_MAX_SCAN);
+    }
+}
+
 /*
  * pt_index_value () -
  *   return: the DB_VALUE at the index position in a VAL_LIST
@@ -4516,7 +4561,7 @@ pt_to_aggregate (PARSER_CONTEXT * parser, PT_NODE * select_node, OUTPTR_LIST * o
 
   /* init */
   info.class_name = NULL;
-  info.flag_agg_optimize = false;
+  info.flag_agg_optimize = true;
 
   if (pt_is_single_tuple (parser, select_node))
     {
@@ -5337,6 +5382,10 @@ pt_to_pos_descr (PARSER_CONTEXT * parser, QFILE_TUPLE_VALUE_POSITION * pos_p, PT
 		}
 	    }
 	  else if (pt_check_compatible_node_for_orderby (parser, temp, node))
+	    {
+	      pos_p->pos_no = i;
+	    }
+	  else if (pt_check_compatible_node_for_min_max_optimize (parser, temp, node))
 	    {
 	      pos_p->pos_no = i;
 	    }
@@ -17037,6 +17086,9 @@ pt_to_buildvalue_proc (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN *
 	}
       buildvalue = &xasl->proc.buildvalue;
     }
+
+  /* optimize aggregation min_max list */
+  pt_optimize_min_max_list (parser, select_node, qo_plan, aggregate, xasl->spec_list);
 
   /* check sampling scan */
   if (xasl->spec_list && xasl->spec_list->access == ACCESS_METHOD_SEQUENTIAL_SAMPLING_SCAN)

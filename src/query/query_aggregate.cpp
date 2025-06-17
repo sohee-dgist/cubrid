@@ -1059,69 +1059,99 @@ qdata_evaluate_aggregate_min_max_optimize (cubthread::entry *thread_p, cubxasl::
 	  continue;
 	}
 
-      std::vector<DB_VALUE> db_values;
-      /* fetch operands value. aggregate regulator variable should only contain constants */
-      REGU_VARIABLE_LIST operand = NULL;
-      acc = &agg_p->accumulator;
-      for (operand = agg_p->operands; operand != NULL; operand = operand->next)
-	{
-	  // create an empty value
-	  db_values.emplace_back ();
-
-	  // fetch it
-	  if (fetch_copy_dbval (thread_p, &operand->value, val_desc_p, NULL, NULL, NULL,
-				&db_values.back ()) != NO_ERROR)
-	    {
-	      pr_clear_value_vector (db_values);
-	      return ER_FAILED;
-	    }
-	}
-
       switch (agg_p->function)
 	{
 	case PT_MIN:
-	  if (is_min)
+	  if (agg_p->is_ended)
 	    {
-	      DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
-	      pr_clear_value (acc->value);
-
-	      if (TP_DOMAIN_TYPE (agg_p->domain) != type)
+	      break;
+	    }
+	  else
+	    {
+	      if (is_min)
 		{
-		  int coerce_error = db_value_coerce (&db_values[0], acc->value, agg_p->domain);
-		  if (coerce_error != NO_ERROR)
+		  std::vector<DB_VALUE> db_values;
+		  /* fetch operands value. aggregate regulator variable should only contain constants */
+		  REGU_VARIABLE_LIST operand = NULL;
+		  acc = &agg_p->accumulator;
+		  for (operand = agg_p->operands; operand != NULL; operand = operand->next)
 		    {
-		      /* set error here */
-		      return ER_FAILED;
+		      // create an empty value
+		      db_values.emplace_back ();
+
+		      // fetch it
+		      if (fetch_copy_dbval (thread_p, &operand->value, val_desc_p, NULL, NULL, NULL,
+					    &db_values.back ()) != NO_ERROR)
+			{
+			  pr_clear_value_vector (db_values);
+			  return ER_FAILED;
+			}
 		    }
+		  DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
+		  pr_clear_value (acc->value);
+
+		  if (TP_DOMAIN_TYPE (agg_p->domain) != type)
+		    {
+		      int coerce_error = db_value_coerce (&db_values[0], acc->value, agg_p->domain);
+		      if (coerce_error != NO_ERROR)
+			{
+			  /* set error here */
+			  return ER_FAILED;
+			}
+		    }
+		  else
+		    {
+		      pr_clone_value (&db_values[0], acc->value);
+		    }
+		  agg_p->is_ended = true;
 		}
-	      else
-		{
-		  pr_clone_value (&db_values[0], acc->value);
-		}
-	      agg_p->is_ended = true;
 	    }
 	  break;
 
 	case PT_MAX:
-	  if (!is_min)
+	  if (agg_p->is_ended)
 	    {
-	      DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
-	      pr_clear_value (acc->value);
-
-	      if (TP_DOMAIN_TYPE (agg_p->domain) != type)
+	      break;
+	    }
+	  else
+	    {
+	      std::vector<DB_VALUE> db_values;
+	      /* fetch operands value. aggregate regulator variable should only contain constants */
+	      REGU_VARIABLE_LIST operand = NULL;
+	      acc = &agg_p->accumulator;
+	      for (operand = agg_p->operands; operand != NULL; operand = operand->next)
 		{
-		  int coerce_error = db_value_coerce (&db_values[0], acc->value, agg_p->domain);
-		  if (coerce_error != NO_ERROR)
+		  // create an empty value
+		  db_values.emplace_back ();
+
+		  // fetch it
+		  if (fetch_copy_dbval (thread_p, &operand->value, val_desc_p, NULL, NULL, NULL,
+					&db_values.back ()) != NO_ERROR)
 		    {
-		      /* set error here */
+		      pr_clear_value_vector (db_values);
 		      return ER_FAILED;
 		    }
 		}
-	      else
+	      if (!is_min)
 		{
-		  pr_clone_value (&db_values[0], acc->value);
+		  DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
+		  pr_clear_value (acc->value);
+
+		  if (TP_DOMAIN_TYPE (agg_p->domain) != type)
+		    {
+		      int coerce_error = db_value_coerce (&db_values[0], acc->value, agg_p->domain);
+		      if (coerce_error != NO_ERROR)
+			{
+			  /* set error here */
+			  return ER_FAILED;
+			}
+		    }
+		  else
+		    {
+		      pr_clone_value (&db_values[0], acc->value);
+		    }
+		  agg_p->is_ended = true;
 		}
-	      agg_p->is_ended = true;
 	    }
 	  break;
 
@@ -1132,6 +1162,27 @@ qdata_evaluate_aggregate_min_max_optimize (cubthread::entry *thread_p, cubxasl::
 
   return NO_ERROR;
 }
+
+bool
+qdata_evaluate_aggregate_min_max_finished (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_list_p)
+{
+  cubxasl::aggregate_list_node *agg_p;
+  int i;
+
+  for (agg_p = agg_list_p, i = 0; agg_p != NULL; agg_p = agg_p->next, i++)
+    {
+      if (! (agg_p->function == PT_MIN || agg_p->function == PT_MAX))
+	{
+	  assert (false);
+	}
+      if (!agg_p->is_ended)
+	{
+	  return false;
+	}
+    }
+  return true;
+}
+
 /*
  * qdata_evaluate_aggregate_hierarchy () - aggregate evaluation optimization
  *					   across a class hierarchy

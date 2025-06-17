@@ -402,4 +402,5 @@ extern bool qo_is_iscan_from_orderby (QO_PLAN *);
 extern bool qo_is_interesting_order_scan (QO_PLAN *);
 extern bool qo_is_all_unique_index_columns_are_equi_terms (QO_PLAN * plan);
 extern bool qo_has_sort_limit_subplan (QO_PLAN * plan);
+extern PT_NODE *qo_plan_compute_iscan_sort_list (QO_PLAN * root, PT_NODE * group_by, bool * is_index_w_prefix);
 #endif /* _QUERY_PLANNER_H_ */

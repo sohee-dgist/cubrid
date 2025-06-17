@@ -20,6 +20,7 @@
  * semantic_check.c - semantic checking functions
  */
 
+#include "parse_tree.h"
 #ident "$Id$"
 
 #include "config.h"
@@ -873,6 +874,63 @@ end:
       free_and_init (cinfo);
     }
   return result;
+}
+
+/*
+ * pt_check_compatible_node_for_orderby ()
+ */
+bool
+pt_check_compatible_node_for_min_max_optimize (PARSER_CONTEXT * parser, PT_NODE * order, PT_NODE * column)
+{
+  PT_NODE *arg1, *cast_type;
+  PT_TYPE_ENUM type1, type2;
+
+  if (order == NULL || column == NULL || order->node_type != PT_FUNCTION)
+    {
+      return false;
+    }
+
+  if (order->info.function.function_type != PT_MIN && order->info.function.function_type != PT_MAX)
+    {
+      return false;
+    }
+
+  arg1 = order->info.function.arg_list;
+  if (arg1->node_type != column->node_type)
+    {
+      return false;
+    }
+
+  if (arg1->node_type != PT_NAME && arg1->node_type != PT_DOT_)
+    {
+      return false;
+    }
+
+  if (pt_check_path_eq (parser, arg1, column) != 0)
+    {
+      return false;
+    }
+
+
+  type1 = arg1->type_enum;
+
+  if (PT_IS_NUMERIC_TYPE (type1))
+    {
+      return true;
+    }
+
+  /* Only string type : Do not consider 'CAST (enum_col as VARCHAR)' equal to 'enum_col' */
+  if (PT_IS_STRING_TYPE (type1))
+    {
+      return true;
+    }
+
+  if (PT_IS_DATE_TIME_TYPE (type1))
+    {
+      return true;
+    }
+
+  return false;
 }
 
 /*

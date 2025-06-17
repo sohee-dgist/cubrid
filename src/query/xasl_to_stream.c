@@ -7389,6 +7389,7 @@ xts_sizeof_aggregate_type (const AGGREGATE_TYPE * aggregate)
 	}
     }
 
+  size += OR_BYTE_SIZE; /* is_ended */
   return size;
 }
 

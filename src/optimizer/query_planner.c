@@ -251,7 +251,6 @@ static bool qo_check_orderby_skip_descending (QO_PLAN * plan);
 static bool qo_check_skip_term (QO_ENV * env, BITSET visited_segs, QO_TERM * term, BITSET * visited_terms,
 				BITSET * cur_visited_terms);
 static bool qo_check_groupby_skip_descending (QO_PLAN * plan, PT_NODE * list);
-static PT_NODE *qo_plan_compute_iscan_sort_list (QO_PLAN * root, PT_NODE * group_by, bool * is_index_w_prefix);
 
 static int qo_walk_plan_tree (QO_PLAN * plan, QO_WALK_FUNCTION f, void *arg);
 static void qo_set_use_desc (QO_PLAN * plan);
@@ -11069,7 +11068,7 @@ qo_check_groupby_skip_descending (QO_PLAN * plan, PT_NODE * list)
  *   is_index_w_prefix(out):
  *
  */
-static PT_NODE *
+PT_NODE *
 qo_plan_compute_iscan_sort_list (QO_PLAN * root, PT_NODE * group_by, bool * is_index_w_prefix)
 {
   QO_PLAN *plan;
