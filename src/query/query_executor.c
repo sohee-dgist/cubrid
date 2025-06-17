@@ -8377,6 +8377,27 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 			      qualified = (xasl->instnum_pred == NULL || ev_res == V_TRUE);
 			      if (qualified)
 				{
+				  if (xasl->curr_spec->flags & ACCESS_SPEC_FLAG_MIN_MAX_SCAN)
+				    {
+				      if (xasl->proc.buildvalue.agg_list != NULL)
+					{
+					  if (!xasl->proc.buildvalue.agg_domains_resolved)
+					    {
+					      if (qexec_resolve_domains_for_aggregation
+						  (thread_p, xasl->proc.buildvalue.agg_list, &xasl_state->vd, tplrec,
+						   NULL, &xasl->proc.buildvalue.agg_domains_resolved) != NO_ERROR)
+						{
+						  return S_ERROR;
+						}
+					    }
+					  if (qdata_evaluate_aggregate_min_max_optimize
+					      (thread_p, xasl->proc.buildvalue.agg_list, &xasl_state->vd,
+					       true) != NO_ERROR)
+					    {
+					      return S_ERROR;
+					    }
+					}
+				    }
 				  /* one iteration successfully completed */
 				  if (qexec_end_one_iteration (thread_p, xasl, xasl_state, tplrec) != NO_ERROR)
 				    {
