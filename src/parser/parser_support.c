@@ -4242,6 +4242,55 @@ pt_sort_spec_cover (PT_NODE * cur_list, PT_NODE * new_list)
   return (s2 == NULL) ? true : false;
 }
 
+/*
+ * pt_sort_spec_cover () -
+ *   return:  true or false
+ *   cur_list(in): current PT_SORT_SPEC list pointer
+ *   new_list(in): new PT_SORT_SPEC list pointer
+ */
+
+bool
+pt_sort_spec_cover_for_min_max (PARSER_CONTEXT * parser, PT_NODE* tree, PT_NODE * cur_list, PT_NODE * new_list)
+{
+  PT_NODE *s1, *s2;
+  QFILE_TUPLE_VALUE_POSITION *p1, p2;
+
+  if (new_list == NULL)
+    {
+      return false;
+    }
+
+  for (s1 = cur_list, s2 = new_list; s1 && s2; s1 = s1->next, s2 = s2->next)
+    {
+      p1 = &(s1->info.sort_spec.pos_descr);
+      pt_to_pos_descr (parser, &p2, s2->info.function.arg_list, tree, NULL);
+
+      if (p1->pos_no <= 0)
+	{
+	  s1 = NULL;		/* mark as end-of-sort */
+	}
+
+      if (p2.pos_no <= 0)
+	{
+	  s2 = NULL;		/* mark as end-of-sort */
+	}
+
+      /* end-of-sort check */
+      if (s1 == NULL || s2 == NULL)
+	{
+	  break;
+	}
+
+      /* equality check */
+      if (p1->pos_no != p2.pos_no)
+	{
+	  return false;
+	}
+    }
+
+  return true;
+}
+
 /* pt_enter_packing_buf() - mark the beginning of another level of packing
  *   return: none
  */

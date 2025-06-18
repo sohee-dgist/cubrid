@@ -4459,7 +4459,6 @@ pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLA
   bool min_max_scan = false;
   bool min_max_only_scan = true;
   bool dummy;
-
   PT_NODE *select_list = select_node->info.query.q.select.list;
 
   PT_NODE *iscan_sort_list = qo_plan_compute_iscan_sort_list (plan, NULL, &dummy);
@@ -4469,15 +4468,17 @@ pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLA
       switch (agg->function)
 	{
 	case PT_MIN:
-	  if (pt_sort_spec_cover (iscan_sort_list, select_list))
+	  if (pt_sort_spec_cover_for_min_max (parser, QO_ENV_PT_TREE ((plan->info)->env), iscan_sort_list, select_list))
 	    {
 	      min_max_scan = true;
+	      agg->is_min_max_optimized = true;
 	    }
 	  break;
 	case PT_MAX:
-	  if (pt_sort_spec_cover (iscan_sort_list, select_list))
+	  if (pt_sort_spec_cover_for_min_max (parser, QO_ENV_PT_TREE ((plan->info)->env), iscan_sort_list, select_list))
 	    {
 	      min_max_scan = true;
+	      agg->is_min_max_optimized = true;
 	    }
 	  break;
 	default:

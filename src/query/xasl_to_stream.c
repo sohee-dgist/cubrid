@@ -5560,6 +5560,9 @@ xts_process_aggregate_type (char *ptr, const AGGREGATE_TYPE * aggregate)
       ptr = or_pack_int (ptr, offset);
     }
 
+  ptr = or_pack_int (ptr, offset);
+  ptr = or_pack_int (ptr, aggregate->is_min_max_optimized);
+
   return ptr;
 }
 
@@ -7358,7 +7361,8 @@ xts_sizeof_aggregate_type (const AGGREGATE_TYPE * aggregate)
 	   + OR_INT_SIZE	/* curr_cnt */
 	   + OR_INT_SIZE	/* function */
 	   + OR_INT_SIZE	/* option */
-	   + OR_INT_SIZE);	/* opr_dbtype */
+	   + OR_INT_SIZE        /* opr_dbtype */
+           + OR_INT_SIZE);	/* is_ended */
 
   tmp_size = xts_sizeof_regu_variable_list (aggregate->operands);
   if (tmp_size == ER_FAILED)
@@ -7389,7 +7393,7 @@ xts_sizeof_aggregate_type (const AGGREGATE_TYPE * aggregate)
 	}
     }
 
-  size += OR_BYTE_SIZE; /* is_ended */
+  size += OR_INT_SIZE;		/* is_min_max_optimized */
   return size;
 }
 

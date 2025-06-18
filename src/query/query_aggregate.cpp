@@ -1054,104 +1054,74 @@ qdata_evaluate_aggregate_min_max_optimize (cubthread::entry *thread_p, cubxasl::
 
   for (agg_p = agg_list_p, i = 0; agg_p != NULL; agg_p = agg_p->next, i++)
     {
-      if (! (agg_p->function == PT_MIN || agg_p->function == PT_MAX))
+      if (! (agg_p->function == PT_MIN || agg_p->function == PT_MAX || agg_p->is_ended || agg_p->is_min_max_optimized))
 	{
 	  continue;
 	}
 
+      std::vector<DB_VALUE> db_values;
+      /* fetch operands value. aggregate regulator variable should only contain constants */
+      REGU_VARIABLE_LIST operand = NULL;
+      acc = &agg_p->accumulator;
+      for (operand = agg_p->operands; operand != NULL; operand = operand->next)
+	{
+	  // create an empty value
+	  db_values.emplace_back ();
+
+	  // fetch it
+	  if (fetch_copy_dbval (thread_p, &operand->value, val_desc_p, NULL, NULL, NULL,
+				&db_values.back ()) != NO_ERROR)
+	    {
+	      pr_clear_value_vector (db_values);
+	      return ER_FAILED;
+	    }
+	}
       switch (agg_p->function)
 	{
 	case PT_MIN:
-	  if (agg_p->is_ended)
+	  if (is_min)
 	    {
-	      break;
-	    }
-	  else
-	    {
-	      if (is_min)
+	      DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
+	      pr_clear_value (acc->value);
+
+	      if (TP_DOMAIN_TYPE (agg_p->domain) != type)
 		{
-		  std::vector<DB_VALUE> db_values;
-		  /* fetch operands value. aggregate regulator variable should only contain constants */
-		  REGU_VARIABLE_LIST operand = NULL;
-		  acc = &agg_p->accumulator;
-		  for (operand = agg_p->operands; operand != NULL; operand = operand->next)
+		  int coerce_error = db_value_coerce (&db_values[0], acc->value, agg_p->domain);
+		  if (coerce_error != NO_ERROR)
 		    {
-		      // create an empty value
-		      db_values.emplace_back ();
-
-		      // fetch it
-		      if (fetch_copy_dbval (thread_p, &operand->value, val_desc_p, NULL, NULL, NULL,
-					    &db_values.back ()) != NO_ERROR)
-			{
-			  pr_clear_value_vector (db_values);
-			  return ER_FAILED;
-			}
-		    }
-		  DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
-		  pr_clear_value (acc->value);
-
-		  if (TP_DOMAIN_TYPE (agg_p->domain) != type)
-		    {
-		      int coerce_error = db_value_coerce (&db_values[0], acc->value, agg_p->domain);
-		      if (coerce_error != NO_ERROR)
-			{
-			  /* set error here */
-			  return ER_FAILED;
-			}
-		    }
-		  else
-		    {
-		      pr_clone_value (&db_values[0], acc->value);
-		    }
-		  agg_p->is_ended = true;
-		}
-	    }
-	  break;
-
-	case PT_MAX:
-	  if (agg_p->is_ended)
-	    {
-	      break;
-	    }
-	  else
-	    {
-	      std::vector<DB_VALUE> db_values;
-	      /* fetch operands value. aggregate regulator variable should only contain constants */
-	      REGU_VARIABLE_LIST operand = NULL;
-	      acc = &agg_p->accumulator;
-	      for (operand = agg_p->operands; operand != NULL; operand = operand->next)
-		{
-		  // create an empty value
-		  db_values.emplace_back ();
-
-		  // fetch it
-		  if (fetch_copy_dbval (thread_p, &operand->value, val_desc_p, NULL, NULL, NULL,
-					&db_values.back ()) != NO_ERROR)
-		    {
-		      pr_clear_value_vector (db_values);
+		      /* set error here */
 		      return ER_FAILED;
 		    }
 		}
-	      if (!is_min)
+	      else
 		{
-		  DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
-		  pr_clear_value (acc->value);
-
-		  if (TP_DOMAIN_TYPE (agg_p->domain) != type)
-		    {
-		      int coerce_error = db_value_coerce (&db_values[0], acc->value, agg_p->domain);
-		      if (coerce_error != NO_ERROR)
-			{
-			  /* set error here */
-			  return ER_FAILED;
-			}
-		    }
-		  else
-		    {
-		      pr_clone_value (&db_values[0], acc->value);
-		    }
-		  agg_p->is_ended = true;
+		  pr_clone_value (&db_values[0], acc->value);
 		}
+	      agg_p->is_ended = true;
+	    }
+
+	  break;
+
+	case PT_MAX:
+	  if (!is_min)
+	    {
+	      DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
+	      pr_clear_value (acc->value);
+
+	      if (TP_DOMAIN_TYPE (agg_p->domain) != type)
+		{
+		  int coerce_error = db_value_coerce (&db_values[0], acc->value, agg_p->domain);
+		  if (coerce_error != NO_ERROR)
+		    {
+		      /* set error here */
+		      return ER_FAILED;
+		    }
+		}
+	      else
+		{
+		  pr_clone_value (&db_values[0], acc->value);
+		}
+	      agg_p->is_ended = true;
 	    }
 	  break;
 
