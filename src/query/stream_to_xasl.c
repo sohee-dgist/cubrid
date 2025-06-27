@@ -6003,9 +6003,10 @@ stx_build_aggregate_type (THREAD_ENTRY * thread_p, char *ptr, AGGREGATE_TYPE * a
   aggregate->is_ended = false;
   /* is_min_max_optimized */
   ptr = or_unpack_int (ptr, (int *) &aggregate->is_min_max_optimized);
+  ptr = or_unpack_int (ptr, (int *) &aggregate->is_part_key_desc);
 
   /* accumulator_domain */
-  aggregate->accumulator_domain.value_dom = NULL;
+  aggregate->accumulator_domain.value_dom = NULL;	/* TODO: restore value_dom */
   aggregate->accumulator_domain.value2_dom = NULL;
 
   return ptr;

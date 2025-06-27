@@ -99,6 +99,7 @@ namespace cubxasl
 #endif				/* defined (SERVER_MODE) || defined (SA_MODE) */
     int is_ended;		/* true, if the aggregate is ended */
     int is_min_max_optimized;	/* true, if the aggregate is min/max optimized */
+    int is_part_key_desc;	/* true, if the aggregate is part key descending */
   };
 };
 

@@ -8384,9 +8384,7 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 				    {
 				      if (xasl->proc.buildvalue.agg_list != NULL)
 					{
-					  bool scan_foward =
-					    xasl->curr_spec->s_id.s.isid.bt_scan.use_desc_index !=
-					    (xasl->curr_spec->s_id.s.isid.bt_scan.btid_int.part_key_desc == 0);
+					  bool scan_foward = !xasl->curr_spec->s_id.s.isid.bt_scan.use_desc_index;
 					  if (!xasl->proc.buildvalue.agg_domains_resolved)
 					    {
 					      if (qexec_resolve_domains_for_aggregation

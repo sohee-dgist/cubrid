@@ -4462,12 +4462,6 @@ pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLA
 
   PT_NODE *select_list = select_node->info.query.q.select.list;
   PT_NODE *iscan_sort_list = qo_plan_compute_iscan_sort_list (plan, NULL, &dummy);
-  bool use_descending = plan->plan_un.scan.index->head->use_descending;
-
-  if (use_descending)
-    {
-      return;
-    }
 
   for (agg = aggregate; agg != NULL; agg = agg->next)
     {
@@ -4478,6 +4472,7 @@ pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLA
 	    {
 	      min_max_scan = true;
 	      agg->is_min_max_optimized = true;
+	      agg->is_part_key_desc = (iscan_sort_list->info.sort_spec.asc_or_desc == PT_DESC);
 	    }
 	  else
 	    {
@@ -4489,6 +4484,7 @@ pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLA
 	    {
 	      min_max_scan = true;
 	      agg->is_min_max_optimized = true;
+	      agg->is_part_key_desc = (iscan_sort_list->info.sort_spec.asc_or_desc == PT_DESC);
 	    }
 	  else
 	    {

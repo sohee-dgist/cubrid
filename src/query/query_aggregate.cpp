@@ -143,6 +143,7 @@ qdata_initialize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_
   for (agg_p = agg_list_p; agg_p != NULL; agg_p = agg_p->next)
     {
 
+      agg_p->is_ended = false;
       /* the value of groupby_num() remains unchanged; it will be changed while evaluating groupby_num predicates
        * against each group at 'xs_eval_grbynum_pred()' */
       if (agg_p->function == PT_GROUPBY_NUM)
@@ -1079,7 +1080,7 @@ qdata_evaluate_aggregate_min_max_optimize (cubthread::entry *thread_p, cubxasl::
       switch (agg_p->function)
 	{
 	case PT_MIN:
-	  if (is_min)
+	  if (is_min != agg_p->is_part_key_desc)
 	    {
 	      DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
 	      pr_clear_value (acc->value);
@@ -1103,7 +1104,7 @@ qdata_evaluate_aggregate_min_max_optimize (cubthread::entry *thread_p, cubxasl::
 	  break;
 
 	case PT_MAX:
-	  if (!is_min)
+	  if (is_min == agg_p->is_part_key_desc)
 	    {
 	      DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
 	      pr_clear_value (acc->value);
