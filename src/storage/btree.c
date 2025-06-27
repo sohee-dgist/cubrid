@@ -6463,7 +6463,6 @@ btree_scan_clear_key (BTREE_SCAN * btree_scan)
 void
 bts_reset_scan_for_min_max_optimize (THREAD_ENTRY * thread_p, BTREE_SCAN * bts)
 {
-  bts->use_desc_index = true;
   bts_reset_scan (thread_p, bts);
 }
 
