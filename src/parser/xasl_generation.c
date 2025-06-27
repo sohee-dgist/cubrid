@@ -4451,7 +4451,7 @@ pt_find_attribute (PARSER_CONTEXT * parser, const PT_NODE * name, const PT_NODE 
   return -1;
 }
 
-void
+static void
 pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN * plan, AGGREGATE_TYPE * aggregate,
 			  ACCESS_SPEC_TYPE * access_spec)
 {
@@ -4459,8 +4459,8 @@ pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLA
   bool min_max_scan = false;
   bool min_max_only_scan = true;
   bool dummy;
-  PT_NODE *select_list = select_node->info.query.q.select.list;
 
+  PT_NODE *select_list = select_node->info.query.q.select.list;
   PT_NODE *iscan_sort_list = qo_plan_compute_iscan_sort_list (plan, NULL, &dummy);
 
   for (agg = aggregate; agg != NULL; agg = agg->next)

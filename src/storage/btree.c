@@ -619,7 +619,7 @@ typedef int BTREE_PROCESS_OBJECT_FUNCTION (THREAD_ENTRY * thread_p, BTID_INT * b
 //
 // thread_p (in) : thread entry
 // bts (in)      : b-tree scan
-void
+static void
 bts_reset_scan (THREAD_ENTRY * thread_p, BTREE_SCAN * bts)
 {
   /* Reset bts->is_scan_started. */
@@ -1513,7 +1513,6 @@ static int btree_range_scan_resume (THREAD_ENTRY * thread_p, BTREE_SCAN * bts);
 static int btree_range_scan_count_oids_leaf_and_one_ovf (THREAD_ENTRY * thread_p, BTREE_SCAN * bts);
 static int btree_scan_update_range (THREAD_ENTRY * thread_p, BTREE_SCAN * bts, key_val_range * kv_range);
 static int btree_ils_adjust_range (THREAD_ENTRY * thread_p, BTREE_SCAN * bts);
-static int btree_min_max_reverse_range (THREAD_ENTRY * thread_p, BTREE_SCAN * bts);
 
 static int btree_select_visible_object_for_range_scan (THREAD_ENTRY * thread_p, BTID_INT * btid_int, RECDES * record,
 						       char *object_ptr, OID * oid, OID * class_oid,
@@ -6465,18 +6464,6 @@ void
 bts_reset_scan_for_min_max_optimize (THREAD_ENTRY * thread_p, BTREE_SCAN * bts)
 {
   bts->use_desc_index = true;
-  DB_VALUE *swap_key = NULL;
-
-  /* fetch target key */
-  if ((bts->use_desc_index && !BTREE_IS_PART_KEY_DESC (&bts->btid_int))
-      || (!bts->use_desc_index && BTREE_IS_PART_KEY_DESC (&bts->btid_int)))
-    {
-      /* Reverse scan and its range. */
-      range_reverse (bts->key_range.range);
-      swap_key = bts->key_range.lower_key;
-      bts->key_range.lower_key = bts->key_range.upper_key;
-      bts->key_range.upper_key = swap_key;
-    }
   bts_reset_scan (thread_p, bts);
 }
 
@@ -20810,144 +20797,6 @@ btree_ils_adjust_range (THREAD_ENTRY * thread_p, BTREE_SCAN * bts)
       pr_clear_value (&new_key_dbvals[i]);	/* it might be alloced/copied */
     }
   db_private_free (thread_p, new_key_dbvals);
-
-  /* all ok */
-  return btree_scan_update_range (thread_p, bts, key_range);
-}
-
-static int
-btree_min_max_reverse_range (THREAD_ENTRY * thread_p, BTREE_SCAN * bts, key_val_range * key_range)
-{
-  DB_VALUE new_key;
-  TP_DOMAIN *dom;
-  DB_MIDXKEY midxkey;
-  bool swap_ranges = false;
-  int i;
-  int prefix_len = 0;
-  bool use_desc_index, part_key_desc;
-
-  /* Assert expected arguments. */
-  assert (bts != NULL);
-
-  use_desc_index = bts->use_desc_index;
-  part_key_desc = BTREE_IS_PART_KEY_DESC (&bts->btid_int);
-
-
-  /* fetch target key */
-  if (use_desc_index)
-    {
-      if (!part_key_desc)
-	{
-	  swap_ranges = true;
-	}
-    }
-  else
-    {
-      if (part_key_desc)
-	{
-	  swap_ranges = true;
-	}
-    }
-
-
-  /* determine target key and adjust range */
-  switch (key_range->range)
-    {
-    case INF_INF:
-      if (swap_ranges)
-	{
-	  key_range->range = INF_LT;	/* (INF, INF) => (INF, ?) */
-	}
-      else
-	{
-	  key_range->range = GT_INF;	/* (INF, INF) => (?, INF) */
-	}
-      break;
-
-    case INF_LE:
-      if (swap_ranges)
-	{
-	  key_range->range = INF_LT;	/* (INF, ?] => (INF, ?) */
-	}
-      else
-	{
-	  key_range->range = GT_LE;	/* (INF, ?] => (?, ?] */
-	}
-      break;
-
-    case INF_LT:
-      if (swap_ranges)
-	{
-	  /* range remains unchanged */
-	}
-      else
-	{
-	  key_range->range = GT_LT;	/* (INF, ?) => (?, ?) */
-	}
-      break;
-
-    case GE_LE:
-      if (swap_ranges)
-	{
-	  key_range->range = GE_LT;	/* [?, ?] => [?, ?) */
-	}
-      else
-	{
-	  key_range->range = GT_LE;	/* [?, ?] => (?, ?] */
-	}
-      break;
-
-    case GE_LT:
-      if (swap_ranges)
-	{
-	  /* range remains unchanged */
-	}
-      else
-	{
-	  key_range->range = GT_LT;	/* [?, ?) => (?, ?) */
-	}
-      break;
-
-    case GE_INF:
-      if (swap_ranges)
-	{
-	  key_range->range = GE_LT;	/* [?, INF) => [?, ?) */
-	}
-      else
-	{
-	  key_range->range = GT_INF;	/* [?, INF) => (?, INF) */
-	}
-      break;
-
-    case GT_LE:
-      if (swap_ranges)
-	{
-	  key_range->range = GT_LT;	/* (?, ?] => (?, ?) */
-	}
-      else
-	{
-	  /* range remains unchanged */
-	}
-      break;
-
-    case GT_LT:
-      /* range remains unchanged */
-      break;
-
-    case GT_INF:
-      if (swap_ranges)
-	{
-	  key_range->range = GT_LT;	/* (?, INF) => (?, ?) */
-	}
-      else
-	{
-	  /* range remains unchanged */
-	}
-      break;
-
-    default:
-      break;
-    }
 
   /* all ok */
   return btree_scan_update_range (thread_p, bts, key_range);

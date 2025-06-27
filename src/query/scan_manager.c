@@ -2784,7 +2784,6 @@ scan_init_scan_id (SCAN_ID * scan_id, bool mvcc_select_lock_needed, SCAN_OPERATI
   scan_id->val_list = val_list;	/* points to the XASL tree */
   scan_id->vd = vd;		/* set value descriptor pointer */
   scan_id->scan_immediately_stop = false;
-  scan_id->min_max_optimzied_scan = false;
 }
 
 /*
@@ -3141,7 +3140,6 @@ scan_open_index_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   if (min_max_optimzied_scan)
     {
       isidp->key_limit_upper = 1;
-      scan_id->min_max_optimzied_scan = true;
     }
 
   /* attribute information of the index key */
@@ -5986,7 +5984,6 @@ scan_next_index_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 
 	      isidp->curr_oidno = 0;	/* first oid number */
 	      scan_id->position = S_ON;
-	      isidp->curr_oidno++;
 	    }
 	  else if (scan_id->position == S_ON)
 	    {

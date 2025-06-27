@@ -4243,7 +4243,7 @@ pt_sort_spec_cover (PT_NODE * cur_list, PT_NODE * new_list)
 }
 
 /*
- * pt_sort_spec_cover () -
+ * pt_sort_spec_cover_min_max () -
  *   return:  true or false
  *   cur_list(in): current PT_SORT_SPEC list pointer
  *   new_list(in): new PT_SORT_SPEC list pointer
@@ -4263,6 +4263,7 @@ pt_sort_spec_cover_for_min_max (PARSER_CONTEXT * parser, PT_NODE * tree, PT_NODE
   for (s1 = cur_list, s2 = new_list; s1 && s2; s1 = s1->next, s2 = s2->next)
     {
       p1 = &(s1->info.sort_spec.pos_descr);
+      /* cannot cover col1, col1 + a, col1+col2, col1*2 etc. */
       if (pt_length_of_list (s2->info.function.arg_list) != 1)
 	{
 	  return false;
