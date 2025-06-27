@@ -8099,6 +8099,7 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
   bool max_recursive_iterations_reached = false;
   bool cte_start_new_iteration = false;
   static bool enable_agg_optimization = prm_get_bool_value (PRM_ID_OPTIMIZER_ENABLE_AGGREGATE_OPTIMIZATION);
+  bool need_restore_index_scan_direction = false;
 
   if (xasl->type == BUILDVALUE_PROC)
     {
@@ -8383,7 +8384,9 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 				    {
 				      if (xasl->proc.buildvalue.agg_list != NULL)
 					{
-					  bool scan_foward = !xasl->curr_spec->s_id.s.isid.bt_scan.use_desc_index;
+					  bool scan_foward =
+					    xasl->curr_spec->s_id.s.isid.bt_scan.use_desc_index !=
+					    (xasl->curr_spec->s_id.s.isid.bt_scan.btid_int.part_key_desc == 0);
 					  if (!xasl->proc.buildvalue.agg_domains_resolved)
 					    {
 					      if (qexec_resolve_domains_for_aggregation
@@ -8404,11 +8407,23 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 					      if (qdata_evaluate_aggregate_min_max_finished
 						  (thread_p, xasl->proc.buildvalue.agg_list))
 						{
+						  /* restore index scan direction */
+						  if (need_restore_index_scan_direction)
+						    {
+						      if (xasl->curr_spec->indexptr->use_desc_index)
+							{
+							  xasl->curr_spec->indexptr->use_desc_index = false;
+							}
+						      else
+							{
+							  xasl->curr_spec->indexptr->use_desc_index = true;
+							}
+						    }
 						  return S_SUCCESS;
 						}
 					      else
 						{
-
+						  need_restore_index_scan_direction = true;
 						  if (xasl->curr_spec->indexptr->use_desc_index)
 						    {
 						      xasl->curr_spec->indexptr->use_desc_index = false;
