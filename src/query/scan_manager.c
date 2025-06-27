@@ -5931,11 +5931,9 @@ scan_next_index_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 	  if (scan_id->position == S_BEFORE)
 	    {
 	      SCAN_CODE ret;
-
 	      /* Either we are not using ISS, or we are using it, and in this case, we are supposed to be here for the
 	       * first time */
 	      assert_release (!isidp->iss.use || isidp->iss.current_op == ISS_OP_NONE);
-
 	      ret = call_get_next_index_oidset (thread_p, scan_id, isidp, true);
 	      if (ret != S_SUCCESS)
 		{
@@ -5943,7 +5941,13 @@ scan_next_index_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 		}
 
 	      scan_id->position = S_ON;
-	      isidp->curr_oidno = -1;	/* first oid number */
+	      isidp->curr_oidno = 0;	/* first oid number */
+	      if (isidp->need_count_only == true)
+		{
+		  /* no more scan is needed. just return */
+		  return S_SUCCESS;
+		}
+
 	      if (SCAN_IS_INDEX_COVERED (isidp))
 		{
 		  qfile_close_list (thread_p, isidp->indx_cov.list_id);
@@ -5958,7 +5962,6 @@ scan_next_index_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 		    {
 		      assert (isidp->curr_oidno < isidp->multi_range_opt.cnt);
 		      assert (isidp->multi_range_opt.top_n_items[isidp->curr_oidno] != NULL);
-
 		      isidp->curr_oidp = &(isidp->multi_range_opt.top_n_items[isidp->curr_oidno]->inst_oid);
 		    }
 		  else
@@ -5981,6 +5984,7 @@ scan_next_index_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 		  return ret;
 		}
 
+	      isidp->curr_oidno = 0;	/* first oid number */
 	      scan_id->position = S_ON;
 	      isidp->curr_oidno++;
 	    }

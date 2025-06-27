@@ -97,8 +97,8 @@ namespace cubxasl
 #if defined (SERVER_MODE) || defined (SA_MODE)
     aggregate_accumulator_domain accumulator_domain;	/* holds domain info on accumulator */
 #endif				/* defined (SERVER_MODE) || defined (SA_MODE) */
-    bool is_ended;		/* true, if the aggregate is ended */
-    bool is_min_max_optimized;	/* true, if the aggregate is min/max optimized */
+    int is_ended;		/* true, if the aggregate is ended */
+    int is_min_max_optimized;	/* true, if the aggregate is min/max optimized */
   };
 };
 
