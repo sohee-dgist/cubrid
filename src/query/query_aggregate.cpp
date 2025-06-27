@@ -1054,7 +1054,7 @@ qdata_evaluate_aggregate_min_max_optimize (cubthread::entry *thread_p, cubxasl::
 
   for (agg_p = agg_list_p, i = 0; agg_p != NULL; agg_p = agg_p->next, i++)
     {
-      if (! (agg_p->function == PT_MIN || agg_p->function == PT_MAX || agg_p->is_ended || agg_p->is_min_max_optimized))
+      if ((! (agg_p->function == PT_MIN || agg_p->function == PT_MAX)) || agg_p->is_ended || !agg_p->is_min_max_optimized)
 	{
 	  continue;
 	}

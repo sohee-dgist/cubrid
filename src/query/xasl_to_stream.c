@@ -7361,8 +7361,8 @@ xts_sizeof_aggregate_type (const AGGREGATE_TYPE * aggregate)
 	   + OR_INT_SIZE	/* curr_cnt */
 	   + OR_INT_SIZE	/* function */
 	   + OR_INT_SIZE	/* option */
-	   + OR_INT_SIZE        /* opr_dbtype */
-           + OR_INT_SIZE);	/* is_ended */
+	   + OR_INT_SIZE	/* opr_dbtype */
+	   + OR_INT_SIZE);	/* is_ended */
 
   tmp_size = xts_sizeof_regu_variable_list (aggregate->operands);
   if (tmp_size == ER_FAILED)

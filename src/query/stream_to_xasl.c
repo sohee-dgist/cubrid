@@ -5999,7 +5999,7 @@ stx_build_aggregate_type (THREAD_ENTRY * thread_p, char *ptr, AGGREGATE_TYPE * a
     }
 
   /* is_ended */
-  ptr = or_unpack_int (ptr, &offset);  
+  ptr = or_unpack_int (ptr, &offset);
   aggregate->is_ended = false;
   /* is_min_max_optimized */
   ptr = or_unpack_int (ptr, (int *) &aggregate->is_min_max_optimized);

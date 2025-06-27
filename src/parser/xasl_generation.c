@@ -4473,12 +4473,20 @@ pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLA
 	      min_max_scan = true;
 	      agg->is_min_max_optimized = true;
 	    }
+	  else
+	    {
+	      min_max_only_scan = false;
+	    }
 	  break;
 	case PT_MAX:
 	  if (pt_sort_spec_cover_for_min_max (parser, QO_ENV_PT_TREE ((plan->info)->env), iscan_sort_list, select_list))
 	    {
 	      min_max_scan = true;
 	      agg->is_min_max_optimized = true;
+	    }
+	  else
+	    {
+	      min_max_only_scan = false;
 	    }
 	  break;
 	default:
@@ -4562,7 +4570,7 @@ pt_to_aggregate (PARSER_CONTEXT * parser, PT_NODE * select_node, OUTPTR_LIST * o
 
   /* init */
   info.class_name = NULL;
-  info.flag_agg_optimize = true;
+  info.flag_agg_optimize = false;
 
   if (pt_is_single_tuple (parser, select_node))
     {

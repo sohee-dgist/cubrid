@@ -412,6 +412,7 @@ struct scan_id_struct
   SCAN_STATS scan_stats;
   SCAN_STATS *partition_stats;
   bool scan_immediately_stop;
+  bool min_max_optimzied_scan;
 };				/* Scan Identifier */
 
 #define SCAN_IS_INDEX_COVERED(iscan_id_p) \
@@ -461,7 +462,8 @@ extern int scan_open_index_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
 				 HEAP_CACHE_ATTRINFO * cache_key, int num_attrs_pred, ATTR_ID * attrids_pred,
 				 HEAP_CACHE_ATTRINFO * cache_pred, int num_attrs_rest, ATTR_ID * attrids_rest,
 				 HEAP_CACHE_ATTRINFO * cache_rest, int num_attrs_range, ATTR_ID * attrids_range,
-				 HEAP_CACHE_ATTRINFO * cache_range, bool iscan_oid_order, QUERY_ID query_id);
+				 HEAP_CACHE_ATTRINFO * cache_range, bool iscan_oid_order, QUERY_ID query_id,
+				 bool force_limit);
 extern int scan_open_index_key_info_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
 					  /* fields of SCAN_ID */
 					  val_list_node * val_list, val_descr * vd,
@@ -538,7 +540,6 @@ extern void showstmt_scan_init (void);
 extern SCAN_CODE showstmt_next_scan (THREAD_ENTRY * thread_p, SCAN_ID * s_id);
 extern int showstmt_start_scan (THREAD_ENTRY * thread_p, SCAN_ID * s_id);
 extern int showstmt_end_scan (THREAD_ENTRY * thread_p, SCAN_ID * s_id);
-
 #if defined(SERVER_MODE)
 extern void scan_print_stats_json (SCAN_ID * scan_id, json_t * stats);
 extern void scan_print_stats_text (FILE * fp, SCAN_ID * scan_id);

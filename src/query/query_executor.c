@@ -6780,7 +6780,8 @@ qexec_open_scan (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * curr_spec, VAL_LIST
 					     curr_spec->s.cls_node.num_attrs_rest, curr_spec->s.cls_node.attrids_rest,
 					     curr_spec->s.cls_node.cache_rest, curr_spec->s.cls_node.num_attrs_range,
 					     curr_spec->s.cls_node.attrids_range, curr_spec->s.cls_node.cache_range,
-					     iscan_oid_order, query_id);
+					     iscan_oid_order, query_id,
+					     (curr_spec->flags & ACCESS_SPEC_FLAG_ONLY_MIN_MAX_SCAN));
 	  if (error_code != NO_ERROR)
 	    {
 	      ASSERT_ERROR ();
@@ -8020,7 +8021,8 @@ qexec_init_next_partition (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * spec, XAS
 			      spec->s.cls_node.cache_pred, spec->s.cls_node.num_attrs_rest,
 			      spec->s.cls_node.attrids_rest, spec->s.cls_node.cache_rest,
 			      spec->s.cls_node.num_attrs_range, spec->s.cls_node.attrids_range,
-			      spec->s.cls_node.cache_range, iscan_oid_order, query_id);
+			      spec->s.cls_node.cache_range, iscan_oid_order, query_id,
+			      (spec->flags & ACCESS_SPEC_FLAG_ONLY_MIN_MAX_SCAN));
 
     }
   else if (spec->type == TARGET_CLASS_ATTR)
@@ -8381,6 +8383,7 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 				    {
 				      if (xasl->proc.buildvalue.agg_list != NULL)
 					{
+					  bool scan_foward = !xasl->curr_spec->s_id.s.isid.bt_scan.use_desc_index;
 					  if (!xasl->proc.buildvalue.agg_domains_resolved)
 					    {
 					      if (qexec_resolve_domains_for_aggregation
@@ -8392,17 +8395,34 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 					    }
 					  if (qdata_evaluate_aggregate_min_max_optimize
 					      (thread_p, xasl->proc.buildvalue.agg_list, &xasl_state->vd,
-					       true) != NO_ERROR)
+					       scan_foward) != NO_ERROR)
 					    {
 					      return S_ERROR;
 					    }
-					}
-				      if (xasl->curr_spec->flags & ACCESS_SPEC_FLAG_ONLY_MIN_MAX_SCAN)
-					{
-					  if (qdata_evaluate_aggregate_min_max_finished
-					      (thread_p, xasl->proc.buildvalue.agg_list))
+					  if (xasl->curr_spec->flags & ACCESS_SPEC_FLAG_ONLY_MIN_MAX_SCAN)
 					    {
-					      return S_SUCCESS;
+					      if (qdata_evaluate_aggregate_min_max_finished
+						  (thread_p, xasl->proc.buildvalue.agg_list))
+						{
+						  return S_SUCCESS;
+						}
+					      else
+						{
+
+						  if (xasl->curr_spec->indexptr->use_desc_index)
+						    {
+						      xasl->curr_spec->indexptr->use_desc_index = false;
+						    }
+						  else
+						    {
+						      xasl->curr_spec->indexptr->use_desc_index = true;
+						    }
+
+
+						  BTREE_SCAN *bts = &xasl->curr_spec->s_id.s.isid.bt_scan;
+						  bts_reset_scan_for_min_max_optimize (thread_p, bts);
+						  xasl->curr_spec->s_id.position = S_GO_BACKWARD;
+						}
 					    }
 					}
 				    }

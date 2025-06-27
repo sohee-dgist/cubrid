@@ -4250,12 +4250,12 @@ pt_sort_spec_cover (PT_NODE * cur_list, PT_NODE * new_list)
  */
 
 bool
-pt_sort_spec_cover_for_min_max (PARSER_CONTEXT * parser, PT_NODE* tree, PT_NODE * cur_list, PT_NODE * new_list)
+pt_sort_spec_cover_for_min_max (PARSER_CONTEXT * parser, PT_NODE * tree, PT_NODE * cur_list, PT_NODE * new_list)
 {
   PT_NODE *s1, *s2;
   QFILE_TUPLE_VALUE_POSITION *p1, p2;
 
-  if (new_list == NULL)
+  if (new_list == NULL || cur_list == NULL)
     {
       return false;
     }
@@ -4263,6 +4263,10 @@ pt_sort_spec_cover_for_min_max (PARSER_CONTEXT * parser, PT_NODE* tree, PT_NODE 
   for (s1 = cur_list, s2 = new_list; s1 && s2; s1 = s1->next, s2 = s2->next)
     {
       p1 = &(s1->info.sort_spec.pos_descr);
+      if (pt_length_of_list (s2->info.function.arg_list) != 1)
+	{
+	  return false;
+	}
       pt_to_pos_descr (parser, &p2, s2->info.function.arg_list, tree, NULL);
 
       if (p1->pos_no <= 0)
