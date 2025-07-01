@@ -16328,8 +16328,13 @@ pt_to_buildlist_proc (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN * 
 
       aggregate =
 	pt_to_aggregate (parser, select_node, xasl->outptr_list, buildlist->g_val_list, buildlist->g_regu_list,
-			 buildlist->g_scan_regu_list, group_out_list, &buildlist->g_grbynum_val, qo_plan);
+			 buildlist->g_scan_regu_list, group_out_list, &buildlist->g_grbynum_val, qo_plan);;
 
+      /* set access spec for aggregation , no group by or order by */
+      if (xasl->spec_list)
+	{
+	  pt_set_access_spec_for_aggregation (parser, aggregate, xasl->spec_list);
+	}
       /* compute function count */
       buildlist->g_func_count = 0;
       agg_list = aggregate;
@@ -17140,7 +17145,10 @@ pt_to_buildvalue_proc (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN *
     }
 
   /* set access spec for aggregation */
-  pt_set_access_spec_for_aggregation (parser, aggregate, xasl->spec_list);
+  if (xasl->spec_list)
+    {
+      pt_set_access_spec_for_aggregation (parser, aggregate, xasl->spec_list);
+    }
 
   /* check sampling scan */
   if (xasl->spec_list && xasl->spec_list->access == ACCESS_METHOD_SEQUENTIAL_SAMPLING_SCAN)
