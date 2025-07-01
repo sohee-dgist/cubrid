@@ -4019,7 +4019,8 @@ pt_to_aggregate_node (PARSER_CONTEXT * parser, PT_NODE * tree, void *arg, int *c
 		}
 	    }
 	}
-      else if (aggregate_list->function == PT_MIN || aggregate_list->function == PT_MAX)
+      else if ((aggregate_list->function == PT_MIN || aggregate_list->function == PT_MAX)
+	       && info->flag_agg_min_max_optimized)
 	{
 	  pt_optimize_min_max_list (parser, tree, info->qo_plan, aggregate_list);
 	}
@@ -4602,11 +4603,17 @@ pt_to_aggregate (PARSER_CONTEXT * parser, PT_NODE * select_node, OUTPTR_LIST * o
   info.scan_regu_list = scan_regu_list;
   info.out_names = out_names;
   info.grbynum_valp = grbynum_valp;
-
   info.qo_plan = plan;
+
   /* init */
   info.class_name = NULL;
   info.flag_agg_optimize = false;
+  info.flag_agg_min_max_optimized = false;
+
+  if (!select_node->info.query.q.select.group_by && !select_node->info.query.order_by)
+    {
+      info.flag_agg_min_max_optimized = true;
+    }
 
   if (pt_is_single_tuple (parser, select_node))
     {

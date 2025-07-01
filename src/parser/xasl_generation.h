@@ -109,6 +109,7 @@ struct aggregate_info
   DB_VALUE **grbynum_valp;
   const char *class_name;
   int flag_agg_optimize;
+  int flag_agg_min_max_optimized;
   QO_PLAN *qo_plan;
 };
 
