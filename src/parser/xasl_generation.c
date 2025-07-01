@@ -17099,7 +17099,15 @@ pt_to_buildvalue_proc (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN *
     }
 
   /* optimize aggregation min_max list */
-  pt_optimize_min_max_list (parser, select_node, qo_plan, aggregate, xasl->spec_list);
+  if (select_node->info.query.q.select.group_by && xasl && xasl->spec_list && xasl->spec_list->indexptr
+      && xasl->spec_list->indexptr->groupby_skip)
+    {
+      ;
+    }
+  else
+    {
+      pt_optimize_min_max_list (parser, select_node, qo_plan, aggregate, xasl->spec_list);
+    }
 
   /* check sampling scan */
   if (xasl->spec_list && xasl->spec_list->access == ACCESS_METHOD_SEQUENTIAL_SAMPLING_SCAN)
