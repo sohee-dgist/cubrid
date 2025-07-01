@@ -4535,7 +4535,7 @@ pt_set_access_spec_for_aggregation (PARSER_CONTEXT * parser, AGGREGATE_TYPE * ag
     {
       access_spec->flags = (ACCESS_SPEC_FLAG) (access_spec->flags | ACCESS_SPEC_FLAG_MIN_MAX_SCAN);
     }
-  if (min_max_only_scan)
+  if (min_max_only_scan && min_max_scan)
     {
       access_spec->flags = (ACCESS_SPEC_FLAG) (access_spec->flags | ACCESS_SPEC_FLAG_ONLY_MIN_MAX_SCAN);
     }
