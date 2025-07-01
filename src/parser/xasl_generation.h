@@ -109,6 +109,7 @@ struct aggregate_info
   DB_VALUE **grbynum_valp;
   const char *class_name;
   int flag_agg_optimize;
+  QO_PLAN *qo_plan;
 };
 
 typedef struct analytic_info ANALYTIC_INFO;
