@@ -14477,7 +14477,7 @@ pt_check_group_by (PARSER_CONTEXT * parser, PT_NODE * node)
 	    }
 
 	  /* check for after group by position */
-	  pt_to_pos_descr (parser, &pos, r, node, &referred_node);
+	  pt_to_pos_descr (parser, &pos, r, node, &referred_node, false);
 	  if (pos.pos_no > 0)
 	    {
 	      /* set after group by position num, domain info */

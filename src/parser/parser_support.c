@@ -4268,7 +4268,7 @@ pt_sort_spec_cover_for_min_max (PARSER_CONTEXT * parser, PT_NODE * tree, PT_NODE
 	{
 	  return false;
 	}
-      pt_to_pos_descr (parser, &p2, s2->info.function.arg_list, tree, NULL);
+      pt_to_pos_descr (parser, &p2, s2->info.function.arg_list, tree, NULL, true);
 
       if (p1->pos_no <= 0)
 	{
@@ -8724,7 +8724,7 @@ pt_sort_spec_cover_groupby (PARSER_CONTEXT * parser, PT_NODE * sort_list, PT_NOD
 
   while (s1 && s2)
     {
-      pt_to_pos_descr (parser, &pos_descr, s2->info.sort_spec.expr, tree, NULL);
+      pt_to_pos_descr (parser, &pos_descr, s2->info.sort_spec.expr, tree, NULL, false);
       if (pos_descr.pos_no > 0)
 	{
 	  col = tree->info.query.q.select.list;

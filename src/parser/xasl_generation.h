@@ -191,7 +191,7 @@ extern PT_NODE *pt_flush_classes (PARSER_CONTEXT * parser, PT_NODE * tree, void 
 
 extern int pt_is_single_tuple (PARSER_CONTEXT * parser, PT_NODE * select_node);
 extern void pt_to_pos_descr (PARSER_CONTEXT * parser, QFILE_TUPLE_VALUE_POSITION * pos_p, PT_NODE * node,
-			     PT_NODE * root, PT_NODE ** referred_node);
+			     PT_NODE * root, PT_NODE ** referred_node, bool for_min_max_optimize);
 extern void pt_to_pos_descr_groupby (PARSER_CONTEXT * parser, QFILE_TUPLE_VALUE_POSITION * pos_p, PT_NODE * node,
 				     PT_NODE * root);
 extern void pt_set_numbering_node_etc (PARSER_CONTEXT * parser, PT_NODE * node_list, DB_VALUE ** instnum_valp,

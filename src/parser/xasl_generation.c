@@ -4464,7 +4464,7 @@ pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLA
   bool dummy;
 
   PT_NODE *arg_list = select_node->info.function.arg_list;
-  PT_NODE *iscan_sort_list = qo_plan_compute_iscan_sort_list (plan, NULL, &dummy);
+  PT_NODE *iscan_sort_list = qo_plan_compute_iscan_sort_list (plan, NULL, &dummy, true);
 
   switch (aggregate->function)
     {
@@ -4610,7 +4610,8 @@ pt_to_aggregate (PARSER_CONTEXT * parser, PT_NODE * select_node, OUTPTR_LIST * o
   info.flag_agg_optimize = false;
   info.flag_agg_min_max_optimized = false;
 
-  if (!select_node->info.query.q.select.group_by && !select_node->info.query.order_by)
+  if (!select_node->info.query.q.select.group_by && !select_node->info.query.order_by
+      && !select_node->info.query.orderby_for)
     {
       info.flag_agg_min_max_optimized = true;
     }
@@ -5376,7 +5377,7 @@ pt_make_dblink_access_spec (ACCESS_METHOD access,
  */
 void
 pt_to_pos_descr (PARSER_CONTEXT * parser, QFILE_TUPLE_VALUE_POSITION * pos_p, PT_NODE * node, PT_NODE * root,
-		 PT_NODE ** referred_node)
+		 PT_NODE ** referred_node, bool for_min_max_optimize)
 {
   PT_NODE *temp;
   char *node_str = NULL;
@@ -5437,7 +5438,7 @@ pt_to_pos_descr (PARSER_CONTEXT * parser, QFILE_TUPLE_VALUE_POSITION * pos_p, PT
 	    {
 	      pos_p->pos_no = i;
 	    }
-	  else if (pt_check_compatible_node_for_min_max_optimize (parser, temp, node))
+	  else if (for_min_max_optimize && pt_check_compatible_node_for_min_max_optimize (parser, temp, node))
 	    {
 	      pos_p->pos_no = i;
 	    }
@@ -5506,7 +5507,7 @@ pt_to_pos_descr (PARSER_CONTEXT * parser, QFILE_TUPLE_VALUE_POSITION * pos_p, PT
     case PT_UNION:
     case PT_INTERSECTION:
     case PT_DIFFERENCE:
-      pt_to_pos_descr (parser, pos_p, node, root->info.query.q.union_.arg1, referred_node);
+      pt_to_pos_descr (parser, pos_p, node, root->info.query.q.union_.arg1, referred_node, for_min_max_optimize);
       break;
 
     default:
