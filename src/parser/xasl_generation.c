@@ -17099,8 +17099,7 @@ pt_to_buildvalue_proc (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN *
     }
 
   /* optimize aggregation min_max list */
-  if (select_node->info.query.q.select.group_by && xasl && xasl->spec_list && xasl->spec_list->indexptr
-      && xasl->spec_list->indexptr->groupby_skip)
+  if (select_node->info.query.q.select.group_by || select_node->info.query.order_by)
     {
       ;
     }
