@@ -8398,7 +8398,7 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 				{
 				  if (xasl->curr_spec->flags & ACCESS_SPEC_FLAG_MIN_MAX_SCAN)
 				    {
-                                      assert (xasl->curr_spec->indexptr != NULL);
+				      assert (xasl->curr_spec->indexptr != NULL);
 				      if (xasl->proc.buildvalue.agg_list != NULL)
 					{
 					  bool scan_foward = !xasl->curr_spec->s_id.s.isid.bt_scan.use_desc_index;
