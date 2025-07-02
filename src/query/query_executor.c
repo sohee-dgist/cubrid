@@ -8439,14 +8439,7 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 					      else
 						{
 						  need_restore_index_scan_direction = true;
-						  if (xasl->curr_spec->indexptr->use_desc_index)
-						    {
-						      xasl->curr_spec->indexptr->use_desc_index = false;
-						    }
-						  else
-						    {
-						      xasl->curr_spec->indexptr->use_desc_index = true;
-						    }
+						  xasl->curr_spec->indexptr->use_desc_index = !xasl->curr_spec->indexptr->use_desc_index;
 
 
 						  BTREE_SCAN *bts = &xasl->curr_spec->s_id.s.isid.bt_scan;
