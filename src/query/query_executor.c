@@ -8425,14 +8425,7 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 						  /* restore index scan direction */
 						  if (need_restore_index_scan_direction)
 						    {
-						      if (xasl->curr_spec->indexptr->use_desc_index)
-							{
-							  xasl->curr_spec->indexptr->use_desc_index = false;
-							}
-						      else
-							{
-							  xasl->curr_spec->indexptr->use_desc_index = true;
-							}
+						      xasl->curr_spec->indexptr->use_desc_index = !xasl->curr_spec->indexptr->use_desc_index;
 						    }
 						  return S_SUCCESS;
 						}
