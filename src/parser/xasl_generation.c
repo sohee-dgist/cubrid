@@ -3979,6 +3979,7 @@ pt_to_aggregate_node (PARSER_CONTEXT * parser, PT_NODE * tree, void *arg, int *c
 
       aggregate_list->flag_agg_optimize = false;
       BTID_SET_NULL (&aggregate_list->btid);
+      aggregate_list->is_min_max_optimized = false;
       if (info->flag_agg_optimize
 	  && (aggregate_list->function == PT_COUNT_STAR
 	      || aggregate_list->function == PT_MAX || aggregate_list->function == PT_MIN))
