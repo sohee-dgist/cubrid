@@ -1317,7 +1317,8 @@ qexec_end_one_iteration (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE *
 
 	  if (qdata_evaluate_aggregate_list
 	      (thread_p, xasl->proc.buildvalue.agg_list, &xasl_state->vd, NULL,
-	       (xasl->curr_spec->indexptr ? xasl->curr_spec->indexptr->use_desc_index : false)) != NO_ERROR)
+	       (xasl->curr_spec
+		&& xasl->curr_spec->indexptr) ? xasl->curr_spec->indexptr->use_desc_index : false) != NO_ERROR)
 	    {
 	      GOTO_EXIT_ON_ERROR;
 	    }
