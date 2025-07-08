@@ -1315,8 +1315,9 @@ qexec_end_one_iteration (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE *
 		}
 	    }
 
-	  if (qdata_evaluate_aggregate_list (thread_p, xasl->proc.buildvalue.agg_list, &xasl_state->vd, NULL) !=
-	      NO_ERROR)
+	  if (qdata_evaluate_aggregate_list
+	      (thread_p, xasl->proc.buildvalue.agg_list, &xasl_state->vd, NULL,
+	       (xasl->curr_spec->indexptr ? xasl->curr_spec->indexptr->use_desc_index : false)) != NO_ERROR)
 	    {
 	      GOTO_EXIT_ON_ERROR;
 	    }
@@ -3782,8 +3783,8 @@ qexec_gby_agg_tuple (THREAD_ENTRY * thread_p, GROUPBY_STATE * gbstate, QFILE_TUP
     {
       assert (gbstate->g_dim[i].d_flag != GROUPBY_DIM_FLAG_NONE);
 
-      if (qdata_evaluate_aggregate_list (thread_p, gbstate->g_dim[i].d_agg_list, &gbstate->xasl_state->vd, NULL) !=
-	  NO_ERROR)
+      if (qdata_evaluate_aggregate_list (thread_p, gbstate->g_dim[i].d_agg_list, &gbstate->xasl_state->vd, NULL, false)
+	  != NO_ERROR)
 	{
 	  GOTO_EXIT_ON_ERROR;
 	}
@@ -3920,7 +3921,7 @@ qexec_hash_gby_agg_tuple (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE 
       /* eval aggregate functions */
       if (rc == NO_ERROR)
 	{
-	  rc = qdata_evaluate_aggregate_list (thread_p, proc->g_agg_list, &xasl_state->vd, value->accumulators);
+	  rc = qdata_evaluate_aggregate_list (thread_p, proc->g_agg_list, &xasl_state->vd, value->accumulators, false);
 	}
 
       /* compute size */
@@ -8415,6 +8416,7 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 						  xasl->curr_spec->indexptr->use_desc_index =
 						    !xasl->curr_spec->indexptr->use_desc_index;
 						}
+					      xasl->curr_spec->s_id.scan_stats.min_max_only_scan = true;
 					      return S_SUCCESS;
 					    }
 					  else
@@ -8425,7 +8427,7 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 
 
 					      BTREE_SCAN *bts = &xasl->curr_spec->s_id.s.isid.bt_scan;
-					      bts_reset_scan_for_min_max_optimize (thread_p, bts);
+					      bts_reset_scan (thread_p, bts);
 					      xasl->curr_spec->s_id.position = S_GO_BACKWARD;
 					    }
 					}

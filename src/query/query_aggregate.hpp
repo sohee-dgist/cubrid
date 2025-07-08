@@ -122,11 +122,9 @@ int qdata_aggregate_accumulator_to_accumulator (cubthread::entry *thread_p, cubx
     cubxasl::aggregate_accumulator_domain *acc_dom, FUNC_CODE func_type,
     tp_domain *func_domain, cubxasl::aggregate_accumulator *new_acc);
 int qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_list, val_descr *vd,
-				   cubxasl::aggregate_accumulator *alt_acc_list);
+				   cubxasl::aggregate_accumulator *alt_acc_list, bool use_desc_index);
 int qdata_evaluate_aggregate_optimize (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_ptr, HFID *hfid,
 				       OID *partition_cls_oid);
-int qdata_evaluate_aggregate_min_max_optimize (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_list_p,
-    val_descr *vd, bool is_min);
 bool
 qdata_evaluate_aggregate_min_max_finished (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_list_p);
 int qdata_evaluate_aggregate_hierarchy (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_ptr,

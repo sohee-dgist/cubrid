@@ -365,6 +365,7 @@ struct scan_stats
   bool index_skip_scan;
   bool loose_index_scan;
   bool noscan;			/* aggregate optimize is not scan */
+  bool min_max_only_scan;
   SCAN_AGL *agl;		/* for multiple aggregate optimize */
 
   /* hash list scan */

@@ -596,7 +596,7 @@ qdata_aggregate_multiple_values_to_accumulator (cubthread::entry *thread_p, cubx
  */
 int
 qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_list_p,
-			       val_descr *val_desc_p, cubxasl::aggregate_accumulator *alt_acc_list)
+			       val_descr *val_desc_p, cubxasl::aggregate_accumulator *alt_acc_list, bool use_desc_index)
 {
   cubxasl::aggregate_list_node *agg_p;
   cubxasl::aggregate_accumulator *accumulator;
@@ -616,7 +616,7 @@ qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
       /* determine accumulator */
       accumulator = (alt_acc_list != NULL ? &alt_acc_list[i] : &agg_p->accumulator);
 
-      if (agg_p->flag.agg_optimized)
+      if (agg_p->flag.agg_optimized || agg_p->is_ended)
 	{
 	  continue;
 	}
@@ -665,6 +665,65 @@ qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 	      pr_clear_value_vector (db_values);
 	      return ER_FAILED;
 	    }
+	}
+
+
+      if (agg_p->flag.min_max_optimized)
+	{
+	  switch (agg_p->function)
+	    {
+	    case PT_MIN:
+	      if (use_desc_index == agg_p->flag.part_key_descending)
+		{
+		  DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
+		  pr_clear_value (accumulator->value);
+
+		  if (TP_DOMAIN_TYPE (agg_p->domain) != type)
+		    {
+		      int coerce_error = db_value_coerce (&db_values[0], accumulator->value, agg_p->domain);
+		      if (coerce_error != NO_ERROR)
+			{
+			  /* set error here */
+			  return ER_FAILED;
+			}
+		    }
+		  else
+		    {
+		      pr_clone_value (&db_values[0], accumulator->value);
+		    }
+		  agg_p->is_ended = true;
+		}
+
+	      break;
+
+	    case PT_MAX:
+	      if (use_desc_index != agg_p->flag.part_key_descending)
+		{
+		  DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
+		  pr_clear_value (accumulator->value);
+
+		  if (TP_DOMAIN_TYPE (agg_p->domain) != type)
+		    {
+		      int coerce_error = db_value_coerce (&db_values[0], accumulator->value, agg_p->domain);
+		      if (coerce_error != NO_ERROR)
+			{
+			  /* set error here */
+			  return ER_FAILED;
+			}
+		    }
+		  else
+		    {
+		      pr_clone_value (&db_values[0], accumulator->value);
+		    }
+		  agg_p->is_ended = true;
+		}
+	      break;
+
+	    default:
+	      assert (false);
+	      break;
+	    }
+	  continue;
 	}
 
       /*
@@ -1029,106 +1088,6 @@ qdata_evaluate_aggregate_optimize (cubthread::entry *thread_p, cubxasl::aggregat
 
     default:
       break;
-    }
-
-  return NO_ERROR;
-}
-
-/*
- * qdata_evaluate_aggregate_optimize () -
- *   return:
- *   agg_ptr(in)        :
- *   hfid(in)   :
- *   super_oid(in): The super oid of a class. This should be used when dealing
- *		    with a partition class. It the index is a global index,
- *		    the min/max value from the partition in this case
- *		    will be retrieved from the heap.
- */
-int
-qdata_evaluate_aggregate_min_max_optimize (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_list_p,
-    val_descr *val_desc_p, bool is_min)
-{
-  cubxasl::aggregate_list_node *agg_p;
-  cubxasl::aggregate_accumulator *acc;
-  int i;
-  int error = NO_ERROR;
-
-  for (agg_p = agg_list_p, i = 0; agg_p != NULL; agg_p = agg_p->next, i++)
-    {
-      if ((! (agg_p->function == PT_MIN || agg_p->function == PT_MAX)) || agg_p->is_ended || !agg_p->flag.min_max_optimized)
-	{
-	  continue;
-	}
-
-      std::vector<DB_VALUE> db_values;
-      /* fetch operands value. aggregate regulator variable should only contain constants */
-      REGU_VARIABLE_LIST operand = NULL;
-      acc = &agg_p->accumulator;
-      for (operand = agg_p->operands; operand != NULL; operand = operand->next)
-	{
-	  // create an empty value
-	  db_values.emplace_back ();
-
-	  // fetch it
-	  if (fetch_copy_dbval (thread_p, &operand->value, val_desc_p, NULL, NULL, NULL,
-				&db_values.back ()) != NO_ERROR)
-	    {
-	      pr_clear_value_vector (db_values);
-	      return ER_FAILED;
-	    }
-	}
-      switch (agg_p->function)
-	{
-	case PT_MIN:
-	  if (is_min != agg_p->flag.part_key_descending)
-	    {
-	      DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
-	      pr_clear_value (acc->value);
-
-	      if (TP_DOMAIN_TYPE (agg_p->domain) != type)
-		{
-		  int coerce_error = db_value_coerce (&db_values[0], acc->value, agg_p->domain);
-		  if (coerce_error != NO_ERROR)
-		    {
-		      /* set error here */
-		      return ER_FAILED;
-		    }
-		}
-	      else
-		{
-		  pr_clone_value (&db_values[0], acc->value);
-		}
-	      agg_p->is_ended = true;
-	    }
-
-	  break;
-
-	case PT_MAX:
-	  if (is_min == agg_p->flag.part_key_descending)
-	    {
-	      DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
-	      pr_clear_value (acc->value);
-
-	      if (TP_DOMAIN_TYPE (agg_p->domain) != type)
-		{
-		  int coerce_error = db_value_coerce (&db_values[0], acc->value, agg_p->domain);
-		  if (coerce_error != NO_ERROR)
-		    {
-		      /* set error here */
-		      return ER_FAILED;
-		    }
-		}
-	      else
-		{
-		  pr_clone_value (&db_values[0], acc->value);
-		}
-	      agg_p->is_ended = true;
-	    }
-	  break;
-
-	default:
-	  break;
-	}
     }
 
   return NO_ERROR;

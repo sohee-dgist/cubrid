@@ -619,7 +619,7 @@ typedef int BTREE_PROCESS_OBJECT_FUNCTION (THREAD_ENTRY * thread_p, BTID_INT * b
 //
 // thread_p (in) : thread entry
 // bts (in)      : b-tree scan
-static void
+void
 bts_reset_scan (THREAD_ENTRY * thread_p, BTREE_SCAN * bts)
 {
   /* Reset bts->is_scan_started. */
@@ -6457,13 +6457,6 @@ btree_scan_clear_key (BTREE_SCAN * btree_scan)
   btree_clear_key_value (&btree_scan->clear_cur_key, &btree_scan->cur_key);
   btree_scan->is_cur_key_compressed = false;
   btree_reset_common_prefix_page_info (btree_scan);
-}
-
-
-void
-bts_reset_scan_for_min_max_optimize (THREAD_ENTRY * thread_p, BTREE_SCAN * bts)
-{
-  bts_reset_scan (thread_p, bts);
 }
 
 

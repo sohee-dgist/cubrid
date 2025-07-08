@@ -5996,11 +5996,11 @@ stx_build_aggregate_type (THREAD_ENTRY * thread_p, char *ptr, AGGREGATE_TYPE * a
       ;
     }
 
+  /* is_min_max_optimized */
+  ptr = or_unpack_int (ptr, (int *) &aggregate->flag);
   /* is_ended */
   ptr = or_unpack_int (ptr, &offset);
   aggregate->is_ended = false;
-  /* is_min_max_optimized */
-  ptr = or_unpack_int (ptr, (int *) &aggregate->flag);
 
   /* accumulator_domain */
   aggregate->accumulator_domain.value_dom = NULL;

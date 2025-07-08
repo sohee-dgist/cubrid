@@ -8130,6 +8130,11 @@ scan_print_stats_text (FILE * fp, SCAN_ID * scan_id)
 	  fprintf (fp, ", covered: true");
 	}
 
+      if (scan_id->scan_stats.min_max_only_scan == true)
+	{
+	  fprintf (fp, ", min_max_only: true");
+	}
+
       if (scan_id->s.isid.need_count_only == true)
 	{
 	  fprintf (fp, ", count_only: true");

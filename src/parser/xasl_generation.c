@@ -4532,10 +4532,6 @@ pt_set_access_spec_for_aggregation (PARSER_CONTEXT * parser, AGGREGATE_TYPE * ag
 	  break;
 	}
     }
-  if (min_max_scan)
-    {
-      access_spec->flags = (ACCESS_SPEC_FLAG) (access_spec->flags | ACCESS_SPEC_FLAG_MIN_MAX_SCAN);
-    }
   if (min_max_only_scan && min_max_scan)
     {
       access_spec->flags = (ACCESS_SPEC_FLAG) (access_spec->flags | ACCESS_SPEC_FLAG_ONLY_MIN_MAX_SCAN);
@@ -16332,11 +16328,6 @@ pt_to_buildlist_proc (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN * 
 	pt_to_aggregate (parser, select_node, xasl->outptr_list, buildlist->g_val_list, buildlist->g_regu_list,
 			 buildlist->g_scan_regu_list, group_out_list, &buildlist->g_grbynum_val, qo_plan);;
 
-      /* set access spec for aggregation , no group by or order by */
-      if (xasl->spec_list)
-	{
-	  pt_set_access_spec_for_aggregation (parser, aggregate, xasl->spec_list);
-	}
       /* compute function count */
       buildlist->g_func_count = 0;
       agg_list = aggregate;
