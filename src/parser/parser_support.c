@@ -4268,7 +4268,7 @@ pt_sort_spec_cover_for_min_max (PARSER_CONTEXT * parser, PT_NODE * tree, PT_NODE
 	{
 	  return false;
 	}
-      pt_to_pos_descr (parser, &p2, s2->info.function.arg_list, tree, NULL, true);
+      pt_to_pos_descr (parser, &p2, s2, tree, NULL, true);
 
       if (p1->pos_no <= 0)
 	{
