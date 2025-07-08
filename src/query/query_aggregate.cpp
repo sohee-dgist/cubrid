@@ -692,6 +692,7 @@ qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 		      pr_clone_value (&db_values[0], accumulator->value);
 		    }
 		  agg_p->is_ended = true;
+		  continue;
 		}
 
 	      break;
@@ -716,6 +717,7 @@ qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 		      pr_clone_value (&db_values[0], accumulator->value);
 		    }
 		  agg_p->is_ended = true;
+		  continue;
 		}
 	      break;
 
@@ -723,7 +725,6 @@ qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 	      assert (false);
 	      break;
 	    }
-	  continue;
 	}
 
       /*
