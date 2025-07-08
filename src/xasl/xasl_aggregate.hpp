@@ -96,7 +96,8 @@ namespace cubxasl
 #if defined (SERVER_MODE) || defined (SA_MODE)
     aggregate_accumulator_domain accumulator_domain;	/* holds domain info on accumulator */
 #endif				/* defined (SERVER_MODE) || defined (SA_MODE) */
-    struct {
+    struct
+    {
       bool agg_optimized;	/* true, if the aggregate is optimized */
       bool min_max_optimized;	/* true, if the aggregate is min/max optimized */
       bool part_key_descending;	/* true, if the aggregate is part key descending */
