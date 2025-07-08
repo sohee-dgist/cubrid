@@ -8396,58 +8396,39 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 			      qualified = (xasl->instnum_pred == NULL || ev_res == V_TRUE);
 			      if (qualified)
 				{
-				  if (xasl->curr_spec->flags & ACCESS_SPEC_FLAG_MIN_MAX_SCAN)
-				    {
-				      assert (xasl->curr_spec->indexptr != NULL);
-				      if (xasl->proc.buildvalue.agg_list != NULL)
-					{
-					  bool scan_foward = !xasl->curr_spec->s_id.s.isid.bt_scan.use_desc_index;
-					  if (!xasl->proc.buildvalue.agg_domains_resolved)
-					    {
-					      if (qexec_resolve_domains_for_aggregation
-						  (thread_p, xasl->proc.buildvalue.agg_list, &xasl_state->vd, tplrec,
-						   NULL, &xasl->proc.buildvalue.agg_domains_resolved) != NO_ERROR)
-						{
-						  return S_ERROR;
-						}
-					    }
-					  if (qdata_evaluate_aggregate_min_max_optimize
-					      (thread_p, xasl->proc.buildvalue.agg_list, &xasl_state->vd,
-					       scan_foward) != NO_ERROR)
-					    {
-					      return S_ERROR;
-					    }
-					  if (xasl->curr_spec->flags & ACCESS_SPEC_FLAG_ONLY_MIN_MAX_SCAN)
-					    {
-					      if (qdata_evaluate_aggregate_min_max_finished
-						  (thread_p, xasl->proc.buildvalue.agg_list))
-						{
-						  /* restore index scan direction */
-						  if (need_restore_index_scan_direction)
-						    {
-						      xasl->curr_spec->indexptr->use_desc_index =
-							!xasl->curr_spec->indexptr->use_desc_index;
-						    }
-						  return S_SUCCESS;
-						}
-					      else
-						{
-						  need_restore_index_scan_direction = true;
-						  xasl->curr_spec->indexptr->use_desc_index =
-						    !xasl->curr_spec->indexptr->use_desc_index;
-
-
-						  BTREE_SCAN *bts = &xasl->curr_spec->s_id.s.isid.bt_scan;
-						  bts_reset_scan_for_min_max_optimize (thread_p, bts);
-						  xasl->curr_spec->s_id.position = S_GO_BACKWARD;
-						}
-					    }
-					}
-				    }
 				  /* one iteration successfully completed */
 				  if (qexec_end_one_iteration (thread_p, xasl, xasl_state, tplrec) != NO_ERROR)
 				    {
 				      return S_ERROR;
+				    }
+				  if (xasl->curr_spec->flags & ACCESS_SPEC_FLAG_ONLY_MIN_MAX_SCAN)
+				    {
+				      assert (xasl->curr_spec->indexptr != NULL);
+				      if (xasl->proc.buildvalue.agg_list != NULL && xasl->curr_spec->flags)
+					{
+					  if (qdata_evaluate_aggregate_min_max_finished
+					      (thread_p, xasl->proc.buildvalue.agg_list))
+					    {
+					      /* restore index scan direction */
+					      if (need_restore_index_scan_direction)
+						{
+						  xasl->curr_spec->indexptr->use_desc_index =
+						    !xasl->curr_spec->indexptr->use_desc_index;
+						}
+					      return S_SUCCESS;
+					    }
+					  else
+					    {
+					      need_restore_index_scan_direction = true;
+					      xasl->curr_spec->indexptr->use_desc_index =
+						!xasl->curr_spec->indexptr->use_desc_index;
+
+
+					      BTREE_SCAN *bts = &xasl->curr_spec->s_id.s.isid.bt_scan;
+					      bts_reset_scan_for_min_max_optimize (thread_p, bts);
+					      xasl->curr_spec->s_id.position = S_GO_BACKWARD;
+					    }
+					}
 				    }
 				}
 			    }
