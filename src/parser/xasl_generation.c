@@ -3977,9 +3977,9 @@ pt_to_aggregate_node (PARSER_CONTEXT * parser, PT_NODE * tree, void *arg, int *c
 	  /* others will be set after resolving arg_list */
 	}
 
-      aggregate_list->flag_agg_optimize = false;
+      aggregate_list->flag.agg_optimized = false;
       BTID_SET_NULL (&aggregate_list->btid);
-      aggregate_list->is_min_max_optimized = false;
+      aggregate_list->flag.min_max_optimized = false;
       if (info->flag_agg_optimize
 	  && (aggregate_list->function == PT_COUNT_STAR
 	      || aggregate_list->function == PT_MAX || aggregate_list->function == PT_MIN))
@@ -4004,7 +4004,7 @@ pt_to_aggregate_node (PARSER_CONTEXT * parser, PT_NODE * tree, void *arg, int *c
 	      if (btid != NULL)
 		{
 		  /* If btree does not exist, optimize with heap in non-MVCC */
-		  aggregate_list->flag_agg_optimize = true;
+		  aggregate_list->flag.agg_optimized = true;
 		}
 	    }
 	  else if (tree->info.function.arg_list->node_type == PT_NAME)
@@ -4016,7 +4016,7 @@ pt_to_aggregate_node (PARSER_CONTEXT * parser, PT_NODE * tree, void *arg, int *c
 	      if (btid != NULL)
 		{
 		  /* If btree does not exist, optimize with heap in non-MVCC */
-		  aggregate_list->flag_agg_optimize = true;
+		  aggregate_list->flag.agg_optimized = true;
 		}
 	    }
 	}
@@ -4472,23 +4472,23 @@ pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLA
     case PT_MIN:
       if (pt_sort_spec_cover_for_min_max (parser, QO_ENV_PT_TREE ((plan->info)->env), iscan_sort_list, arg_list))
 	{
-	  aggregate->is_min_max_optimized = true;
-	  aggregate->is_part_key_desc = (iscan_sort_list->info.sort_spec.asc_or_desc == PT_DESC);
+	  aggregate->flag.min_max_optimized = true;
+	  aggregate->flag.part_key_descending = (iscan_sort_list->info.sort_spec.asc_or_desc == PT_DESC);
 	}
       else
 	{
-	  aggregate->is_min_max_optimized = false;
+	  aggregate->flag.min_max_optimized = false;
 	}
       break;
     case PT_MAX:
       if (pt_sort_spec_cover_for_min_max (parser, QO_ENV_PT_TREE ((plan->info)->env), iscan_sort_list, arg_list))
 	{
-	  aggregate->is_min_max_optimized = true;
-	  aggregate->is_part_key_desc = (iscan_sort_list->info.sort_spec.asc_or_desc == PT_DESC);
+	  aggregate->flag.min_max_optimized = true;
+	  aggregate->flag.part_key_descending = (iscan_sort_list->info.sort_spec.asc_or_desc == PT_DESC);
 	}
       else
 	{
-	  aggregate->is_min_max_optimized = false;
+	  aggregate->flag.min_max_optimized = false;
 	}
       break;
     default:
@@ -4508,7 +4508,7 @@ pt_set_access_spec_for_aggregation (PARSER_CONTEXT * parser, AGGREGATE_TYPE * ag
       switch (agg->function)
 	{
 	case PT_MIN:
-	  if (agg->is_min_max_optimized)
+	  if (agg->flag.min_max_optimized)
 	    {
 	      min_max_scan = true;
 	    }
@@ -4518,7 +4518,7 @@ pt_set_access_spec_for_aggregation (PARSER_CONTEXT * parser, AGGREGATE_TYPE * ag
 	    }
 	  break;
 	case PT_MAX:
-	  if (agg->is_min_max_optimized)
+	  if (agg->flag.min_max_optimized)
 	    {
 	      min_max_scan = true;
 	    }

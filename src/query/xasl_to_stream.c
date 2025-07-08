@@ -5533,7 +5533,6 @@ xts_process_aggregate_type (char *ptr, const AGGREGATE_TYPE * aggregate)
       ptr = or_pack_int (ptr, offset);
     }
 
-  ptr = or_pack_int (ptr, aggregate->flag_agg_optimize);
 
   ptr = or_pack_btid (ptr, (BTID *) (&aggregate->btid));
   if (ptr == NULL)
@@ -5560,9 +5559,8 @@ xts_process_aggregate_type (char *ptr, const AGGREGATE_TYPE * aggregate)
       ptr = or_pack_int (ptr, offset);
     }
 
+  ptr = or_pack_int (ptr, *(int *) &aggregate->flag);
   ptr = or_pack_int (ptr, offset);
-  ptr = or_pack_int (ptr, aggregate->is_min_max_optimized);
-  ptr = or_pack_int (ptr, aggregate->is_part_key_desc);
 
   return ptr;
 }
@@ -7394,8 +7392,7 @@ xts_sizeof_aggregate_type (const AGGREGATE_TYPE * aggregate)
 	}
     }
 
-  size += OR_INT_SIZE;		/* is_min_max_optimized */
-  size += OR_INT_SIZE;		/* is_part_key_desc */
+  size += OR_INT_SIZE;		/* flag */
   return size;
 }
 

@@ -8188,7 +8188,7 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 	{
 	  for (agg_ptr = xasl->proc.buildlist.g_agg_list; agg_ptr; agg_ptr = agg_ptr->next)
 	    {
-	      agg_ptr->flag_agg_optimize = false;
+	      agg_ptr->flag.agg_optimized = false;
 	    }
 	}
     }
@@ -8425,14 +8425,16 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 						  /* restore index scan direction */
 						  if (need_restore_index_scan_direction)
 						    {
-						      xasl->curr_spec->indexptr->use_desc_index = !xasl->curr_spec->indexptr->use_desc_index;
+						      xasl->curr_spec->indexptr->use_desc_index =
+							!xasl->curr_spec->indexptr->use_desc_index;
 						    }
 						  return S_SUCCESS;
 						}
 					      else
 						{
 						  need_restore_index_scan_direction = true;
-						  xasl->curr_spec->indexptr->use_desc_index = !xasl->curr_spec->indexptr->use_desc_index;
+						  xasl->curr_spec->indexptr->use_desc_index =
+						    !xasl->curr_spec->indexptr->use_desc_index;
 
 
 						  BTREE_SCAN *bts = &xasl->curr_spec->s_id.s.isid.bt_scan;
@@ -24077,7 +24079,7 @@ qexec_init_agg_hierarchy_helpers (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * sp
   agg_count = 0;
   while (agg)
     {
-      if (!agg->flag_agg_optimize)
+      if (!agg->flag.agg_optimized)
 	{
 	  agg = agg->next;
 	  continue;
@@ -24128,7 +24130,7 @@ qexec_init_agg_hierarchy_helpers (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * sp
   i = 0;
   while (agg != NULL)
     {
-      if (!agg->flag_agg_optimize)
+      if (!agg->flag.agg_optimized)
 	{
 	  agg = agg->next;
 	  continue;
@@ -24199,14 +24201,14 @@ qexec_evaluate_partition_aggregates (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE *
   i = 0;
   for (agg_ptr = agg_list; agg_ptr; agg_ptr = agg_ptr->next)
     {
-      if (!agg_ptr->flag_agg_optimize)
+      if (!agg_ptr->flag.agg_optimized)
 	{
 	  continue;
 	}
 
       if (agg_ptr->function == PT_COUNT_STAR && *is_scan_needed)
 	{
-	  agg_ptr->flag_agg_optimize = false;
+	  agg_ptr->flag.agg_optimized = false;
 	  i++;
 	  continue;
 	}
@@ -24214,7 +24216,7 @@ qexec_evaluate_partition_aggregates (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE *
       error = qdata_evaluate_aggregate_hierarchy (thread_p, agg_ptr, &ACCESS_SPEC_HFID (spec), &root_btid, &helpers[i]);
       if (error != NO_ERROR)
 	{
-	  agg_ptr->flag_agg_optimize = false;
+	  agg_ptr->flag.agg_optimized = false;
 	  *is_scan_needed = true;
 	  goto cleanup;
 	}
@@ -24260,7 +24262,7 @@ qexec_evaluate_aggregates_optimize (THREAD_ENTRY * thread_p, AGGREGATE_TYPE * ag
 
   for (agg_ptr = agg_list; agg_ptr; agg_ptr = agg_ptr->next)
     {
-      if (!agg_ptr->flag_agg_optimize)
+      if (!agg_ptr->flag.agg_optimized)
 	{
 	  /* scan is needed for this aggregate */
 	  *is_scan_needed = true;
@@ -24276,7 +24278,7 @@ qexec_evaluate_aggregates_optimize (THREAD_ENTRY * thread_p, AGGREGATE_TYPE * ag
 								     true);
 	  if (class_cos == NULL)
 	    {
-	      agg_ptr->flag_agg_optimize = false;
+	      agg_ptr->flag.agg_optimized = false;
 	      *is_scan_needed = true;
 	      continue;
 	    }
@@ -24284,7 +24286,7 @@ qexec_evaluate_aggregates_optimize (THREAD_ENTRY * thread_p, AGGREGATE_TYPE * ag
 	    {
 	      if (class_cos->count_state != COS_LOADED)
 		{
-		  agg_ptr->flag_agg_optimize = false;
+		  agg_ptr->flag.agg_optimized = false;
 		  *is_scan_needed = true;
 		  continue;
 		}
@@ -24293,7 +24295,7 @@ qexec_evaluate_aggregates_optimize (THREAD_ENTRY * thread_p, AGGREGATE_TYPE * ag
 	    {
 	      if (logtb_tran_find_btid_stats (thread_p, &agg_ptr->btid, true) == NULL)
 		{
-		  agg_ptr->flag_agg_optimize = false;
+		  agg_ptr->flag.agg_optimized = false;
 		  *is_scan_needed = true;
 		  continue;
 		}
@@ -24366,17 +24368,17 @@ qexec_evaluate_aggregates_optimize (THREAD_ENTRY * thread_p, AGGREGATE_TYPE * ag
 
   for (agg_ptr = agg_list; agg_ptr; agg_ptr = agg_ptr->next)
     {
-      if (agg_ptr->flag_agg_optimize)
+      if (agg_ptr->flag.agg_optimized)
 	{
 	  if (agg_ptr->function == PT_COUNT_STAR && *is_scan_needed)
 	    {
 	      /* If scan is needed, do not optimize PT_COUNT_STAR. */
-	      agg_ptr->flag_agg_optimize = false;
+	      agg_ptr->flag.agg_optimized = false;
 	      continue;
 	    }
 	  if (qdata_evaluate_aggregate_optimize (thread_p, agg_ptr, &ACCESS_SPEC_HFID (spec), &super_oid) != NO_ERROR)
 	    {
-	      agg_ptr->flag_agg_optimize = false;
+	      agg_ptr->flag.agg_optimized = false;
 	      *is_scan_needed = true;
 	    }
 	}
