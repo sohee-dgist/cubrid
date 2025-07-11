@@ -8007,27 +8007,30 @@ la_destroy_repl_filter (void)
   return;
 }
 
+/* 
+ * check_reinit_copylog() - check if the copy log is reinitialized.
+ *   return: NO_ERROR or error code
+ *
+ * Note:
+ *   In copylogdb, the 'mark_will_del' flag in the act log header is set
+ *   when an error occurs during log retrieval.
+ * 
+ */
 static int
 check_reinit_copylog (void)
 {
-  int error = NO_ERROR;
-
-  /* fetch header */
-  error = la_fetch_log_hdr (&la_Info.act_log);
-  if (error != NO_ERROR)
+  if (la_fetch_log_hdr (&la_Info.act_log) != NO_ERROR)
     {
-      error = ER_FAILED;
-      return error;
+      return ER_FAILED;
     }
 
-  if (la_Info.act_log.log_hdr->mark_will_del == true)
+  if (la_Info.act_log.log_hdr->mark_will_del)
     {
       la_Info.reinit_copylog = true;
-      error = ER_FAILED;
-      return error;
+      return ER_FAILED;
     }
 
-  return error;
+  return NO_ERROR;
 }
 
 /*
