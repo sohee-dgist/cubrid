@@ -5262,7 +5262,6 @@ scan_next_scan_local (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 	      break;
 
 	    default:
-	      /* fall through */
 	      break;
 	    }
 

@@ -10000,7 +10000,7 @@ qo_classify (PT_NODE * attr)
 	{
 	  return PC_ATTR;
 	}
-      /* fall through */
+      [[fallthrough]];
     default:
       return PC_OTHER;
     }
