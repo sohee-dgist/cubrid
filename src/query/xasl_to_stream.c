@@ -5561,7 +5561,13 @@ xts_process_aggregate_type (char *ptr, const AGGREGATE_TYPE * aggregate)
       ptr = or_pack_int (ptr, offset);
     }
 
-  ptr = or_pack_int (ptr, *(int *) &aggregate->flag);
+  int flagint = 0;
+  flagint |= (aggregate->flag.agg_optimized ? 1 : 0) << 0;
+  flagint |= (aggregate->flag.min_max_optimized ? 1 : 0) << 1;
+  flagint |= (aggregate->flag.part_key_descending ? 1 : 0) << 2;
+  flagint |= (aggregate->flag.dummy ? 1 : 0) << 3;
+
+  ptr = or_pack_int (ptr, flagint);
   ptr = or_pack_int (ptr, offset);
 
   return ptr;
@@ -7906,5 +7912,8 @@ xts_debug_clear (T &t)
 {
   t.clear_xasl ();
 }
+
+// *INDENT-ON*
+
 
 // *INDENT-ON*
