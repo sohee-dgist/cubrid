@@ -7914,6 +7914,3 @@ xts_debug_clear (T &t)
 }
 
 // *INDENT-ON*
-
-
-// *INDENT-ON*
