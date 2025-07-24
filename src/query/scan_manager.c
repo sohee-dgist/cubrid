@@ -3137,7 +3137,7 @@ scan_open_index_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
       goto exit_on_error;
     }
 
-  if (min_max_optimzied_scan)
+  if (min_max_optimzied_scan && SCAN_IS_INDEX_COVERED (isidp))
     {
       isidp->key_limit_upper = 1;
     }
@@ -5976,7 +5976,10 @@ scan_next_index_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
 	    {
 	      SCAN_CODE ret;
 	      isidp->curr_keyno = -1;
-	      isidp->key_limit_upper = 1;
+	      if (SCAN_IS_INDEX_COVERED (isidp))
+		{
+		  isidp->key_limit_upper = 1;
+		}
 	      qfile_reopen_list_as_append_mode (thread_p, isidp->indx_cov.list_id);
 	      ret = call_get_next_index_oidset (thread_p, scan_id, isidp, true);
 	      if (ret != S_SUCCESS)
