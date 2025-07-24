@@ -20,7 +20,6 @@
  * semantic_check.c - semantic checking functions
  */
 
-#include "parse_tree.h"
 #ident "$Id$"
 
 #include "config.h"
