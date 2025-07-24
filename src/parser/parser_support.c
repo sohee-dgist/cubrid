@@ -4264,7 +4264,7 @@ pt_sort_spec_cover_for_min_max (PARSER_CONTEXT * parser, PT_NODE * tree, PT_NODE
     {
       p1 = &(s1->info.sort_spec.pos_descr);
       /* cannot cover col1, col1 + a, col1+col2, col1*2 etc. */
-      if (pt_length_of_list (s2->info.function.arg_list) != 1)
+      if (pt_length_of_list (s2) != 1)
 	{
 	  return false;
 	}

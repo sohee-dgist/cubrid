@@ -4462,11 +4462,11 @@ pt_find_attribute (PARSER_CONTEXT * parser, const PT_NODE * name, const PT_NODE 
 }
 
 static void
-pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN * plan, AGGREGATE_TYPE * aggregate)
+pt_optimize_min_max_list (PARSER_CONTEXT * parser, PT_NODE * node, QO_PLAN * plan, AGGREGATE_TYPE * aggregate)
 {
   bool dummy;
-
-  PT_NODE *arg_list = select_node->info.function.arg_list;
+  assert (node->node_type == PT_FUNCTION);
+  PT_NODE *arg_list = node->info.function.arg_list;
   PT_NODE *iscan_sort_list = qo_plan_compute_iscan_sort_list (plan, NULL, &dummy, true);
 
   switch (aggregate->function)
