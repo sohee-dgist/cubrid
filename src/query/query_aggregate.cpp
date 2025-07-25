@@ -667,7 +667,6 @@ qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 	    }
 	}
 
-
       if (agg_p->flag.min_max_optimized)
 	{
 	  switch (agg_p->function)
