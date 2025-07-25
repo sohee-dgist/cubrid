@@ -16328,7 +16328,7 @@ pt_to_buildlist_proc (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN * 
 
       aggregate =
 	pt_to_aggregate (parser, select_node, xasl->outptr_list, buildlist->g_val_list, buildlist->g_regu_list,
-			 buildlist->g_scan_regu_list, group_out_list, &buildlist->g_grbynum_val, qo_plan);;
+			 buildlist->g_scan_regu_list, group_out_list, &buildlist->g_grbynum_val, qo_plan);
 
       /* compute function count */
       buildlist->g_func_count = 0;
