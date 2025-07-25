@@ -8868,7 +8868,7 @@ qexec_intprt_fnc (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_s
 				  if (xasl->curr_spec->flags & ACCESS_SPEC_FLAG_ONLY_MIN_MAX_SCAN)
 				    {
 				      assert (xasl->curr_spec->indexptr != NULL);
-				      if (xasl->proc.buildvalue.agg_list != NULL && xasl->curr_spec->flags)
+				      if (xasl->proc.buildvalue.agg_list != NULL)
 					{
 					  if (qdata_evaluate_aggregate_min_max_finished
 					      (thread_p, xasl->proc.buildvalue.agg_list))
