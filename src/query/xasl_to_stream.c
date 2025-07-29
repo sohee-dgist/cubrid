@@ -5535,7 +5535,6 @@ xts_process_aggregate_type (char *ptr, const AGGREGATE_TYPE * aggregate)
       ptr = or_pack_int (ptr, offset);
     }
 
-
   ptr = or_pack_btid (ptr, (BTID *) (&aggregate->btid));
   if (ptr == NULL)
     {
