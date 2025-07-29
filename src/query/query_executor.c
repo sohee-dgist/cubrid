@@ -14899,6 +14899,11 @@ qexec_execute_mainblock_internal (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XAS
 			    {
 			      using dpool = parallel_query::worker_manager_with_dedicated_pool;
 			      using pexec = parallel_query_execute::query_executor;
+			      /* TODO: Temporarily limited to 2. 
+			       * Remove this when exact parallel count is available 
+			       * for better performance with many uncorrelated subqueries.*/
+			      n_workers_to_reserve = parallel_query_execute::max_parallelism - 1;
+
 			      dpool *px_worker_manager_p = &dpool::get_manager ();
 			      if (pexec::make_parallel_query_executor_recursively
 				  (thread_p, xasl, px_worker_manager_p, nullptr, n_workers_to_reserve) != true)
