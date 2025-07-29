@@ -413,7 +413,6 @@ struct scan_id_struct
   SCAN_STATS scan_stats;
   SCAN_STATS *partition_stats;
   bool scan_immediately_stop;
-  bool min_max_optimzied_scan;
 };				/* Scan Identifier */
 
 #define SCAN_IS_INDEX_COVERED(iscan_id_p) \
