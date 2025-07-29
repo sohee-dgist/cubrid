@@ -5956,7 +5956,6 @@ stx_build_aggregate_type (THREAD_ENTRY * thread_p, char *ptr, AGGREGATE_TYPE * a
 	}
     }
 
-
   /* btid */
   ptr = or_unpack_btid (ptr, &aggregate->btid);
 
