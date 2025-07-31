@@ -4609,8 +4609,9 @@ pt_to_aggregate (PARSER_CONTEXT * parser, PT_NODE * select_node, OUTPTR_LIST * o
   info.flag_agg_optimize = false;
   info.flag_agg_min_max_optimized = false;
 
+  /* TODO : for multi table */
   if (!select_node->info.query.q.select.group_by && !select_node->info.query.order_by
-      && !select_node->info.query.orderby_for)
+      && !select_node->info.query.orderby_for && from->next == NULL)
     {
       info.flag_agg_min_max_optimized = true;
     }
