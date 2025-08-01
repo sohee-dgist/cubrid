@@ -674,7 +674,25 @@ qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 	    case PT_MIN:
 	      if (use_desc_index == agg_p->flag.part_key_descending)
 		{
+		  DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
+		  pr_clear_value (accumulator->value);
+
+		  if (TP_DOMAIN_TYPE (agg_p->domain) != type)
+		    {
+		      int coerce_error = db_value_coerce (&db_values[0], accumulator->value, agg_p->domain);
+		      if (coerce_error != NO_ERROR)
+			{
+			  /* set error here */
+			  return ER_FAILED;
+			}
+		    }
+		  else
+		    {
+		      pr_clone_value (&db_values[0], accumulator->value);
+		    }
 		  agg_p->is_ended = true;
+		  pr_clear_value_vector (db_values);
+		  continue;
 		}
 
 	      break;
@@ -682,7 +700,25 @@ qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 	    case PT_MAX:
 	      if (use_desc_index != agg_p->flag.part_key_descending)
 		{
+		  DB_TYPE type = DB_VALUE_DOMAIN_TYPE (&db_values[0]);
+		  pr_clear_value (accumulator->value);
+
+		  if (TP_DOMAIN_TYPE (agg_p->domain) != type)
+		    {
+		      int coerce_error = db_value_coerce (&db_values[0], accumulator->value, agg_p->domain);
+		      if (coerce_error != NO_ERROR)
+			{
+			  /* set error here */
+			  return ER_FAILED;
+			}
+		    }
+		  else
+		    {
+		      pr_clone_value (&db_values[0], accumulator->value);
+		    }
 		  agg_p->is_ended = true;
+		  pr_clear_value_vector (db_values);
+		  continue;
 		}
 	      break;
 
