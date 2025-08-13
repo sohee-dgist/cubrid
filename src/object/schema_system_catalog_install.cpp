@@ -232,6 +232,7 @@ catcls_init (void)
   ADD_TABLE_DEFINITION (CT_DUAL_NAME, system_catalog_initializer::get_dual());
   ADD_TABLE_DEFINITION (CT_SYNONYM_NAME, system_catalog_initializer::get_synonym());
   ADD_TABLE_DEFINITION (CT_DB_SERVER_NAME, system_catalog_initializer::get_db_server());
+  ADD_TABLE_DEFINITION (CT_DB_HISTOGRAM_NAME, system_catalog_initializer::get_db_histogram());
 
   ADD_VIEW_DEFINITION (CTV_CLASS_NAME, system_catalog_initializer::get_view_class ());
   ADD_VIEW_DEFINITION (CTV_SUPER_CLASS_NAME, system_catalog_initializer::get_view_super_class ());
@@ -253,6 +254,7 @@ catcls_init (void)
   ADD_VIEW_DEFINITION (CTV_DB_CHARSET_NAME, system_catalog_initializer::get_view_db_charset ());
   ADD_VIEW_DEFINITION (CTV_DB_SERVER_NAME, system_catalog_initializer::get_view_db_server ());
   ADD_VIEW_DEFINITION (CTV_SYNONYM_NAME, system_catalog_initializer::get_view_synonym ());
+  ADD_VIEW_DEFINITION (CTV_DB_HISTOGRAM_NAME, system_catalog_initializer::get_view_db_histogram ());
 }
 
 int
@@ -1257,6 +1259,41 @@ namespace cubschema
 
   }
 
+  system_catalog_definition
+  system_catalog_initializer::get_db_histogram ()
+  {
+// db_class
+    return system_catalog_definition (
+		   // name
+		   CT_DB_HISTOGRAM_NAME,
+		   // columns
+    {
+      {"class_of", CT_CLASS_NAME},
+      {"def_index", "integer"},
+      {"data_type", "integer"},
+      {"histogram_type", "varchar(32)"},
+      {"bucket_count", "integer"},
+      {"histogram_values", "varchar(2048)"},
+    },
+// constraint
+    {
+      {DB_CONSTRAINT_INDEX, "", {"class_of", "def_index", nullptr}, false}
+    },
+// authorization
+    {
+      // owner
+      Au_dba_user,
+      // grants
+      {
+	{Au_public_user, AU_SELECT, false}
+      }
+    },
+// initializer
+    nullptr
+	   );
+
+  }
+
   /* ========================================================================== */
   /* NEW DEFINITION (VCLASS) */
   /* ========================================================================== */
@@ -2004,6 +2041,41 @@ namespace cubschema
       {"comment", "varchar(1024)"},
       // query specs
       {attribute_kind::QUERY_SPEC, sm_define_view_db_server_spec ()}
+    },
+// constraint
+    {},
+// authorization
+    {
+      // owner
+      Au_dba_user,
+      // grants
+      {
+	{Au_public_user, AU_SELECT, false}
+      }
+    },
+// initializer
+    nullptr
+	   );
+
+  }
+
+  system_catalog_definition
+  system_catalog_initializer::get_view_db_histogram ()
+  {
+// db_class
+    return system_catalog_definition (
+		   // name
+		   CTV_DB_HISTOGRAM_NAME,
+		   // columns
+    {
+      {"class_of", CT_CLASS_NAME},
+      {"def_index", "integer"},
+      {"data_type", "integer"},
+      {"histogram_type", "varchar(32)"},
+      {"bucket_count", "integer"},
+      {"histogram_values", "varchar(2048)"},
+      // query specs
+      {attribute_kind::QUERY_SPEC, sm_define_view_db_histogram_spec ()}
     },
 // constraint
     {},

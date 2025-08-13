@@ -1582,3 +1582,29 @@ sm_define_view_db_server_spec (void)
 
   return stmt;
 }
+
+const char *
+sm_define_view_db_histogram_spec (void)
+{
+  static char stmt [2048];
+
+  // *INDENT-OFF*
+  sprintf (stmt,
+	"SELECT "
+	  "[h].[class_of] AS [class_of], "
+	  "[h].[def_index] AS [def_index], "
+	  "[h].[data_type] AS [data_type], "
+	  "[h].[histogram_type] AS [histogram_type], "
+	  "[h].[bucket_count] AS [bucket_count], "
+	  "[h].[histogram_values] AS [histogram_values] "
+	"FROM "
+	  /* CT_DB_HISTOGRAM_NAME */
+	  "[%s] AS [h] "
+	"ORDER BY " /* Is it possible to remove ORDER BY? */
+	  "[h].[class_of], "
+	  "[h].[def_index]",
+	CT_DB_HISTOGRAM_NAME);
+  // *INDENT-ON*
+
+  return stmt;
+}

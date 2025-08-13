@@ -55,6 +55,7 @@
 #define CT_DUAL_NAME               "dual"
 #define CT_DB_SERVER_NAME          "_db_server"
 #define CT_SYNONYM_NAME            "_db_synonym"
+#define CT_DB_HISTOGRAM_NAME       "_db_histogram"
 
 /* catalog vclasses */
 #define CTV_CLASS_NAME             "db_class"
@@ -77,6 +78,7 @@
 #define CTV_DB_CHARSET_NAME	   "db_charset"
 #define CTV_DB_SERVER_NAME         "db_server"
 #define CTV_SYNONYM_NAME           "db_synonym"
+#define CTV_DB_HISTOGRAM_NAME      "db_histogram"
 
 #define CT_DBCOLL_COLL_ID_COLUMN	   "coll_id"
 #define CT_DBCOLL_COLL_NAME_COLUMN	   "coll_name"
