@@ -444,6 +444,7 @@ IDL       [a-zA-Z0-9_]
 [hH][eE][aA][pP]							{ begin_token(yytext);
 										csql_yylval.cptr = pt_makename(yytext);
 										return HEAP; }                                                                            
+[hH][iI][sS][tT][oO][gG][rR][aA][mM]					{ begin_token(yytext);   return HISTOGRAM; }
 [hH][oO][sS][tT]					                { begin_token(yytext);
 										csql_yylval.cptr = pt_makename(yytext);
 										return HOST; }

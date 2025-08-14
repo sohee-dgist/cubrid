@@ -12327,6 +12327,8 @@ pt_check_with_info (PARSER_CONTEXT * parser, PT_NODE * node, SEMANTIC_CHK_INFO *
 	}
       break;
 
+    case PT_CREATE_HISTOGRAM:
+      break;
     case PT_SAVEPOINT:
       if ((node->info.savepoint.save_name) && (node->info.savepoint.save_name->info.name.meta_class == PT_PARAMETER))
 	{

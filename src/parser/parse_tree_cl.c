@@ -212,6 +212,7 @@ static PT_NODE *pt_apply_commit_work (PARSER_CONTEXT * parser, PT_NODE * p, void
 static PT_NODE *pt_apply_constraint (PARSER_CONTEXT * parser, PT_NODE * p, void *arg);
 static PT_NODE *pt_apply_create_entity (PARSER_CONTEXT * parser, PT_NODE * p, void *arg);
 static PT_NODE *pt_apply_create_index (PARSER_CONTEXT * parser, PT_NODE * p, void *arg);
+static PT_NODE *pt_apply_create_histogram (PARSER_CONTEXT * parser, PT_NODE * p, void *arg);
 static PT_NODE *pt_apply_create_user (PARSER_CONTEXT * parser, PT_NODE * p, void *arg);
 static PT_NODE *pt_apply_data_default (PARSER_CONTEXT * parser, PT_NODE * p, void *arg);
 static PT_NODE *pt_apply_datatype (PARSER_CONTEXT * parser, PT_NODE * p, void *arg);
@@ -340,6 +341,7 @@ static PARSER_VARCHAR *pt_print_constraint (PARSER_CONTEXT * parser, PT_NODE * p
 static PARSER_VARCHAR *pt_print_col_def_constraint (PARSER_CONTEXT * parser, PT_NODE * p);
 static PARSER_VARCHAR *pt_print_create_entity (PARSER_CONTEXT * parser, PT_NODE * p);
 static PARSER_VARCHAR *pt_print_create_index (PARSER_CONTEXT * parser, PT_NODE * p);
+static PARSER_VARCHAR *pt_print_create_histogram (PARSER_CONTEXT * parser, PT_NODE * p);
 static PARSER_VARCHAR *pt_print_create_serial (PARSER_CONTEXT * parser, PT_NODE * p);
 static PARSER_VARCHAR *pt_print_create_stored_procedure (PARSER_CONTEXT * parser, PT_NODE * p);
 static PARSER_VARCHAR *pt_print_create_trigger (PARSER_CONTEXT * parser, PT_NODE * p);
@@ -3071,6 +3073,8 @@ pt_show_node_type (PT_NODE * node)
       return "CREATE_ENTITY";
     case PT_CREATE_INDEX:
       return "CREATE_INDEX";
+    case PT_CREATE_HISTOGRAM:
+      return "CREATE_HISTOGRAM";
     case PT_CREATE_USER:
       return "CREATE_USER";
     case PT_CREATE_TRIGGER:
@@ -5030,6 +5034,7 @@ pt_init_apply_f (void)
   pt_apply_func_array[PT_COMMIT_WORK] = pt_apply_commit_work;
   pt_apply_func_array[PT_CREATE_ENTITY] = pt_apply_create_entity;
   pt_apply_func_array[PT_CREATE_INDEX] = pt_apply_create_index;
+  pt_apply_func_array[PT_CREATE_HISTOGRAM] = pt_apply_create_histogram;	//TODO
   pt_apply_func_array[PT_CREATE_USER] = pt_apply_create_user;
   pt_apply_func_array[PT_CREATE_TRIGGER] = pt_apply_create_trigger;
   pt_apply_func_array[PT_CREATE_SERIAL] = pt_apply_create_serial;
@@ -5164,6 +5169,7 @@ pt_init_init_f (void)
   pt_init_func_array[PT_COMMIT_WORK] = pt_init_func_null_function;
   pt_init_func_array[PT_CREATE_ENTITY] = pt_init_create_entity;
   pt_init_func_array[PT_CREATE_INDEX] = pt_init_create_index;
+  pt_init_func_array[PT_CREATE_HISTOGRAM] = pt_init_func_null_function;	//TODO
   pt_init_func_array[PT_CREATE_USER] = pt_init_func_null_function;
   pt_init_func_array[PT_CREATE_TRIGGER] = pt_init_func_null_function;
   pt_init_func_array[PT_CREATE_SERIAL] = pt_init_func_null_function;
@@ -5294,6 +5300,7 @@ pt_init_print_f (void)
   pt_print_func_array[PT_COMMIT_WORK] = pt_print_commit_work;
   pt_print_func_array[PT_CREATE_ENTITY] = pt_print_create_entity;
   pt_print_func_array[PT_CREATE_INDEX] = pt_print_create_index;
+  pt_print_func_array[PT_CREATE_HISTOGRAM] = pt_print_create_histogram;	//TODO
   pt_print_func_array[PT_CREATE_USER] = pt_print_create_user;
   pt_print_func_array[PT_CREATE_TRIGGER] = pt_print_create_trigger;
   pt_print_func_array[PT_CREATE_SERIAL] = pt_print_create_serial;
@@ -7345,6 +7352,52 @@ pt_apply_create_index (PARSER_CONTEXT * parser, PT_NODE * p, void *arg)
   PT_APPLY_WALK (parser, p->info.index.where, arg);
   PT_APPLY_WALK (parser, p->info.index.function_expr, arg);
   return p;
+}
+
+/* CREATE_HISTOGRAM */
+/*
+ * pt_init_create_histogram () -
+ *   return:
+ *   p(in):
+ */
+static PT_NODE *
+pt_init_create_histogram (PT_NODE * p)
+{
+  // TODO: implement this
+  assert (false);
+  return p;
+}
+
+/*
+ * pt_apply_create_histogram () -
+ *   return:
+ *   parser(in):
+ *   p(in):
+ *   g(in):
+ *   arg(in):
+ */
+static PT_NODE *
+pt_apply_create_histogram (PARSER_CONTEXT * parser, PT_NODE * p, void *arg)
+{
+  // TODO: implement this
+  assert (false);
+  return p;
+}
+
+/*
+ * pt_apply_create_histogram () -
+ *   return:
+ *   parser(in):
+ *   p(in):
+ *   g(in):
+ *   arg(in):
+ */
+static PARSER_VARCHAR *
+pt_print_create_histogram (PARSER_CONTEXT * parser, PT_NODE * p)
+{
+  // TODO: implement this
+  assert (false);
+  return NULL;
 }
 
 /*

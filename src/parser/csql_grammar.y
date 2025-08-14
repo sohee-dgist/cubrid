@@ -698,6 +698,8 @@ BEGIN_SUPPRESS_WARNING_BISON_FLEX
 %type <node> drop_stmt
 %type <node> opt_index_column_name_list
 %type <node> index_column_name_list
+%type <node> histogram_column_list
+%type <node> histogram_column
 %type <node> update_statistics_stmt
 %type <node> only_class_name_list
 %type <node> opt_level_spec
@@ -1267,6 +1269,7 @@ BEGIN_SUPPRESS_WARNING_BISON_FLEX
 %token GRANT
 %token GROUP_
 %token HAVING
+%token HISTOGRAM
 %token HOUR_
 %token HOUR_MILLISECOND
 %token HOUR_SECOND
@@ -3139,6 +3142,43 @@ create_stmt
 			PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
 
 		DBG_PRINT}}
+	| CREATE					/* 1 */
+		{                                       /* 2 */
+                        DBG_TRACE_GRAMMAR(create_stmt, | CREATE);
+			PT_NODE* node = parser_new_node (this_parser, PT_CREATE_HISTOGRAM);
+			parser_push_hint_node (node);
+			push_msg (MSGCAT_SYNTAX_INVALID_CREATE_HISTOGRAM);
+                }
+	  HISTOGRAM 					/* 3 */
+		{ pop_msg(); }				/* 4 */
+	  ON_                                           /* 5 */
+	  only_class_name                               /* 6 */
+	  '(' histogram_column_list ')'                 /* 8 */
+	  opt_comment_spec                              /* 9 */
+		{{ DBG_TRACE_GRAMMAR (create_stmt, | CREATE HISTOGRAM ON_ ~);
+
+			PT_NODE *node = parser_pop_hint_node ();
+                        PARSER_SAVE_ERR_CONTEXT (node, @$.buffer_pos)
+                        PT_NODE *ocs = parser_new_node(this_parser, PT_SPEC);
+
+			if (node && ocs)
+			  {
+                            PT_NODE *col, *temp;
+			    int arg_count = 0, prefix_col_count = 0;
+			    ocs->info.spec.entity_name = $6;
+                            PARSER_SAVE_ERR_CONTEXT (ocs, @6.buffer_pos)
+                            ocs->info.spec.meta_class = PT_CLASS;
+                            node->info.histogram.target_table_name = ocs;
+                            col = $8;
+
+                            prefix_col_count = parser_count_prefix_columns (col, &arg_count);
+                            node->info.histogram.target_columns = col;
+			  }
+
+			$$ = node;
+			PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
+
+		DBG_PRINT}}
 	| CREATE                        		/* 1 */
 	  opt_or_replace                		/* 2 */
 	  FUNCTION					/* 3 */
@@ -4955,6 +4995,32 @@ index_column_name_list
 
 		DBG_PRINT}}
 	;
+
+histogram_column_list
+        : /* empty */
+        {{ DBG_TRACE_GRAMMAR(histogram_column_list, : );
+                $$ = NULL;
+        DBG_PRINT}}
+
+        | histogram_column_list ',' histogram_column
+        {{ DBG_TRACE_GRAMMAR(histogram_column_list, | histogram_column_list ',' histogram_column);
+                $$ = parser_make_link ($1, $3);
+                PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
+        DBG_PRINT}}
+        | histogram_column
+        {{ DBG_TRACE_GRAMMAR(histogram_column_list, | histogram_column);
+                $$ = $1;
+        PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
+        DBG_PRINT}}
+        ;
+
+histogram_column
+        : identifier
+        {{ DBG_TRACE_GRAMMAR(histogram_column, | name);
+                $$ = $1;
+                PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
+        DBG_PRINT}}
+        ;
 
 update_statistics_stmt
 	: UPDATE STATISTICS ON_ only_class_name_list opt_with_fullscan

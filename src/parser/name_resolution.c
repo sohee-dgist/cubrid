@@ -3294,6 +3294,10 @@ pt_bind_names (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue
       *continue_walk = PT_LIST_WALK;
       break;
 
+    case PT_CREATE_HISTOGRAM:
+      // TODO: histogram
+      break;
+
     case PT_METHOD_CALL:
       /*
        * We accept two different method call syntax:

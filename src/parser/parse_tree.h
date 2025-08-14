@@ -998,6 +998,7 @@ enum pt_node_type
   PT_REVOKE = CUBRID_STMT_REVOKE,
   PT_UPDATE_STATS = CUBRID_STMT_UPDATE_STATS,
   PT_GET_STATS = CUBRID_STMT_GET_STATS,
+  PT_CREATE_HISTOGRAM = CUBRID_STMT_CREATE_HISTOGRAM,	//TODO
   PT_INSERT = CUBRID_STMT_INSERT,
   PT_SELECT = CUBRID_STMT_SELECT,
   PT_UPDATE = CUBRID_STMT_UPDATE,
@@ -1799,6 +1800,7 @@ typedef struct pt_auth_cmd_info PT_AUTH_CMD_INFO;
 typedef struct pt_commit_work_info PT_COMMIT_WORK_INFO;
 typedef struct pt_create_entity_info PT_CREATE_ENTITY_INFO;
 typedef struct pt_index_info PT_INDEX_INFO;
+typedef struct pt_histogram_info PT_HISTOGRAM_INFO;
 typedef struct pt_create_user_info PT_CREATE_USER_INFO;
 typedef struct pt_create_trigger_info PT_CREATE_TRIGGER_INFO;
 typedef struct pt_cte_info PT_CTE_INFO;
@@ -2181,6 +2183,14 @@ struct pt_index_info
   SM_INDEX_STATUS index_status;	/* Index status : NORMAL / ONLINE / INVISIBLE */
   int ib_threads;
   short deduplicate_level;	/* -1: Not set yet, 0 : Not Use, others : mod by pow(2,deduplicate_level), refer to DEDUPLICATE_KEY_LEVEL_??? */
+};
+
+/* CREATE HISTOGRAM INFO */
+
+struct pt_histogram_info
+{
+  PT_NODE *target_table_name;	/* PT_NAME */
+  PT_NODE *target_columns;	/* PT_NAME list */
 };
 
 /* CREATE USER INFO */
@@ -3694,6 +3704,7 @@ union pt_statement_info
   PT_GRANT_INFO grant;
   PT_HOST_VAR_INFO host_var;
   PT_INDEX_INFO index;
+  PT_HISTOGRAM_INFO histogram;
   PT_INSERT_INFO insert;
   PT_INSERT_VALUE_INFO insert_value;
   PT_ISOLATION_LVL_INFO isolation_lvl;
