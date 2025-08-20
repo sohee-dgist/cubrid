@@ -3168,7 +3168,7 @@ create_stmt
 			    ocs->info.spec.entity_name = $6;
                             PARSER_SAVE_ERR_CONTEXT (ocs, @6.buffer_pos)
                             ocs->info.spec.meta_class = PT_CLASS;
-                            node->info.histogram.target_table_name = ocs;
+                            node->info.histogram.target_table_spec = ocs;
                             col = $8;
 
                             prefix_col_count = parser_count_prefix_columns (col, &arg_count);

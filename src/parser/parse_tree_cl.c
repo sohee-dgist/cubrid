@@ -293,6 +293,7 @@ static PT_NODE *pt_init_auth_cmd (PT_NODE * p);
 static PT_NODE *pt_init_constraint (PT_NODE * node);
 static PT_NODE *pt_init_create_entity (PT_NODE * p);
 static PT_NODE *pt_init_create_index (PT_NODE * p);
+static PT_NODE *pt_init_create_histogram (PT_NODE * p);
 static PT_NODE *pt_init_data_default (PT_NODE * p);
 static PT_NODE *pt_init_datatype (PT_NODE * p);
 static PT_NODE *pt_init_delete (PT_NODE * p);
@@ -5169,7 +5170,7 @@ pt_init_init_f (void)
   pt_init_func_array[PT_COMMIT_WORK] = pt_init_func_null_function;
   pt_init_func_array[PT_CREATE_ENTITY] = pt_init_create_entity;
   pt_init_func_array[PT_CREATE_INDEX] = pt_init_create_index;
-  pt_init_func_array[PT_CREATE_HISTOGRAM] = pt_init_func_null_function;	//TODO
+  pt_init_func_array[PT_CREATE_HISTOGRAM] = pt_init_create_histogram;	//TODO
   pt_init_func_array[PT_CREATE_USER] = pt_init_func_null_function;
   pt_init_func_array[PT_CREATE_TRIGGER] = pt_init_func_null_function;
   pt_init_func_array[PT_CREATE_SERIAL] = pt_init_func_null_function;
@@ -7333,6 +7334,87 @@ pt_print_create_entity (PARSER_CONTEXT * parser, PT_NODE * p)
   return q;
 }
 
+/* CREATE_HISTOGRAM */
+/*
+ * pt_init_create_histogram () -
+ *   return:
+ *   p(in):
+ */
+static PT_NODE *
+pt_init_create_histogram (PT_NODE * p)
+{
+  p->info.histogram.histogram_type = 0;
+  p->info.histogram.bucket_count = 256;
+  return p;
+}
+
+/*
+ * pt_apply_create_histogram () -
+ *   return:
+ *   parser(in):
+ *   p(in):
+ *   g(in):
+ *   arg(in):
+ */
+static PT_NODE *
+pt_apply_create_histogram (PARSER_CONTEXT * parser, PT_NODE * p, void *arg)
+{
+  PT_APPLY_WALK (parser, p->info.histogram.target_table_spec, arg);
+  PT_APPLY_WALK (parser, p->info.histogram.target_columns, arg);
+  return p;
+}
+
+/*
+ * pt_apply_create_histogram () -
+ *   return:
+ *   parser(in):
+ *   p(in):
+ *   g(in):
+ *   arg(in):
+ */
+static PARSER_VARCHAR *
+pt_print_create_histogram (PARSER_CONTEXT * parser, PT_NODE * p)
+{
+  PARSER_VARCHAR *b = 0, *tbl = 0, *cl = 0;
+  unsigned int saved_cp = parser->custom_print;
+  PT_NODE *target_columns;
+
+  parser->custom_print |= PT_SUPPRESS_RESOLVED;
+
+  if (!(parser->custom_print & PT_SUPPRESS_INDEX))
+    {
+      b = pt_append_nulstring (parser, b, "create");
+    }
+
+  b = pt_append_nulstring (parser, b, " histogram");
+
+  if (p->info.histogram.target_table_spec)
+    {
+      tbl = pt_print_bytes (parser, p->info.histogram.target_table_spec);
+    }
+
+  if (!(parser->custom_print & PT_SUPPRESS_INDEX))
+    {
+      b = pt_append_nulstring (parser, b, " on ");
+      b = pt_append_varchar (parser, b, tbl);
+    }
+
+
+  if (p->info.histogram.target_columns)
+    {
+      target_columns = p->info.histogram.target_columns;
+      cl = pt_print_bytes_l (parser, target_columns);
+    }
+
+  b = pt_append_nulstring (parser, b, " (");
+  b = pt_append_varchar (parser, b, cl);
+  b = pt_append_nulstring (parser, b, ") ");
+
+  parser->custom_print = saved_cp;
+
+  return b;
+}
+
 /* CREATE_INDEX */
 /*
  * pt_apply_create_index () -
@@ -7352,52 +7434,6 @@ pt_apply_create_index (PARSER_CONTEXT * parser, PT_NODE * p, void *arg)
   PT_APPLY_WALK (parser, p->info.index.where, arg);
   PT_APPLY_WALK (parser, p->info.index.function_expr, arg);
   return p;
-}
-
-/* CREATE_HISTOGRAM */
-/*
- * pt_init_create_histogram () -
- *   return:
- *   p(in):
- */
-static PT_NODE *
-pt_init_create_histogram (PT_NODE * p)
-{
-  // TODO: implement this
-  assert (false);
-  return p;
-}
-
-/*
- * pt_apply_create_histogram () -
- *   return:
- *   parser(in):
- *   p(in):
- *   g(in):
- *   arg(in):
- */
-static PT_NODE *
-pt_apply_create_histogram (PARSER_CONTEXT * parser, PT_NODE * p, void *arg)
-{
-  // TODO: implement this
-  assert (false);
-  return p;
-}
-
-/*
- * pt_apply_create_histogram () -
- *   return:
- *   parser(in):
- *   p(in):
- *   g(in):
- *   arg(in):
- */
-static PARSER_VARCHAR *
-pt_print_create_histogram (PARSER_CONTEXT * parser, PT_NODE * p)
-{
-  // TODO: implement this
-  assert (false);
-  return NULL;
 }
 
 /*
