@@ -95,6 +95,11 @@ typedef enum
 
 typedef enum
 {
+  DO_HISTOGRAM_CREATE, DO_HISTOGRAM_DROP
+} DO_HISTOGRAM;
+
+typedef enum
+{
   SM_ATTR_CHG_NOT_NEEDED = 0,
   SM_ATTR_CHG_ONLY_SCHEMA = 1,
   SM_ATTR_CHG_WITH_ROW_UPDATE = 2,
@@ -3860,6 +3865,214 @@ do_alter_index (PARSER_CONTEXT * parser, const PT_NODE * statement)
       return ER_FAILED;
     }
 
+  return error;
+}
+
+
+
+/*
+ * create_or_drop_histogram_helper() - Creates or drops a histogram on a class.
+ *   return: Error code
+ *   parser(in): Parser context
+ *   obj(in): Class object
+ *   histogram_info(in): Histogram information
+*/
+static int
+create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj, PT_HISTOGRAM_INFO * const histogram_info, DO_HISTOGRAM do_histogram)
+{
+     assert (false); // TODO: implement
+     return NO_ERROR;
+//   int error = NO_ERROR;
+//   int nnames = 0;
+//   bool *already_exists = NULL;
+//   char **attnames = NULL;
+//   char *cname = NULL;
+//   bool free_packing_buff = false;
+//   PRED_EXPR_WITH_CONTEXT *filter_predicate = NULL;
+//   SM_PREDICATE_INFO pred_index_info = { NULL, NULL, 0, NULL, 0 };
+//   SM_PREDICATE_INFO *p_pred_index_info = NULL;
+//   SM_FUNCTION_INFO *func_index_info = NULL;
+//   int is_partition = DB_NOT_PARTITIONED_CLASS;
+
+//   error = sm_partitioned_class_type (obj, &is_partition, NULL, NULL);
+//   if (error != NO_ERROR)
+//     {
+//       return error;
+//     }
+//   if (is_partition == DB_PARTITION_CLASS)
+//     {
+//       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_NOT_ALLOWED_ACCESS_TO_PARTITION, 0);
+//       return ER_NOT_ALLOWED_ACCESS_TO_PARTITION;
+//     }
+
+//   char *attname_tmp = NULL;
+//   if (do_histogram != DO_HISTOGRAM_CREATE)
+//     {
+//       nnames = 0;
+//       attnames = &attname_tmp;
+//       attnames[0] = NULL;
+//     }
+//   else
+//     {
+//       assert (histogram_info);
+
+//       nnames = pt_length_of_list (histogram_info->target_columns);
+//       attnames = (char **) malloc ((nnames + 1) * sizeof (const char *));
+//       already_exists = (bool *) malloc ((nnames + 1) * sizeof (bool));
+
+//       if (attnames == NULL)
+// 	{
+// 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, (nnames + 1) * sizeof (const char *));
+// 	  return ER_OUT_OF_VIRTUAL_MEMORY;
+// 	}
+
+//       int i = 0;
+//       const PT_NODE *c = histogram_info->target_columns;
+//       while (c != NULL)
+// 	{
+// 	  /* column name node */
+// 	  attnames[i] = (char *) c->info.name.original;
+// 	  i++;
+// 	  c = c->next;
+// 	}
+//       attnames[i] = NULL;
+//     }
+   
+//     // TODO: already exists
+
+//     if (do_histogram == DO_HISTOGRAM_CREATE)
+//     {
+//       if (histogram_info->where)
+// 	{
+// 	  PARSER_VARCHAR *filter_expr = NULL;
+// 	  unsigned int save_custom;
+
+// 	  /* free at parser_free_parser */
+// 	  /* make sure paren_type is 0 so parenthesis are not printed */
+// 	  idx_info->where->info.expr.paren_type = 0;
+// 	  save_custom = parser->custom_print;
+// 	  parser->custom_print |= PT_CHARSET_COLLATE_FULL;
+
+// 	  filter_expr = pt_print_bytes ((PARSER_CONTEXT *) parser, (PT_NODE *) idx_info->where);
+// 	  parser->custom_print = save_custom;
+// 	  if (filter_expr)
+// 	    {
+// 	      pred_index_info.pred_string = (char *) filter_expr->bytes;
+// 	      if (strlen (pred_index_info.pred_string) > MAX_FILTER_PREDICATE_STRING_LENGTH)
+// 		{
+// 		  error = ER_SM_INVALID_FILTER_PREDICATE_LENGTH;
+// 		  PT_ERRORmf ((PARSER_CONTEXT *) parser, idx_info->where, MSGCAT_SET_ERROR,
+// 			      -(ER_SM_INVALID_FILTER_PREDICATE_LENGTH), MAX_FILTER_PREDICATE_STRING_LENGTH);
+// 		  goto end;
+// 		}
+// 	    }
+
+// 	  pt_enter_packing_buf ();
+// 	  free_packing_buff = true;
+// 	  filter_predicate =
+// 	    pt_to_pred_with_context ((PARSER_CONTEXT *) parser, (PT_NODE *) idx_info->where,
+// 				     (PT_NODE *) idx_info->indexed_class);
+// 	  if (filter_predicate)
+// 	    {
+// 	      error =
+// 		xts_map_filter_pred_to_stream (filter_predicate, &(pred_index_info.pred_stream),
+// 					       &(pred_index_info.pred_stream_size));
+// 	      if (error != NO_ERROR)
+// 		{
+// 		  PT_ERRORm ((PARSER_CONTEXT *) parser, idx_info->where, MSGCAT_SET_PARSER_RUNTIME,
+// 			     MSGCAT_RUNTIME_RESOURCES_EXHAUSTED);
+// 		  goto end;
+// 		}
+// 	      pred_index_info.att_ids = filter_predicate->attrids_pred;
+// 	      pred_index_info.num_attrs = filter_predicate->num_attrs_pred;
+// 	      p_pred_index_info = &pred_index_info;
+// 	    }
+// 	  else
+// 	    {
+// 	      assert (er_errid () != NO_ERROR);
+// 	      error = er_errid ();
+// 	      goto end;
+// 	    }
+// 	}
+
+//       error = sm_create_histogram (obj, (const char **) attnames, histogram_info->bucket_count, histogram_info->histogram_type);
+//     }
+//   else
+//     {
+//       assert (do_histogram == DO_HISTOGRAM_DROP);
+//       error = sm_drop_histogram (obj, (const char **) attnames);
+//     }
+
+// end:
+
+//   /* free function index info */
+//   if (func_index_info)
+//     {
+//       sm_free_function_index_info (func_index_info);
+//       db_ws_free (func_index_info);
+//       func_index_info = NULL;
+//     }
+
+//   /* free 'stream' that is allocated inside of xts_map_xasl_to_stream() */
+//   if (pred_index_info.pred_stream)
+//     {
+//       free_and_init (pred_index_info.pred_stream);
+//     }
+
+//   if (free_packing_buff)
+//     {
+//       /* mark the end of another level of xasl packing */
+//       pt_exit_packing_buf ();
+//     }
+
+//   if (attnames != &attname_tmp)
+//     {
+//       free_and_init (attnames);
+//     }
+//   free_and_init (asc_desc);
+//   if (attrs_prefix_length)
+//     {
+//       free_and_init (attrs_prefix_length);
+//     }
+
+//   if (cname != NULL)
+//     {
+//       free_and_init (cname);
+//     }
+
+//   return error;
+}
+
+
+/**
+ * do_create_histogram() - Creates a histogram on a class.
+ *   return: Error code if it fails
+ *   parser(in): Parser context
+ *   statement(in): Parse tree of a create histogram statement
+ */
+int
+do_create_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
+{
+  PT_NODE *cls;
+  DB_OBJECT *obj;
+  const char *index_name = NULL;
+  int error = NO_ERROR;
+
+  CHECK_MODIFICATION_ERROR ();
+
+  /* class should be already available */
+  assert (statement->info.histogram.target_table_spec);
+
+  cls = statement->info.histogram.target_table_spec->info.spec.entity_name;
+
+  obj = db_find_class (cls->info.name.original);
+  if (obj == NULL)
+    {
+      assert (er_errid () != NO_ERROR);
+      return er_errid ();
+    }
+
+  //error = create_or_drop_histogram_helper (parser, &statement->info.histogram);
   return error;
 }
 

@@ -20,6 +20,7 @@
  * execute_statement.c - functions to do execute
  */
 
+#include "parse_tree.h"
 #ident "$Id$"
 
 #include "config.h"
@@ -3158,6 +3159,7 @@ do_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
 	case PT_CREATE_SERIAL:
 	case PT_CREATE_TRIGGER:
 	case PT_CREATE_USER:
+	case PT_CREATE_HISTOGRAM:
 	case PT_ALTER:
 	case PT_ALTER_INDEX:
 	case PT_ALTER_SERIAL:
@@ -3233,6 +3235,10 @@ do_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
 
 	case PT_CREATE_INDEX:
 	  error = do_create_index (parser, statement);
+	  break;
+
+	case PT_CREATE_HISTOGRAM:
+	  error = do_create_histogram (parser, statement);
 	  break;
 
 	case PT_EVALUATE:
@@ -3855,6 +3861,7 @@ do_execute_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
     case PT_CREATE_SERIAL:
     case PT_CREATE_TRIGGER:
     case PT_CREATE_USER:
+    case PT_CREATE_HISTOGRAM:
     case PT_ALTER:
     case PT_ALTER_INDEX:
     case PT_ALTER_SERIAL:
@@ -3927,6 +3934,9 @@ do_execute_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
       break;
     case PT_CREATE_USER:
       err = do_create_user (parser, statement);
+      break;
+    case PT_CREATE_HISTOGRAM:
+      err = do_create_histogram (parser, statement);
       break;
     case PT_ALTER:
       /* err = do_alter(parser, statement); */
