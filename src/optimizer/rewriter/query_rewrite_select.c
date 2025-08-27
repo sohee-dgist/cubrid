@@ -30,7 +30,6 @@ static PT_NODE *qo_reset_location (PARSER_CONTEXT * parser, PT_NODE * node, void
 static PT_NODE *qo_get_name_cnt_by_spec (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 static PT_NODE *qo_collect_name_with_eq_const (PARSER_CONTEXT * parser, PT_NODE * on_cond, PT_NODE * spec);
 static PT_NODE *qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query);
-static PT_NODE *qo_reduce_outer_joined_tbls_with_inline_view (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query);
 static void qo_reduce_joined_tbls_ref_by_fk (PARSER_CONTEXT * parser, PT_NODE * query);
 static bool qo_is_exclude_spec (PT_NODE * exclude_spec_point_list, PT_NODE * spec);
 static bool qo_check_pk_ref_by_fk_in_parent_spec (PARSER_CONTEXT * parser, PT_NODE * query,
