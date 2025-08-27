@@ -1923,8 +1923,8 @@ qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * 
   if (spec->info.spec.flat_entity_list == NULL || spec->info.spec.derived_table)
     {
       cls =
-	sm_find_class (spec->info.spec.derived_table->info.query.q.select.from->info.spec.flat_entity_list->info.
-		       name.original);
+	sm_find_class (spec->info.spec.derived_table->info.query.q.select.from->info.spec.flat_entity_list->info.name.
+		       original);
     }
   else
     {
