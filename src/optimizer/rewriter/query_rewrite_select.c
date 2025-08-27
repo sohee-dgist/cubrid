@@ -30,6 +30,7 @@ static PT_NODE *qo_reset_location (PARSER_CONTEXT * parser, PT_NODE * node, void
 static PT_NODE *qo_get_name_cnt_by_spec (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue_walk);
 static PT_NODE *qo_collect_name_with_eq_const (PARSER_CONTEXT * parser, PT_NODE * on_cond, PT_NODE * spec);
 static PT_NODE *qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query);
+static PT_NODE *qo_reduce_outer_joined_tbls_with_inline_view (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * query);
 static void qo_reduce_joined_tbls_ref_by_fk (PARSER_CONTEXT * parser, PT_NODE * query);
 static bool qo_is_exclude_spec (PT_NODE * exclude_spec_point_list, PT_NODE * spec);
 static bool qo_check_pk_ref_by_fk_in_parent_spec (PARSER_CONTEXT * parser, PT_NODE * query,
@@ -108,6 +109,7 @@ qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE **
 	      || spec->info.spec.derived_table_type == PT_DERIVED_DBLINK_TABLE)
 	    {
 	      (void) mq_copypush_sargable_terms (parser, (*nodep), spec);
+	      point_list = parser_append_previous_node (pt_point (parser, spec), point_list);
 	    }
 	  else
 	    {
@@ -1903,13 +1905,33 @@ qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * 
   where = query->info.query.q.select.where;
   /* get columns with equal op and constant in on_cond */
   point_list = qo_collect_name_with_eq_const (parser, where, spec);
+
+  /* add column */
+  if (spec->info.spec.derived_table)
+    {
+      tmp_spec =
+	qo_collect_name_with_eq_const (parser, spec->info.spec.derived_table->info.query.q.select.where,
+				       spec->info.spec.derived_table->info.query.q.select.from);
+      point_list->next = tmp_spec;
+    }
+
   if (point_list == NULL)
     {
       return query;
     }
 
   /* get class info */
-  cls = sm_find_class (spec->info.spec.flat_entity_list->info.name.original);
+  if (spec->info.spec.flat_entity_list == NULL || spec->info.spec.derived_table)
+    {
+      cls =
+	sm_find_class (spec->info.spec.derived_table->info.query.q.select.from->info.spec.flat_entity_list->info.
+		       name.original);
+    }
+  else
+    {
+      cls = sm_find_class (spec->info.spec.flat_entity_list->info.name.original);
+    }
+
   if (cls == NULL)
     {
       goto end;
