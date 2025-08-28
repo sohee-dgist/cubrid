@@ -108,7 +108,10 @@ qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE **
 	      || spec->info.spec.derived_table_type == PT_DERIVED_DBLINK_TABLE)
 	    {
 	      (void) mq_copypush_sargable_terms (parser, (*nodep), spec);
-	      point_list = parser_append_previous_node (pt_point (parser, spec), point_list);
+	      if (spec->info.spec.derived_table->node_type == PT_SELECT)
+		{
+		  point_list = parser_append_previous_node (pt_point (parser, spec), point_list);
+		}
 	    }
 	  else
 	    {
