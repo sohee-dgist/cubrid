@@ -108,7 +108,9 @@ qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE **
 	      || spec->info.spec.derived_table_type == PT_DERIVED_DBLINK_TABLE)
 	    {
 	      (void) mq_copypush_sargable_terms (parser, (*nodep), spec);
-	      if (spec->info.spec.derived_table->node_type == PT_SELECT)
+	      if (spec->info.spec.derived_table->node_type == PT_SELECT
+		  && spec->info.spec.derived_table->info.query.q.select.from
+		  && spec->info.spec.derived_table->info.query.q.select.from->info.spec.flat_entity_list)
 		{
 		  point_list = parser_append_previous_node (pt_point (parser, spec), point_list);
 		}
@@ -1923,8 +1925,9 @@ qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * 
     }
 
   /* get class info */
-  if (spec->info.spec.flat_entity_list == NULL || spec->info.spec.derived_table)
+  if (spec->info.spec.flat_entity_list == NULL)
     {
+      assert (spec->info.spec.derived_table->node_type == PT_SELECT);
       cls =
 	sm_find_class (spec->info.spec.derived_table->info.query.q.select.from->info.spec.flat_entity_list->info.name.
 		       original);
