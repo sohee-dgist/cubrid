@@ -1866,6 +1866,7 @@ qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * 
   SM_ATTRIBUTE *attrp;
   PT_NODE *point_list = NULL, *point, *where, *col, *tmp_spec, *prev_spec, *pred, *prev_pred, *next_pred;
   PT_NODE *next_spec;
+  PT_NODE *derived_table = spec->info.spec.derived_table;
   SPEC_CNT_INFO info;
   bool all_unique_col_match = false;
   int i;
@@ -1911,11 +1912,11 @@ qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * 
   point_list = qo_collect_name_with_eq_const (parser, where, spec);
 
   /* add column */
-  if (spec->info.spec.derived_table)
+  if (derived_table)
     {
       tmp_spec =
-	qo_collect_name_with_eq_const (parser, spec->info.spec.derived_table->info.query.q.select.where,
-				       spec->info.spec.derived_table->info.query.q.select.from);
+	qo_collect_name_with_eq_const (parser, derived_table->info.query.q.select.where,
+				       derived_table->info.query.q.select.from);
       if (point_list)
 	{
 	  point_list->next = tmp_spec;
@@ -1934,10 +1935,8 @@ qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * 
   /* get class info */
   if (spec->info.spec.flat_entity_list == NULL)
     {
-      assert (spec->info.spec.derived_table->node_type == PT_SELECT);
-      cls =
-	sm_find_class (spec->info.spec.derived_table->info.query.q.select.from->info.spec.flat_entity_list->info.
-		       name.original);
+      assert (derived_table->node_type == PT_SELECT);
+      cls = sm_find_class (derived_table->info.query.q.select.from->info.spec.flat_entity_list->info.name.original);
     }
   else
     {
