@@ -1916,7 +1916,14 @@ qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * 
       tmp_spec =
 	qo_collect_name_with_eq_const (parser, spec->info.spec.derived_table->info.query.q.select.where,
 				       spec->info.spec.derived_table->info.query.q.select.from);
-      point_list->next = tmp_spec;
+      if (point_list)
+	{
+	  point_list->next = tmp_spec;
+	}
+      else
+	{
+	  point_list = tmp_spec;
+	}
     }
 
   if (point_list == NULL)
@@ -1929,8 +1936,8 @@ qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * 
     {
       assert (spec->info.spec.derived_table->node_type == PT_SELECT);
       cls =
-	sm_find_class (spec->info.spec.derived_table->info.query.q.select.from->info.spec.flat_entity_list->info.name.
-		       original);
+	sm_find_class (spec->info.spec.derived_table->info.query.q.select.from->info.spec.flat_entity_list->info.
+		       name.original);
     }
   else
     {
