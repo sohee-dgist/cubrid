@@ -2451,7 +2451,7 @@ static PT_NODE *
 mq_substitute_inline_view_in_statement (PARSER_CONTEXT * parser, PT_NODE * statement, PT_NODE * subquery,
 					PT_NODE * derived_spec, PT_NODE * order_by)
 {
-  PT_NODE *tmp_result, *save_result, *result, *statement_next;
+  PT_NODE *tmp_result, *result, *statement_next, *save_result = NULL;
   PT_NODE *spec, *new_spec = NULL;
   PUSHABLE_TYPE is_mergeable;
   UINTPTR spec_id;
