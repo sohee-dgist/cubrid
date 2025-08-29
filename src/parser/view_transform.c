@@ -2529,7 +2529,7 @@ mq_substitute_inline_view_in_statement (PARSER_CONTEXT * parser, PT_NODE * state
 	{
 	  if (mq_is_outer_join_spec (parser, spec))
 	    {
-	      /* outer join failed */
+	      /* outer join elimination failed */
 	      parser_free_tree (parser, tmp_result);
 	      if (mq_is_removable_select_list (parser, subquery, save_result) == PUSHABLE)
 		{
@@ -11312,6 +11312,7 @@ mq_inline_view_lambda (PARSER_CONTEXT * parser, PT_NODE * statement, PT_NODE * d
 	      spec->info.spec.path_entities = NULL;
 	      if (newspec)
 		{
+		  newspec->info.spec.outer_join_elimination = true;
 		  if (newspec->info.spec.derived_table_type == PT_DERIVED_JSON_TABLE)
 		    {
 		      /* flat_entity_list is needed to gather referenced oids in xasl_generation

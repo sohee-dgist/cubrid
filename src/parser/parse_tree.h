@@ -2397,6 +2397,7 @@ struct pt_spec_info
   PT_JOIN_TYPE join_type;
   short location;		/* n-th position in FROM (start from 0); init val = -1 */
   bool natural;			/* -- does not support natural join */
+  bool outer_join_elimination;	/* dont convert outer join to inner join */
   DB_AUTH auth_bypass_mask;	/* flag to bypass normal authorization : used only by SHOW statements currently */
   PT_SPEC_FLAG flag;		/* flag wich marks this spec for DELETE or UPDATE operations */
   int num_parallel_threads;	/* number of parallel threads for this spec */

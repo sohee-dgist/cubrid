@@ -3363,7 +3363,7 @@ qo_rewrite_outerjoin (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *c
 	{
 	  /* check outer join spec. */
 	  is_outer_joined = mq_is_outer_join_spec (parser, spec);
-	  if (is_outer_joined)
+	  if (is_outer_joined && !spec->info.spec.outer_join_elimination)
 	    {
 	      info.id = info_spec.id = spec->info.spec.id;
 
