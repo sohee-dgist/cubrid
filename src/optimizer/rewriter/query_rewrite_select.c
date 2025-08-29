@@ -108,12 +108,6 @@ qo_rewrite_select_queries (PARSER_CONTEXT * parser, PT_NODE ** nodep, PT_NODE **
 	      || spec->info.spec.derived_table_type == PT_DERIVED_DBLINK_TABLE)
 	    {
 	      (void) mq_copypush_sargable_terms (parser, (*nodep), spec);
-	      if (spec->info.spec.derived_table->node_type == PT_SELECT
-		  && spec->info.spec.derived_table->info.query.q.select.from
-		  && spec->info.spec.derived_table->info.query.q.select.from->info.spec.flat_entity_list)
-		{
-		  point_list = parser_append_previous_node (pt_point (parser, spec), point_list);
-		}
 	    }
 	  else
 	    {
@@ -1866,7 +1860,6 @@ qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * 
   SM_ATTRIBUTE *attrp;
   PT_NODE *point_list = NULL, *point, *where, *col, *tmp_spec, *prev_spec, *pred, *prev_pred, *next_pred;
   PT_NODE *next_spec;
-  PT_NODE *derived_table = spec->info.spec.derived_table;
   SPEC_CNT_INFO info;
   bool all_unique_col_match = false;
   int i;
@@ -1910,39 +1903,13 @@ qo_reduce_outer_joined_tbls (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * 
   where = query->info.query.q.select.where;
   /* get columns with equal op and constant in on_cond */
   point_list = qo_collect_name_with_eq_const (parser, where, spec);
-
-  /* add column */
-  if (derived_table)
-    {
-      tmp_spec =
-	qo_collect_name_with_eq_const (parser, derived_table->info.query.q.select.where,
-				       derived_table->info.query.q.select.from);
-      if (point_list)
-	{
-	  point_list->next = tmp_spec;
-	}
-      else
-	{
-	  point_list = tmp_spec;
-	}
-    }
-
   if (point_list == NULL)
     {
       return query;
     }
 
   /* get class info */
-  if (spec->info.spec.flat_entity_list == NULL)
-    {
-      assert (derived_table->node_type == PT_SELECT);
-      cls = sm_find_class (derived_table->info.query.q.select.from->info.spec.flat_entity_list->info.name.original);
-    }
-  else
-    {
-      cls = sm_find_class (spec->info.spec.flat_entity_list->info.name.original);
-    }
-
+  cls = sm_find_class (spec->info.spec.flat_entity_list->info.name.original);
   if (cls == NULL)
     {
       goto end;

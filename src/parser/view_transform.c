@@ -182,7 +182,8 @@ enum pushable_type
 {
   HAS_ERROR = 0,
   NON_PUSHABLE = 1,
-  PUSHABLE = 2
+  PUSHABLE = 2,
+  CHECK_PUSHABLE_OUTER_JOIN = 3
 };
 typedef enum pushable_type PUSHABLE_TYPE;
 
@@ -1944,12 +1945,17 @@ mq_is_pushable_subquery (PARSER_CONTEXT * parser, PT_NODE * subquery, PT_NODE * 
       /* not pushable */
       return NON_PUSHABLE;
     }
-  /* determine if spec is outer joined */
+
   if (!is_only_spec && (mq_is_outer_join_spec (parser, class_spec) || MQ_IS_OUTER_JOIN_SPEC (class_spec)))
     {
-      /* not pushable */
-      return NON_PUSHABLE;
+      if (pt_length_of_list (subquery->info.query.q.select.from) != 1
+	  || class_spec->info.spec.join_type != PT_JOIN_LEFT_OUTER)
+	{
+	  /* not pushable */
+	  return NON_PUSHABLE;
+	}
     }
+
   /* determine if main query's where has define_vars ':=' */
   if (pt_has_define_vars (parser, pred))
     {
@@ -2063,6 +2069,12 @@ mq_is_pushable_subquery (PARSER_CONTEXT * parser, PT_NODE * subquery, PT_NODE * 
     {
       /* query not pushable */
       return NON_PUSHABLE;
+    }
+
+  if (!is_only_spec && (mq_is_outer_join_spec (parser, class_spec) || MQ_IS_OUTER_JOIN_SPEC (class_spec)))
+    {
+      /* pushable if outer join can be eliminated */
+      return CHECK_PUSHABLE_OUTER_JOIN;
     }
 
   /* if we got this far, query is pushable */
@@ -2439,7 +2451,7 @@ static PT_NODE *
 mq_substitute_inline_view_in_statement (PARSER_CONTEXT * parser, PT_NODE * statement, PT_NODE * subquery,
 					PT_NODE * derived_spec, PT_NODE * order_by)
 {
-  PT_NODE *tmp_result, *result, *statement_next;
+  PT_NODE *tmp_result, *save_result, *result, *statement_next;
   PT_NODE *spec, *new_spec = NULL;
   PUSHABLE_TYPE is_mergeable;
   UINTPTR spec_id;
@@ -2490,6 +2502,54 @@ mq_substitute_inline_view_in_statement (PARSER_CONTEXT * parser, PT_NODE * state
       result = mq_fix_derived_in_union (parser, tmp_result, spec_id);
 
     }
+  else if (is_mergeable == CHECK_PUSHABLE_OUTER_JOIN)
+    {
+      PT_NODE *spec;
+      mq_copy_sql_hint (parser, tmp_result, subquery);
+      save_result = parser_copy_tree (parser, tmp_result);
+      if (tmp_result->node_type == PT_SELECT)
+	{
+	  if (!order_by && subquery->info.query.order_by)
+	    {
+	      /* update the position number of order by clause and add a hidden column into the output list if
+	       * necessary. */
+	      tmp_result =
+		mq_update_order_by (parser, tmp_result, subquery, NULL, derived_spec,
+				    pt_is_distinct (tmp_result) || pt_has_aggregate (parser, tmp_result));
+	      if (tmp_result == NULL)
+		{
+		  goto exit_on_error;
+		}
+	    }
+	}
+      tmp_result = mq_substitute_select_for_inline_view (parser, tmp_result, subquery, derived_spec);
+      tmp_result = mq_rewrite (parser, tmp_result);
+      spec = tmp_result->info.query.q.select.from;
+      while (spec)
+	{
+	  if (mq_is_outer_join_spec (parser, spec))
+	    {
+	      /* outer join failed */
+	      parser_free_tree (parser, tmp_result);
+	      if (mq_is_removable_select_list (parser, subquery, save_result) == PUSHABLE)
+		{
+		  save_result = mq_remove_select_list_for_inline_view (parser, save_result, derived_spec, &new_spec);
+		  if (save_result == NULL)
+		    {
+		      goto exit_on_error;
+		    }
+		}
+
+	      /* no translation per se, but need to fix up proxy objects */
+	      spec_id = new_spec ? new_spec->info.spec.id : derived_spec->info.spec.id;
+	      result = mq_fix_derived_in_union (parser, save_result, spec_id);
+	      goto exit;
+	    }
+	  spec = spec->next;
+	}
+      parser_free_tree (parser, save_result);
+      result = tmp_result;
+    }
   else
     {
       /* expand vclass_query in parent statement */
@@ -2513,6 +2573,7 @@ mq_substitute_inline_view_in_statement (PARSER_CONTEXT * parser, PT_NODE * state
       result = mq_substitute_select_for_inline_view (parser, tmp_result, subquery, derived_spec);
     }
 
+exit:
   /* set query id # */
   if (result)
     {
@@ -2556,6 +2617,10 @@ exit_on_error:
       parser_free_tree (parser, tmp_result);
     }
 
+  if (save_result)
+    {
+      parser_free_tree (parser, save_result);
+    }
   return NULL;
 }
 
@@ -2668,7 +2733,7 @@ mq_substitute_subquery_in_statement (PARSER_CONTEXT * parser, PT_NODE * statemen
 	  goto exit_on_error;
 	}
 
-      if (is_mergeable == NON_PUSHABLE)
+      if (is_mergeable == NON_PUSHABLE || is_mergeable == CHECK_PUSHABLE_OUTER_JOIN)
 	{
 	  /* rewrite vclass query as a derived table */
 	  PT_NODE *tmp_class = NULL;
@@ -11221,119 +11286,221 @@ mq_inline_view_lambda (PARSER_CONTEXT * parser, PT_NODE * statement, PT_NODE * d
       goto exit_on_error;
     }
 
-  /* handle is a where parts of view sub-querys */
-  if (where_part)
+  if (mq_is_outer_join_spec (parser, derived_spec))
     {
-      /* force sub expressions to be parenthesized for correct printing. Otherwise, the associativity may be wrong when
-       * the statement is printed and sent to a local database */
-      if (class_where_part && class_where_part->node_type == PT_EXPR)
+      /* handle is a where parts of view sub-querys */
+      if (specptr)
 	{
-	  class_where_part->info.expr.paren_type = 1;
-	}
-      if ((*where_part) && (*where_part)->node_type == PT_EXPR)
-	{
-	  (*where_part)->info.expr.paren_type = 1;
-	}
-      /* Set predicates to be evaluated first */
-      pt_set_pred_order (parser, class_where_part, 1);
-
-      /* The "where clause" is in the form of a list of CNF "and" terms. In order to "and" together the view's "where
-       * clause" with the statement's, we must maintain this list of terms. Using a 'PT_AND' node here will have the
-       * effect of losing the "and" terms on the tail of either list. */
-      *where_part = parser_append_node (parser_copy_tree_list (parser, class_where_part), *where_part);
-      /* class where part of merge insert clause */
-      if (where_part_ex)
-	{
-	  if ((*where_part_ex) && (*where_part_ex)->node_type == PT_EXPR)
-	    {
-	      (*where_part_ex)->info.expr.paren_type = 1;
-	    }
-	  *where_part_ex = parser_append_node (parser_copy_tree_list (parser, class_where_part), *where_part_ex);
-	}
-    }
-  if (check_where_part)
-    {
-      if (class_check_part && class_check_part->node_type == PT_EXPR)
-	{
-	  class_check_part->info.expr.paren_type = 1;
-	}
-      if ((*check_where_part) && (*check_where_part)->node_type == PT_EXPR)
-	{
-	  (*check_where_part)->info.expr.paren_type = 1;
-	}
-      *check_where_part = parser_append_node (parser_copy_tree_list (parser, class_check_part), *check_where_part);
-    }
-
-  if (specptr)
-    {
-      spec = *specptr;
-      while (spec && derived_spec->info.spec.id != spec->info.spec.id)
-	{
-	  specptr = &spec->next;
 	  spec = *specptr;
-	}
-      if (spec)
-	{
-	  SPEC_RESET_INFO spec_reset;
-	  PT_NODE *subpaths;
-
-	  newspec = parser_copy_tree_list (parser, corresponding_spec);
-	  oldnext = spec->next;
-	  spec->next = NULL;
-	  subpaths = spec->info.spec.path_entities;
-	  spec_reset.sub_paths = &subpaths;
-	  spec_reset.statement = statement;
-	  spec_reset.old_next = oldnext;
-	  spec->info.spec.path_entities = NULL;
-	  if (newspec)
+	  while (spec && derived_spec->info.spec.id != spec->info.spec.id)
 	    {
-	      if (newspec->info.spec.derived_table_type == PT_DERIVED_JSON_TABLE)
+	      specptr = &spec->next;
+	      spec = *specptr;
+	    }
+	  if (spec)
+	    {
+	      SPEC_RESET_INFO spec_reset;
+	      PT_NODE *subpaths;
+
+	      newspec = parser_copy_tree_list (parser, corresponding_spec);
+	      oldnext = spec->next;
+	      spec->next = NULL;
+	      subpaths = spec->info.spec.path_entities;
+	      spec_reset.sub_paths = &subpaths;
+	      spec_reset.statement = statement;
+	      spec_reset.old_next = oldnext;
+	      spec->info.spec.path_entities = NULL;
+	      if (newspec)
 		{
-		  /* flat_entity_list is needed to gather referenced oids in xasl_generation
-		   * in pt_spec_to_xasl_class_oid_list */
-		  newspec->info.spec.flat_entity_list = spec->info.spec.flat_entity_list;
-		  spec->info.spec.flat_entity_list = NULL;
+		  if (newspec->info.spec.derived_table_type == PT_DERIVED_JSON_TABLE)
+		    {
+		      /* flat_entity_list is needed to gather referenced oids in xasl_generation
+		       * in pt_spec_to_xasl_class_oid_list */
+		      newspec->info.spec.flat_entity_list = spec->info.spec.flat_entity_list;
+		      spec->info.spec.flat_entity_list = NULL;
+		    }
+		  else
+		    {
+		      newspec->info.spec.range_var->info.name.original = spec->info.spec.range_var->info.name.original;
+		    }
+
+		  newspec->info.spec.location = spec->info.spec.location;
+		  /* move join info */
+		  if (spec->info.spec.join_type != PT_JOIN_NONE)
+		    {
+		      newspec->info.spec.join_type = spec->info.spec.join_type;
+		      newspec->info.spec.on_cond = spec->info.spec.on_cond;
+		      /* handle is a where parts of view sub-querys except for outer join */
+		      if (where_part)
+			{
+
+			  newspec->info.spec.on_cond =
+			    parser_append_node (parser_copy_tree_list (parser, class_where_part),
+						newspec->info.spec.on_cond);
+			  /* class where part of merge insert clause */
+			  if (where_part_ex)
+			    {
+			      newspec->info.spec.on_cond =
+				parser_append_node (parser_copy_tree_list (parser, class_where_part),
+						    newspec->info.spec.on_cond);
+			    }
+			}
+		      if (check_where_part)
+			{
+			  newspec->info.spec.on_cond =
+			    parser_append_node (parser_copy_tree_list (parser, class_check_part),
+						newspec->info.spec.on_cond);
+			}
+		      spec->info.spec.on_cond = NULL;
+		      parser_walk_tree (parser, newspec->info.spec.on_cond, mq_mark_location,
+					&(newspec->info.spec.location), NULL, NULL);
+		    }
+		}
+	      for_update = (PT_SELECT_INFO_IS_FLAGED (statement, PT_SELECT_INFO_FOR_UPDATE)
+			    && (spec->info.spec.flag & PT_SPEC_FLAG_FOR_UPDATE_CLAUSE));
+	      parser_free_tree (parser, spec);
+
+	      if (newspec)
+		{
+		  *specptr = newspec;
+		  parser_append_node (oldnext, newspec);
+
+		  newspec =
+		    parser_walk_tree (parser, newspec, mq_reset_spec_distr_subpath_pre, &spec_reset,
+				      mq_reset_spec_distr_subpath_post, &spec_reset);
+
+		  statement = spec_reset.statement;
 		}
 	      else
 		{
-		  newspec->info.spec.range_var->info.name.original = spec->info.spec.range_var->info.name.original;
+		  PT_INTERNAL_ERROR (parser, "translate");
+		  goto exit_on_error;
 		}
-
-	      newspec->info.spec.location = spec->info.spec.location;
-	      /* move join info */
-	      if (spec->info.spec.join_type != PT_JOIN_NONE)
-		{
-		  newspec->info.spec.join_type = spec->info.spec.join_type;
-		  newspec->info.spec.on_cond = spec->info.spec.on_cond;
-		  spec->info.spec.on_cond = NULL;
-		}
-	    }
-	  for_update = (PT_SELECT_INFO_IS_FLAGED (statement, PT_SELECT_INFO_FOR_UPDATE)
-			&& (spec->info.spec.flag & PT_SPEC_FLAG_FOR_UPDATE_CLAUSE));
-	  parser_free_tree (parser, spec);
-
-	  if (newspec)
-	    {
-	      *specptr = newspec;
-	      parser_append_node (oldnext, newspec);
-
-	      newspec =
-		parser_walk_tree (parser, newspec, mq_reset_spec_distr_subpath_pre, &spec_reset,
-				  mq_reset_spec_distr_subpath_post, &spec_reset);
-
-	      statement = spec_reset.statement;
 	    }
 	  else
 	    {
-	      PT_INTERNAL_ERROR (parser, "translate");
+	      /* we are doing a null substitution. ie the classes don't match the spec. The "correct translation" is NULL.
+	       * */
 	      goto exit_on_error;
 	    }
 	}
-      else
+
+    }
+  else
+    {
+      /* handle is a where parts of view sub-querys except for outer join */
+      if (where_part)
 	{
-	  /* we are doing a null substitution. ie the classes don't match the spec. The "correct translation" is NULL.
-	   * */
-	  goto exit_on_error;
+	  /* force sub expressions to be parenthesized for correct printing. Otherwise, the associativity may be wrong when
+	   * the statement is printed and sent to a local database */
+	  if (class_where_part && class_where_part->node_type == PT_EXPR)
+	    {
+	      class_where_part->info.expr.paren_type = 1;
+	    }
+	  if ((*where_part) && (*where_part)->node_type == PT_EXPR)
+	    {
+	      (*where_part)->info.expr.paren_type = 1;
+	    }
+	  /* Set predicates to be evaluated first */
+	  pt_set_pred_order (parser, class_where_part, 1);
+
+	  /* The "where clause" is in the form of a list of CNF "and" terms. In order to "and" together the view's "where
+	   * clause" with the statement's, we must maintain this list of terms. Using a 'PT_AND' node here will have the
+	   * effect of losing the "and" terms on the tail of either list. */
+	  *where_part = parser_append_node (parser_copy_tree_list (parser, class_where_part), *where_part);
+	  /* class where part of merge insert clause */
+	  if (where_part_ex)
+	    {
+	      if ((*where_part_ex) && (*where_part_ex)->node_type == PT_EXPR)
+		{
+		  (*where_part_ex)->info.expr.paren_type = 1;
+		}
+	      *where_part_ex = parser_append_node (parser_copy_tree_list (parser, class_where_part), *where_part_ex);
+	    }
+	}
+      if (check_where_part)
+	{
+	  if (class_check_part && class_check_part->node_type == PT_EXPR)
+	    {
+	      class_check_part->info.expr.paren_type = 1;
+	    }
+	  if ((*check_where_part) && (*check_where_part)->node_type == PT_EXPR)
+	    {
+	      (*check_where_part)->info.expr.paren_type = 1;
+	    }
+	  *check_where_part = parser_append_node (parser_copy_tree_list (parser, class_check_part), *check_where_part);
+	}
+      if (specptr)
+	{
+	  spec = *specptr;
+	  while (spec && derived_spec->info.spec.id != spec->info.spec.id)
+	    {
+	      specptr = &spec->next;
+	      spec = *specptr;
+	    }
+	  if (spec)
+	    {
+	      SPEC_RESET_INFO spec_reset;
+	      PT_NODE *subpaths;
+
+	      newspec = parser_copy_tree_list (parser, corresponding_spec);
+	      oldnext = spec->next;
+	      spec->next = NULL;
+	      subpaths = spec->info.spec.path_entities;
+	      spec_reset.sub_paths = &subpaths;
+	      spec_reset.statement = statement;
+	      spec_reset.old_next = oldnext;
+	      spec->info.spec.path_entities = NULL;
+	      if (newspec)
+		{
+		  if (newspec->info.spec.derived_table_type == PT_DERIVED_JSON_TABLE)
+		    {
+		      /* flat_entity_list is needed to gather referenced oids in xasl_generation
+		       * in pt_spec_to_xasl_class_oid_list */
+		      newspec->info.spec.flat_entity_list = spec->info.spec.flat_entity_list;
+		      spec->info.spec.flat_entity_list = NULL;
+		    }
+		  else
+		    {
+		      newspec->info.spec.range_var->info.name.original = spec->info.spec.range_var->info.name.original;
+		    }
+
+		  newspec->info.spec.location = spec->info.spec.location;
+		  /* move join info */
+		  if (spec->info.spec.join_type != PT_JOIN_NONE)
+		    {
+		      newspec->info.spec.join_type = spec->info.spec.join_type;
+		      newspec->info.spec.on_cond = spec->info.spec.on_cond;
+		      spec->info.spec.on_cond = NULL;
+		    }
+		}
+	      for_update = (PT_SELECT_INFO_IS_FLAGED (statement, PT_SELECT_INFO_FOR_UPDATE)
+			    && (spec->info.spec.flag & PT_SPEC_FLAG_FOR_UPDATE_CLAUSE));
+	      parser_free_tree (parser, spec);
+
+	      if (newspec)
+		{
+		  *specptr = newspec;
+		  parser_append_node (oldnext, newspec);
+
+		  newspec =
+		    parser_walk_tree (parser, newspec, mq_reset_spec_distr_subpath_pre, &spec_reset,
+				      mq_reset_spec_distr_subpath_post, &spec_reset);
+
+		  statement = spec_reset.statement;
+		}
+	      else
+		{
+		  PT_INTERNAL_ERROR (parser, "translate");
+		  goto exit_on_error;
+		}
+	    }
+	  else
+	    {
+	      /* we are doing a null substitution. ie the classes don't match the spec. The "correct translation" is NULL.
+	       * */
+	      goto exit_on_error;
+	    }
 	}
     }
 
