@@ -2071,7 +2071,7 @@ mq_is_pushable_subquery (PARSER_CONTEXT * parser, PT_NODE * subquery, PT_NODE * 
       return NON_PUSHABLE;
     }
 
-    if (!is_only_spec && (mq_is_outer_join_spec (parser, class_spec) || MQ_IS_OUTER_JOIN_SPEC (class_spec)))
+  if (!is_only_spec && (mq_is_outer_join_spec (parser, class_spec) || MQ_IS_OUTER_JOIN_SPEC (class_spec)))
     {
       /* pushable if outer join can be eliminated */
       return PUSHABLE_OUTER_JOIN;
@@ -2451,7 +2451,7 @@ static PT_NODE *
 mq_substitute_inline_view_in_statement (PARSER_CONTEXT * parser, PT_NODE * statement, PT_NODE * subquery,
 					PT_NODE * derived_spec, PT_NODE * order_by)
 {
-  PT_NODE *tmp_result, *result, *statement_next, *save_result = NULL;
+  PT_NODE *tmp_result, *result, *statement_next;
   PT_NODE *spec, *new_spec = NULL;
   PUSHABLE_TYPE is_mergeable;
   UINTPTR spec_id;
@@ -2477,6 +2477,10 @@ mq_substitute_inline_view_in_statement (PARSER_CONTEXT * parser, PT_NODE * state
 
   /* check whether subquery is pushable */
   is_mergeable = mq_is_pushable_subquery (parser, subquery, tmp_result, derived_spec, false, order_by, NULL);
+  if (is_mergeable == PUSHABLE_OUTER_JOIN)
+    {
+      is_mergeable = PUSHABLE;
+    }
   if (is_mergeable == HAS_ERROR)
     {
       goto exit_on_error;
@@ -2568,10 +2572,6 @@ exit_on_error:
       parser_free_tree (parser, tmp_result);
     }
 
-  if (save_result)
-    {
-      parser_free_tree (parser, save_result);
-    }
   return NULL;
 }
 
@@ -2679,12 +2679,16 @@ mq_substitute_subquery_in_statement (PARSER_CONTEXT * parser, PT_NODE * statemen
 	}
 
       is_mergeable = mq_is_pushable_subquery (parser, query_spec, tmp_result, class_spec, true, order_by, class_);
+      if (is_mergeable == PUSHABLE_OUTER_JOIN)
+	{
+	  is_mergeable = NON_PUSHABLE;
+	}
       if (is_mergeable == HAS_ERROR)
 	{
 	  goto exit_on_error;
 	}
 
-      if (is_mergeable == NON_PUSHABLE || is_mergeable == PUSHABLE_OUTER_JOIN)
+      if (is_mergeable == NON_PUSHABLE)
 	{
 	  /* rewrite vclass query as a derived table */
 	  PT_NODE *tmp_class = NULL;
@@ -2943,7 +2947,7 @@ mq_substitute_subquery_in_statement (PARSER_CONTEXT * parser, PT_NODE * statemen
     {
       if (query_spec->info.query.all_distinct == PT_DISTINCT)
 	{
-	  if (is_mergeable == NON_PUSHABLE || is_mergeable == PUSHABLE_OUTER_JOIN)
+	  if (is_mergeable == NON_PUSHABLE)
 	    {
 	      /* result has been substituted. skip and go ahead */
 	    }
