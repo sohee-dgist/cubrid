@@ -1957,7 +1957,7 @@ mq_is_pushable_subquery (PARSER_CONTEXT * parser, PT_NODE * subquery, PT_NODE * 
     }
 
   /* determine if main query's where has define_vars ':=' */
-  if (pt_has_define_vars (parser, pred))
+  if (pt_has_define_vars (parser, subquery))
     {
       /* not pushable */
       return NON_PUSHABLE;
