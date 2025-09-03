@@ -183,7 +183,7 @@ enum pushable_type
   HAS_ERROR = 0,
   NON_PUSHABLE = 1,
   PUSHABLE = 2,
-  CHECK_PUSHABLE_OUTER_JOIN = 3
+  PUSHABLE_OUTER_JOIN = 3
 };
 typedef enum pushable_type PUSHABLE_TYPE;
 
@@ -2496,54 +2496,6 @@ mq_substitute_inline_view_in_statement (PARSER_CONTEXT * parser, PT_NODE * state
       result = mq_fix_derived_in_union (parser, tmp_result, spec_id);
 
     }
-  else if (is_mergeable == CHECK_PUSHABLE_OUTER_JOIN)
-    {
-      PT_NODE *spec;
-      mq_copy_sql_hint (parser, tmp_result, subquery);
-      save_result = parser_copy_tree (parser, tmp_result);
-      if (tmp_result->node_type == PT_SELECT)
-	{
-	  if (!order_by && subquery->info.query.order_by)
-	    {
-	      /* update the position number of order by clause and add a hidden column into the output list if
-	       * necessary. */
-	      tmp_result =
-		mq_update_order_by (parser, tmp_result, subquery, NULL, derived_spec,
-				    pt_is_distinct (tmp_result) || pt_has_aggregate (parser, tmp_result));
-	      if (tmp_result == NULL)
-		{
-		  goto exit_on_error;
-		}
-	    }
-	}
-      tmp_result = mq_substitute_select_for_inline_view (parser, tmp_result, subquery, derived_spec);
-      tmp_result = mq_rewrite (parser, tmp_result);
-      spec = tmp_result->info.query.q.select.from;
-      while (spec)
-	{
-	  if (mq_is_outer_join_spec (parser, spec))
-	    {
-	      /* outer join failed */
-	      parser_free_tree (parser, tmp_result);
-	      if (mq_is_removable_select_list (parser, subquery, save_result) == PUSHABLE)
-		{
-		  save_result = mq_remove_select_list_for_inline_view (parser, save_result, derived_spec, &new_spec);
-		  if (save_result == NULL)
-		    {
-		      goto exit_on_error;
-		    }
-		}
-
-	      /* no translation per se, but need to fix up proxy objects */
-	      spec_id = new_spec ? new_spec->info.spec.id : derived_spec->info.spec.id;
-	      result = mq_fix_derived_in_union (parser, save_result, spec_id);
-	      goto exit;
-	    }
-	  spec = spec->next;
-	}
-      parser_free_tree (parser, save_result);
-      result = tmp_result;
-    }
   else
     {
       /* expand vclass_query in parent statement */
@@ -2567,7 +2519,6 @@ mq_substitute_inline_view_in_statement (PARSER_CONTEXT * parser, PT_NODE * state
       result = mq_substitute_select_for_inline_view (parser, tmp_result, subquery, derived_spec);
     }
 
-exit:
   /* set query id # */
   if (result)
     {
@@ -2727,7 +2678,7 @@ mq_substitute_subquery_in_statement (PARSER_CONTEXT * parser, PT_NODE * statemen
 	  goto exit_on_error;
 	}
 
-      if (is_mergeable == NON_PUSHABLE || is_mergeable == CHECK_PUSHABLE_OUTER_JOIN)
+      if (is_mergeable == NON_PUSHABLE || is_mergeable == PUSHABLE_OUTER_JOIN)
 	{
 	  /* rewrite vclass query as a derived table */
 	  PT_NODE *tmp_class = NULL;
@@ -2986,7 +2937,7 @@ mq_substitute_subquery_in_statement (PARSER_CONTEXT * parser, PT_NODE * statemen
     {
       if (query_spec->info.query.all_distinct == PT_DISTINCT)
 	{
-	  if (is_mergeable == NON_PUSHABLE)
+	  if (is_mergeable == NON_PUSHABLE || is_mergeable == PUSHABLE_OUTER_JOIN)
 	    {
 	      /* result has been substituted. skip and go ahead */
 	    }
