@@ -2074,6 +2074,10 @@ mq_is_pushable_subquery (PARSER_CONTEXT * parser, PT_NODE * subquery, PT_NODE * 
   if (!is_only_spec && (mq_is_outer_join_spec (parser, class_spec) || MQ_IS_OUTER_JOIN_SPEC (class_spec)))
     {
       /* pushable if outer join can be eliminated */
+      if (orderby_for)
+	{
+	  return NON_PUSHABLE;
+	}
       return PUSHABLE_OUTER_JOIN;
     }
 
@@ -2477,10 +2481,7 @@ mq_substitute_inline_view_in_statement (PARSER_CONTEXT * parser, PT_NODE * state
 
   /* check whether subquery is pushable */
   is_mergeable = mq_is_pushable_subquery (parser, subquery, tmp_result, derived_spec, false, order_by, NULL);
-  if (is_mergeable == PUSHABLE_OUTER_JOIN)
-    {
-      is_mergeable = PUSHABLE;
-    }
+
   if (is_mergeable == HAS_ERROR)
     {
       goto exit_on_error;
