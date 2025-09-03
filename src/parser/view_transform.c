@@ -2074,7 +2074,7 @@ mq_is_pushable_subquery (PARSER_CONTEXT * parser, PT_NODE * subquery, PT_NODE * 
   if (!is_only_spec && (mq_is_outer_join_spec (parser, class_spec) || MQ_IS_OUTER_JOIN_SPEC (class_spec)))
     {
       /* pushable if outer join can be eliminated */
-      if (orderby_for)
+      if (orderby_for || subquery->info.query.order_by)
 	{
 	  return NON_PUSHABLE;
 	}
