@@ -1269,15 +1269,15 @@ namespace cubschema
 		   // columns
     {
       {"class_of", CT_CLASS_NAME},
-      {"def_index", "integer"},
+      {"key_attr", CT_ATTRIBUTE_NAME},
       {"data_type", "integer"},
-      {"histogram_type", "varchar(32)"},
+      {"histogram_type","integer"},
       {"bucket_count", "integer"},
-      {"histogram_values", "varchar(2048)"},
+      {"histogram_values", "format_varchar (1073741823)"},
     },
 // constraint
     {
-      {DB_CONSTRAINT_INDEX, "", {"class_of", "def_index", nullptr}, false}
+      {DB_CONSTRAINT_INDEX, "", {"class_of", "key_attr", nullptr}, false}
     },
 // authorization
     {
@@ -2069,11 +2069,11 @@ namespace cubschema
 		   // columns
     {
       {"class_of", CT_CLASS_NAME},
-      {"def_index", "integer"},
+      {"key_attr", CT_ATTRIBUTE_NAME},
       {"data_type", "integer"},
-      {"histogram_type", "varchar(32)"},
+      {"histogram_type","integer"},
       {"bucket_count", "integer"},
-      {"histogram_values", "varchar(2048)"},
+      {"histogram_values", "format_varchar (1073741823)"},
       // query specs
       {attribute_kind::QUERY_SPEC, sm_define_view_db_histogram_spec ()}
     },

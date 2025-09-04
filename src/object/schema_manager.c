@@ -15487,6 +15487,15 @@ error_exit:
   return error_code;
 }
 
+
+int
+sm_add_histogram (const DB_OBJECT * obj, int class_of, const char *attr_name, int data_type, int histogram_type,
+		  int bucket_count)
+{
+  return NO_ERROR;
+}
+
+
 /*
  * sm_save_function_index_info() - Saves the information necessary to recreate
  *			       a function index constraint
