@@ -1273,11 +1273,11 @@ namespace cubschema
       {"data_type", "integer"},
       {"histogram_type","integer"},
       {"bucket_count", "integer"},
-      {"histogram_values", "format_varchar (1073741823)"},
+      {"histogram_values", format_varchar (1073741823) }
     },
 // constraint
     {
-      {DB_CONSTRAINT_INDEX, "", {"class_of", "key_attr", nullptr}, false}
+      {DB_CONSTRAINT_UNIQUE, "", {"class_of", "key_attr", nullptr}, false}
     },
 // authorization
     {
@@ -2073,8 +2073,7 @@ namespace cubschema
       {"data_type", "integer"},
       {"histogram_type","integer"},
       {"bucket_count", "integer"},
-      {"histogram_values", "format_varchar (1073741823)"},
-      // query specs
+      {"histogram_values", format_varchar (1024)},
       {attribute_kind::QUERY_SPEC, sm_define_view_db_histogram_spec ()}
     },
 // constraint
