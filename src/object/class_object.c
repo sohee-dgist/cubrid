@@ -8299,6 +8299,13 @@ classobj_check_index_exist (SM_CLASS_CONSTRAINT * constraints, char **out_shared
   return error;
 }
 
+int
+classobj_check_histogram_exist (SM_ATTRIBUTE * attributes, char attr_name)
+{
+  assert (false);		// TODO: implement this
+  return NO_ERROR;
+}
+
 /*
  * classobj_make_function_index_info() -
  *   return:

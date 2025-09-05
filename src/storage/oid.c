@@ -67,7 +67,7 @@ static OID oid_Authorizations_class = { 0, 0, 0 };
 static OID oid_DB_root_class = { 0, 0, 0 };
 static OID oid_DBServer_class = { 0, 0, 0 };
 static OID oid_Synonym_class = { 0, 0, 0 };
-
+static OID oid_DB_histogram_class = { 0, 0, 0 };
 static OID oid_Rep_Read_Tran = { 0, (short int) 0x8000, 0 };
 
 const OID oid_Null_oid = { NULL_PAGEID, NULL_SLOTID, NULL_VOLID };
@@ -82,6 +82,7 @@ OID *oid_Serial_class_oid = &oid_Serial_class;
 OID *oid_Partition_class_oid = &oid_Partition_class;
 OID *oid_User_class_oid = &oid_User_class;
 OID *oid_Sp_code_class_oid = &oid_Stored_proc_code_class;
+OID *oid_DB_histogram_class_oid = &oid_DB_histogram_class;
 
 const OID_CACHE_ENTRY oid_Cache[OID_CACHE_SIZE] = {
   {&oid_Root_class, NULL},	/* Root class is not identifiable by a name */
@@ -113,6 +114,7 @@ const OID_CACHE_ENTRY oid_Cache[OID_CACHE_SIZE] = {
   {&oid_DBServer_class, CT_DB_SERVER_NAME},
   {&oid_Synonym_class, CT_SYNONYM_NAME},
   {&oid_Stored_proc_code_class, CT_STORED_PROC_CODE_NAME},
+  {&oid_DB_histogram_class, CT_DB_HISTOGRAM_NAME}
 };
 
 /*

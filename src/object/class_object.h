@@ -911,6 +911,18 @@ struct sm_descriptor
   SM_NAME_SPACE name_space;	/* component type */
 };
 
+
+/* histogram */
+typedef struct sm_histogram_info SM_HISTOGRAM_INFO;
+
+struct sm_histogram_info
+{
+  const char *attr_name;
+  int data_type;
+  int histogram_type;
+  int bucket_count;
+};
+
 /* free_and_init routine */
 #define classobj_free_threaded_array_and_init(list, clear) \
   do \
@@ -1120,4 +1132,5 @@ extern SM_PARTITION *classobj_copy_partition_info (SM_PARTITION * partition_info
 
 extern int classobj_change_constraint_status (DB_SEQ * properties, SM_CLASS_CONSTRAINT * cons,
 					      SM_INDEX_STATUS index_status);
+extern int classobj_check_histogram_exist (SM_ATTRIBUTE * attributes, const char *attr_name);
 #endif /* _CLASS_OBJECT_H_ */

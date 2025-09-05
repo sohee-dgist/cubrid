@@ -1963,6 +1963,80 @@ smt_check_index_exist (SM_TEMPLATE * template_, char **out_shared_cons_name, DB_
   return error;
 }
 
+
+int
+smt_check_histogram_exist (SM_TEMPLATE * template_, const char *attr_name)
+{
+  int error = NO_ERROR;
+  assert (false);		// TODO: implement this 여기서 히스토그램 관련 모든 컬럼들을 페치해오고 아래 함수에서 뒤진다.
+
+  SM_CLASS *class_;
+  SM_CLASS_CONSTRAINT *check_cons;
+  SM_CLASS_CONSTRAINT *temp_cons = NULL;
+
+//   if (template_->op != NULL)
+//   {
+//     error = au_fetch_class (template_->op, &class_, AU_FETCH_READ, AU_INDEX);
+//     if (error != NO_ERROR)
+//       {
+//         return error;
+//       }
+
+//     check_cons = class_->constraints;
+//   }
+//         else
+//         {
+//         error = classobj_make_class_constraints (template_->properties, template_->attributes, &check_cons);
+//         if (error != NO_ERROR)
+//         {
+//                 return error;
+//         }
+
+//         temp_cons = check_cons;
+//         }
+
+
+  error = classobj_check_histogram_exist (template_->attributes, attr_name);
+
+  return error;
+}
+
+int
+smt_add_histogram (SM_TEMPLATE * template_, const char *attr_name, int data_type, int histogram_type, int bucket_count)
+{
+  int error = NO_ERROR;
+  assert (false);		// TODO: implement this 여기서 히스토그램 관련 모든 컬럼들을 페치해오고 아래 함수에서 뒤진다.
+  SM_CLASS *class_;
+  SM_CLASS_CONSTRAINT *check_cons;
+  SM_CLASS_CONSTRAINT *temp_cons = NULL;
+
+//   if (template_->op != NULL)
+//   {
+//     error = au_fetch_class (template_->op, &class_, AU_FETCH_READ, AU_INDEX);
+//     if (error != NO_ERROR)
+//       {
+//         return error;
+//       }
+
+//     check_cons = class_->constraints;
+//   }
+//         else
+//         {
+//         error = classobj_make_class_constraints (template_->properties, template_->attributes, &check_cons);
+//         if (error != NO_ERROR)
+//         {
+//                 return error;
+//         }
+
+//         temp_cons = check_cons;
+//         }
+
+
+  error = classobj_check_histogram_exist (template_->attributes, attr_name);
+
+  return error;
+}
+
 /*
  * smt_add_constraint() - Adds the integrity constraint flags for an attribute.
  *   return: NO_ERROR on success, non-zero for ERROR

@@ -397,7 +397,8 @@ namespace cubschema
       {"query_specs", format_sequence (CT_QUERYSPEC_NAME)},
       {"indexes", format_sequence (CT_INDEX_NAME)},
       {"comment", format_varchar (2048)},
-      {"partition", format_sequence (CT_PARTITION_NAME)}
+      {"partition", format_sequence (CT_PARTITION_NAME)},
+      {"histograms", format_sequence (CT_DB_HISTOGRAM_NAME)}
     },
 // constraints
     {

@@ -9169,21 +9169,6 @@ pt_check_create_histogram (PARSER_CONTEXT * parser, PT_NODE * node)
       return;
     }
 
-  /* Check if the columns are valid. We only allow attribute names. we're only interested in the node type */
-  for (col = node->info.histogram.target_columns; col != NULL; col = col->next)
-    {
-      if (col_expr->node_type == PT_NAME)
-	{
-	  /* make sure this is not a parameter */
-	  if (col_expr->info.name.meta_class != PT_NORMAL)
-	    {
-	      PT_ERRORmf (parser, col_expr, MSGCAT_SET_PARSER_SEMANTIC, MSGCAT_SEMANTIC_INVALID_INDEX_COLUMN,
-			  pt_short_print (parser, col_expr));
-	      return;
-	    }
-	}
-    }
-
   name->info.name.db_object = db_obj;
 
   /* check that histogram already exists */

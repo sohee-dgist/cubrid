@@ -1850,6 +1850,7 @@ boot_destroy_catalog_classes (void)
     CT_PARTITION_NAME,
     CT_STORED_PROC_NAME,
     CT_STORED_PROC_ARGS_NAME,
+    CT_DB_HISTOGRAM_NAME,
     CTV_CLASS_NAME,
     CTV_SUPER_CLASS_NAME,
     CTV_VCLASS_NAME,
@@ -1871,6 +1872,7 @@ boot_destroy_catalog_classes (void)
     CTV_DB_SERVER_NAME,
     CT_SYNONYM_NAME,
     CTV_SYNONYM_NAME,
+    CTV_DB_HISTOGRAM_NAME,
     NULL
   };
 

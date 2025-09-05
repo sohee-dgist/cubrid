@@ -3882,8 +3882,9 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 				 PT_HISTOGRAM_INFO * const histogram_info, DO_HISTOGRAM do_histogram)
 {
   int error = NO_ERROR;
-  int class_of, data_type, histogram_type, bucket_count, nnames;
+  int data_type, histogram_type, bucket_count, nnames = 0;
   char *attname = NULL;
+  PT_NODE *cur_column = NULL;
   int is_partition = DB_NOT_PARTITIONED_CLASS;
   /* check histogram is allowed on this class */
   error = sm_partitioned_class_type (obj, &is_partition, NULL, NULL);
@@ -3897,19 +3898,21 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
       return ER_NOT_ALLOWED_ACCESS_TO_PARTITION;
     }
 
-  /* fill infos for catlaog table TODO: data_type, */
+  /* fill infos for catlaog table TODO: data_type, duplication check */
   nnames = pt_length_of_list (histogram_info->target_columns);
   histogram_type = histogram_info->histogram_type;
   bucket_count = histogram_info->bucket_count;
-
+  cur_column = histogram_info->target_columns;
   for (int i = 0; i < nnames; i++)
     {
-      attname = (char *) histogram_info->target_columns->info.name.original;
-      error = sm_add_histogram (obj, class_of, attname, data_type, histogram_type, bucket_count);
+      attname = (char *) cur_column->info.name.original;
+      data_type = cur_column->type_enum;
+      error = sm_add_histogram (obj, attname, data_type, histogram_type, bucket_count);
       if (error != NO_ERROR)
 	{
 	  return error;
 	}
+      cur_column = cur_column->next;
     }
 
   if (error != NO_ERROR)

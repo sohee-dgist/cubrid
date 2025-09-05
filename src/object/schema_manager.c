@@ -83,6 +83,7 @@
 #endif /* defined (SUPPRESS_STRLEN_WARNING) */
 
 #define SM_ADD_CONSTRAINT_SAVEPOINT_NAME "aDDcONSTRAINT"
+#define SM_ADD_HISTOGRAM_SAVEPOINT_NAME "aDDhISTOGRAM"
 #define SM_ADD_UNIQUE_CONSTRAINT_SAVEPOINT_NAME "aDDuNIQUEcONSTRAINT"
 #define SM_DROP_CLASS_MOP_SAVEPOINT_NAME "dELETEcLASSmOP"
 #define SM_TRUNCATE_SAVEPOINT_NAME "SmtRUnCATE"
@@ -3129,6 +3130,7 @@ sm_mark_system_class_for_catalog (void)
     CT_STORED_PROC_NAME,
     CT_STORED_PROC_ARGS_NAME,
     CT_PARTITION_NAME,
+    CT_DB_HISTOGRAM_NAME,
     CTV_CLASS_NAME,
     CTV_SUPER_CLASS_NAME,
     CTV_VCLASS_NAME,
@@ -3148,6 +3150,7 @@ sm_mark_system_class_for_catalog (void)
     CT_COLLATION_NAME,
     CT_DB_SERVER_NAME,
     CTV_DB_SERVER_NAME,
+    CTV_DB_HISTOGRAM_NAME,
     NULL
   };
 
@@ -4429,7 +4432,7 @@ sm_update_all_catalog_statistics (bool with_fullscan)
     CT_STORED_PROC_NAME, CT_STORED_PROC_ARGS_NAME, CT_PARTITION_NAME,
     CT_SERIAL_NAME, CT_USER_NAME, CT_AUTHORIZATION_NAME,
     CT_TRIGGER_NAME, CT_PASSWORD_NAME, CT_HA_APPLY_INFO_NAME,
-    CT_DB_SERVER_NAME, NULL
+    CT_DB_SERVER_NAME, CT_DB_HISTOGRAM_NAME, NULL
   };
 
   for (i = 0; classes[i] != NULL && error == NO_ERROR; i++)
@@ -15489,9 +15492,64 @@ error_exit:
 
 
 int
-sm_add_histogram (const DB_OBJECT * obj, int class_of, const char *attr_name, int data_type, int histogram_type,
-		  int bucket_count)
+sm_add_histogram (MOP classop, const char *attr_name, int data_type, int histogram_type, int bucket_count)
 {
+  bool set_savepoint = false;
+  int error = NO_ERROR;
+  DB_AUTH auth;
+  SM_TEMPLATE *def = NULL;
+
+  if (attr_name == NULL)
+    {
+      ERROR0 (error, ER_OBJ_INVALID_ARGUMENTS);
+      return error;
+    }
+
+  error = tran_system_savepoint (SM_ADD_HISTOGRAM_SAVEPOINT_NAME);
+  if (error != NO_ERROR)
+    {
+      return error;
+    }
+
+  set_savepoint = true;
+  def = smt_edit_class_mop (classop, AU_ALTER);
+  if (def == NULL)
+    {
+      ASSERT_ERROR_AND_SET (error);
+      goto error_exit;
+    }
+
+  error = smt_check_histogram_exist (def, attr_name);
+  if (error != NO_ERROR)
+    {
+      smt_quit (def);
+      goto error_exit;
+    }
+
+//   /* 히스토그램을 카탈로그 클래스에 추가 */
+//   error = smt_add_constraint (def, attr_name, data_type, histogram_type, bucket_count);
+//   if (error != NO_ERROR)
+//     {
+//       smt_quit (def);
+//       goto error_exit;
+//     }
+
+//   /* 통계 업데이트  | 히스토그램 정보 업데이트 하기 */
+//   error = sm_update_statistics_with_modify_histogram (newmop, STATS_WITH_SAMPlING);
+//   if (error != NO_ERROR)
+//     {
+//       smt_quit (def);
+//       goto error_exit;
+//     }
+
+  return error;
+
+error_exit:
+  if (set_savepoint && error != ER_TM_SERVER_DOWN_UNILATERALLY_ABORTED && error != ER_LK_UNILATERALLY_ABORTED)
+    {
+      (void) tran_abort_upto_system_savepoint (SM_ADD_HISTOGRAM_SAVEPOINT_NAME);
+    }
+
   return NO_ERROR;
 }
 
