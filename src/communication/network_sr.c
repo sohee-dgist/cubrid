@@ -453,15 +453,6 @@ net_server_init (void)
   req_p->action_attribute = (CHECK_DB_MODIFICATION | IN_TRANSACTION);
   req_p->processing_function = sqst_update_statistics;
 
-//   /* TODO: histogram */
-//   req_p = &net_Requests[NET_SERVER_CT_GET_HISTOGRAM];
-//   req_p->action_attribute = IN_TRANSACTION;
-//   req_p->processing_function = sct_get_histogram;
-
-//   req_p = &net_Requests[NET_SERVER_CT_UPDATE_HISTOGRAM];
-//   req_p->action_attribute = (CHECK_DB_MODIFICATION | IN_TRANSACTION);
-//   req_p->processing_function = sct_update_histogram;
-
   /* query manager */
   req_p = &net_Requests[NET_SERVER_QM_QUERY_PREPARE];
   req_p->action_attribute = IN_TRANSACTION;
