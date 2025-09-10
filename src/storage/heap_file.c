@@ -6828,7 +6828,7 @@ heap_scancache_start_internal (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_ca
 	    {
 	      orig_thread_p = thread_p->m_px_orig_thread_entry;
 	      assert (orig_thread_p != NULL);
-	      pthread_mutex_lock (&orig_thread_p->m_px_lock);
+	      pthread_mutex_lock (&orig_thread_p->m_px_lock_mutex);
 	    }
 #endif
 	  if (lock_scan (thread_p, class_oid, LK_UNCOND_LOCK, IS_LOCK) != LK_GRANTED)
@@ -6836,7 +6836,7 @@ heap_scancache_start_internal (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_ca
 #if defined(SERVER_MODE)
 	      if (orig_thread_p != NULL)
 		{
-		  pthread_mutex_unlock (&orig_thread_p->m_px_lock);
+		  pthread_mutex_unlock (&orig_thread_p->m_px_lock_mutex);
 		}
 #endif
 	      goto exit_on_error;
@@ -6844,7 +6844,7 @@ heap_scancache_start_internal (THREAD_ENTRY * thread_p, HEAP_SCANCACHE * scan_ca
 #if defined(SERVER_MODE)
 	  if (orig_thread_p != NULL)
 	    {
-	      pthread_mutex_unlock (&orig_thread_p->m_px_lock);
+	      pthread_mutex_unlock (&orig_thread_p->m_px_lock_mutex);
 	    }
 #endif
 	}
