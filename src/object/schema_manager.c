@@ -15497,7 +15497,8 @@ sm_add_histogram (MOP classop, const char *attr_name, int data_type, int histogr
   bool set_savepoint = false;
   int error = NO_ERROR;
   DB_AUTH auth;
-  SM_TEMPLATE *def = NULL;
+  SM_CLASS *class_ = NULL;
+  DB_OBJECT *db_class = NULL;
 
   if (attr_name == NULL)
     {
@@ -15512,27 +15513,23 @@ sm_add_histogram (MOP classop, const char *attr_name, int data_type, int histogr
     }
 
   set_savepoint = true;
-  def = smt_edit_class_mop (classop, AU_ALTER);
-  if (def == NULL)
-    {
-      ASSERT_ERROR_AND_SET (error);
-      goto error_exit;
-    }
-
-  error = smt_check_histogram_exist (def, attr_name);
+  error = au_fetch_class (classop, &class_, AU_FETCH_READ, AU_SELECT);
   if (error != NO_ERROR)
     {
-      smt_quit (def);
       goto error_exit;
     }
 
-//   /* 히스토그램을 카탈로그 클래스에 추가 */
-//   error = smt_add_constraint (def, attr_name, data_type, histogram_type, bucket_count);
-//   if (error != NO_ERROR)
-//     {
-//       smt_quit (def);
-//       goto error_exit;
-//     }
+  error = smt_check_histogram_exist (classop, attr_name);
+  if (error != NO_ERROR)
+    {
+      goto error_exit;
+    }
+
+  error = smt_add_histogram (classop, attr_name, data_type, histogram_type, bucket_count);
+  if (error != NO_ERROR)
+    {
+      goto error_exit;
+    }
 
 //   /* 통계 업데이트  | 히스토그램 정보 업데이트 하기 */
 //   error = sm_update_statistics_with_modify_histogram (newmop, STATS_WITH_SAMPlING);
@@ -15541,7 +15538,6 @@ sm_add_histogram (MOP classop, const char *attr_name, int data_type, int histogr
 //       smt_quit (def);
 //       goto error_exit;
 //     }
-
   return error;
 
 error_exit:

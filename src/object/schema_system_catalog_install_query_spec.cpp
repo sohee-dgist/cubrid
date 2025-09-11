@@ -1592,7 +1592,7 @@ sm_define_view_db_histogram_spec (void)
   sprintf (stmt,
 	"SELECT "
 	  "[h].[class_of] AS [class_of], "
-	  "[h].[attr_name] AS [attr_name], "
+	  "[h].[key_attr] AS [key_attr], "
 	  "[h].[data_type] AS [data_type], "
 	  "[h].[histogram_type] AS [histogram_type], " // TODO : integer -> varchar(32)
 	  "[h].[bucket_count] AS [bucket_count], "
@@ -1602,7 +1602,7 @@ sm_define_view_db_histogram_spec (void)
 	  "[%s] AS [h] "
 	"ORDER BY " /* Is it possible to remove ORDER BY? */
 	  "[h].[class_of], "
-	  "[h].[attr_name]",
+	  "[h].[key_attr]",
 	CT_DB_HISTOGRAM_NAME);
   // *INDENT-ON*
 

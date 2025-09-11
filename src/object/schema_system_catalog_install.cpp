@@ -1270,7 +1270,7 @@ namespace cubschema
 		   // columns
     {
       {"class_of", CT_CLASS_NAME},
-      {"key_attr", CT_ATTRIBUTE_NAME},
+      {"key_attr", format_varchar (255)},
       {"data_type", "integer"},
       {"histogram_type","integer"},
       {"bucket_count", "integer"},
@@ -2070,7 +2070,7 @@ namespace cubschema
 		   // columns
     {
       {"class_of", CT_CLASS_NAME},
-      {"key_attr", CT_ATTRIBUTE_NAME},
+      {"key_attr", format_varchar (255)},
       {"data_type", "integer"},
       {"histogram_type","integer"},
       {"bucket_count", "integer"},

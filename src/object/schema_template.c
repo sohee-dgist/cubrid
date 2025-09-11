@@ -1965,75 +1965,135 @@ smt_check_index_exist (SM_TEMPLATE * template_, char **out_shared_cons_name, DB_
 
 
 int
-smt_check_histogram_exist (SM_TEMPLATE * template_, const char *attr_name)
+smt_check_histogram_exist (MOP classop, const char *attr_name)
 {
   int error = NO_ERROR;
-  assert (false);		// TODO: implement this 여기서 히스토그램 관련 모든 컬럼들을 페치해오고 아래 함수에서 뒤진다.
+  DB_OBJECT *histogram_class, *histogram_obj = NULL;
+  DB_VALUE value[2];
+  DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
+  const char *search_attrs[2] = { "class_of", "key_attr" };
 
-  SM_CLASS *class_;
-  SM_CLASS_CONSTRAINT *check_cons;
-  SM_CLASS_CONSTRAINT *temp_cons = NULL;
+  histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
+  if (histogram_class == NULL)
+    {
+      error = ER_QPROC_DB_SERIAL_NOT_FOUND;	//TODO
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
+      goto end;
+    }
 
-//   if (template_->op != NULL)
-//   {
-//     error = au_fetch_class (template_->op, &class_, AU_FETCH_READ, AU_INDEX);
-//     if (error != NO_ERROR)
-//       {
-//         return error;
-//       }
+  /* class_of, key_attr */
+  db_make_object (&value[0], classop);
+  db_make_string (&value[1], attr_name);
 
-//     check_cons = class_->constraints;
-//   }
-//         else
-//         {
-//         error = classobj_make_class_constraints (template_->properties, template_->attributes, &check_cons);
-//         if (error != NO_ERROR)
-//         {
-//                 return error;
-//         }
-
-//         temp_cons = check_cons;
-//         }
-
-
-  error = classobj_check_histogram_exist (template_->attributes, attr_name);
-
+  histogram_obj = db_find_multi_unique (histogram_class, 2, (char **) search_attrs, value_ptrs, DB_FETCH_READ);
+  if (histogram_obj != NULL)
+    {
+      error = ER_QPROC_DB_SERIAL_NOT_FOUND;	//TODO
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
+      goto end;
+    }
+end:
   return error;
 }
 
 int
-smt_add_histogram (SM_TEMPLATE * template_, const char *attr_name, int data_type, int histogram_type, int bucket_count)
+smt_add_histogram (MOP classop, const char *attr_name, int data_type, int histogram_type, int bucket_count)
 {
-  int error = NO_ERROR;
-  assert (false);		// TODO: implement this 여기서 히스토그램 관련 모든 컬럼들을 페치해오고 아래 함수에서 뒤진다.
-  SM_CLASS *class_;
-  SM_CLASS_CONSTRAINT *check_cons;
-  SM_CLASS_CONSTRAINT *temp_cons = NULL;
+  int au_save, error = NO_ERROR;
+  bool au_disable_flag = false;
+  DB_OBJECT *ret_obj = NULL, *histogram_class = NULL, *histogram_object = NULL;
+  DB_VALUE value;
+  MOP class_of;
+  DB_OTMPL *obj_tmpl = NULL;
+  db_make_null (&value);
 
-//   if (template_->op != NULL)
-//   {
-//     error = au_fetch_class (template_->op, &class_, AU_FETCH_READ, AU_INDEX);
-//     if (error != NO_ERROR)
-//       {
-//         return error;
-//       }
+  /* temporarily disable authorization to access db_serial class */
+  AU_DISABLE (au_save);
+  au_disable_flag = true;;
 
-//     check_cons = class_->constraints;
-//   }
-//         else
-//         {
-//         error = classobj_make_class_constraints (template_->properties, template_->attributes, &check_cons);
-//         if (error != NO_ERROR)
-//         {
-//                 return error;
-//         }
+  histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
+  if (histogram_class == NULL)
+    {
+      error = ER_QPROC_DB_SERIAL_NOT_FOUND;
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
+      goto end;
+    }
 
-//         temp_cons = check_cons;
-//         }
+  obj_tmpl = dbt_create_object_internal ((MOP) histogram_class);
 
+  if (obj_tmpl == NULL)
+    {
+      error = er_errid ();
+      goto end;
+    }
 
-  error = classobj_check_histogram_exist (template_->attributes, attr_name);
+  db_make_object (&value, classop);
 
+  error = dbt_put_internal (obj_tmpl, "class_of", &value);
+  pr_clear_value (&value);
+  if (error != NO_ERROR)
+    {
+      assert (false);
+      goto end;
+    }
+  /* key_attr */
+  db_make_string (&value, attr_name);
+  error = dbt_put_internal (obj_tmpl, "key_attr", &value);
+  pr_clear_value (&value);
+  if (error != NO_ERROR)
+    {
+      assert (false);
+      goto end;
+    }
+  /* data_type */
+  db_make_int (&value, data_type);
+  error = dbt_put_internal (obj_tmpl, "data_type", &value);
+  pr_clear_value (&value);
+  if (error != NO_ERROR)
+    {
+      goto end;
+    }
+  /* histogram_type */
+  db_make_int (&value, histogram_type);
+  error = dbt_put_internal (obj_tmpl, "histogram_type", &value);
+  pr_clear_value (&value);
+  if (error != NO_ERROR)
+    {
+      goto end;
+    }
+  /* bucket_count */
+  db_make_int (&value, bucket_count);
+  error = dbt_put_internal (obj_tmpl, "bucket_count", &value);
+  pr_clear_value (&value);
+  if (error != NO_ERROR)
+    {
+      goto end;
+    }
+  /* histogram_values */
+  db_make_null (&value);
+  error = dbt_put_internal (obj_tmpl, "histogram_values", &value);
+  pr_clear_value (&value);
+  if (error != NO_ERROR)
+    {
+      goto end;
+    }
+  ret_obj = dbt_finish_object (obj_tmpl);
+  if (ret_obj == NULL)
+    {
+      assert (er_errid () != NO_ERROR);
+      error = er_errid ();
+    }
+  else if (histogram_object != NULL)
+    {
+      histogram_object = ret_obj;
+    }
+end:
+  if (obj_tmpl != NULL && ret_obj == NULL)
+    {
+      dbt_abort_object (obj_tmpl);
+    }
+  AU_ENABLE (au_save);
+  au_disable_flag = false;
   return error;
 }
 
