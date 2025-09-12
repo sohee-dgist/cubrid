@@ -11230,7 +11230,6 @@ static PT_NODE *test_check_option (PARSER_CONTEXT * parser, PT_NODE * node, void
 static int insert_local (PARSER_CONTEXT * parser, PT_NODE * statement);
 static PT_NODE *do_create_odku_stmt (PARSER_CONTEXT * parser, PT_NODE * insert);
 static int do_find_unique_constraint_violations (DB_OTMPL * tmpl, bool for_update, OID ** oids, int *oids_count);
-static int do_create_midxkey_for_constraint (DB_OTMPL * tmpl, SM_CLASS_CONSTRAINT * constraint, DB_VALUE * key);
 static int do_on_duplicate_key_update (PARSER_CONTEXT * parser, DB_OTMPL * tpl, PT_NODE * update_stmt);
 static int do_replace_into (PARSER_CONTEXT * parser, DB_OTMPL * tmpl, PT_NODE * spec, PT_NODE * class_specs);
 static int is_replace_or_odku_allowed (DB_OBJECT * obj, int *allowed);
@@ -11932,7 +11931,7 @@ do_set_insert_server_not_allowed (PARSER_CONTEXT * parser, PT_NODE * node, void 
  * constraint (in) : constraint
  * key (in/out)	   : the MIDX key
  */
-static int
+int
 do_create_midxkey_for_constraint (DB_OTMPL * tmpl, SM_CLASS_CONSTRAINT * constraint, DB_VALUE * key)
 {
   DB_MIDXKEY midxkey;

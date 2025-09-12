@@ -55,7 +55,7 @@
 #include "trigger_manager.h"
 #include "view_transform.h"
 #include "network_interface_cl.h"
-
+#include "execute_statement.h"
 #include "dbtype.h"
 
 /*
@@ -3675,24 +3675,26 @@ obj_make_key_value (DB_VALUE * key, const DB_VALUE * values[], int size)
 MOP
 obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE * values[], AU_FETCHMODE fetchmode)
 {
-  SM_CLASS *class_;
+  int error = NO_ERROR;
   SM_CLASS_CONSTRAINT *cons;
   MOP obj = NULL;
-  DB_VALUE key;
   SM_ATTRIBUTE **attp;
   const char **namep;
-  int i;
 
-  if (op == NULL || attr_names == NULL || values == NULL || size < 1)
-    {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_INVALID_ARGUMENTS, 0);
-      return NULL;
-    }
+  SM_CLASS *class_ = NULL;
+  int i = 0;
+  BTID *unique_btid = NULL;
+  DB_VALUE *unique_key = NULL;
+  BTREE_SEARCH result;
+  SCAN_OPERATION_TYPE op_type = S_SELECT;
+  OID *oids;
+  int oid_count;
 
-  db_make_null (&key);
-  if (obj_make_key_value (&key, values, size) == NULL)
+  DB_OTMPL *obj_tmpl = dbt_create_object_internal (op);
+  if (obj_tmpl == NULL)
     {
-      return NULL;
+      error = ER_FAILED;
+      goto end_find;
     }
 
   if (au_fetch_class (op, &class_, AU_FETCH_READ, AU_SELECT) != NO_ERROR)
@@ -3735,12 +3737,77 @@ obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE 
       goto end_find;
     }
 
-  obj = obj_find_object_by_cons_and_key (op, cons, &key, fetchmode);
+
+  unique_btid = (BTID *) db_private_alloc (NULL, sizeof (BTID));
+  if (unique_btid == NULL)
+    {
+      error = ER_FAILED;
+      goto end_find;
+    }
+  unique_key = (DB_VALUE *) db_private_alloc (NULL, sizeof (DB_VALUE));
+  if (unique_key == NULL)
+    {
+      error = ER_FAILED;
+      goto end_find;
+    }
+
+  BTID_COPY (unique_btid, &cons->index_btid);
+  db_make_null (unique_key);
+
+  for (i = 0; i < size; i++)
+    {
+      error = dbt_put_internal (obj_tmpl, attr_names[i], (DB_VALUE *) values[i]);
+      if (error != NO_ERROR)
+	{
+	  goto end_find;
+	}
+    }
+
+  /* multiple key, need to create a MIDXKEY */
+  error = do_create_midxkey_for_constraint (obj_tmpl, cons, unique_key);
+  if (error != NO_ERROR)
+    {
+      goto end_find;
+    }
+
+  if (fetchmode == AU_FETCH_UPDATE)
+    {
+      op_type = S_UPDATE;
+    }
+  else
+    {
+      op_type = S_SELECT;
+    }
+
+  result =
+    btree_find_multi_uniques (ws_oid (obj_tmpl->classobj), obj_tmpl->pruning_type, unique_btid, unique_key, size,
+			      op_type, &oids, &oid_count);
+
+  if (result == BTREE_ERROR_OCCURRED)
+    {
+      error = ER_FAILED;
+    }
+  else if (result == BTREE_KEY_NOTFOUND)
+    {
+      error = ER_OBJ_OBJECT_NOT_FOUND;
+    }
+  else if (result == BTREE_KEY_FOUND)
+    {
+      obj = ws_mop (oids, NULL);
+    }
 
 end_find:
-  if (size > 1)			/* must clear a multi-column index key */
-    pr_clear_value (&key);
+  if (unique_key != NULL)
+    {
+      pr_clear_value (unique_key);
+      db_private_free (NULL, unique_key);
+    }
+  if (unique_btid != NULL)
+    {
+      db_private_free (NULL, unique_btid);
+    }
 
+  assert (oid_count < 2);
   return obj;
 }
 

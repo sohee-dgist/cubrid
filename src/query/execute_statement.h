@@ -210,4 +210,6 @@ extern int do_find_serial_by_query (const char *name, char *buf, int buf_size);
 extern int do_find_trigger_by_query (const char *name, char *buf, int buf_size);
 extern int do_find_synonym_by_query (const char *name, char *buf, int buf_size);
 extern int do_find_stored_procedure_by_query (const char *name, char *buf, int buf_size);
+
+extern int do_create_midxkey_for_constraint (DB_OTMPL * tmpl, SM_CLASS_CONSTRAINT * constraint, DB_VALUE * key);
 #endif /* _EXECUTE_STATEMENT_H_ */

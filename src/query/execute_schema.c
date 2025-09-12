@@ -3937,8 +3937,8 @@ do_create_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
   PT_NODE *cls;
   DB_OBJECT *obj, *db_class;
   DB_VALUE value;
-  int error = NO_ERROR;
-
+  int error = NO_ERROR, save;
+  AU_DISABLE (save);
   CHECK_MODIFICATION_ERROR ();
 
   /* class should be already available */
@@ -3956,6 +3956,7 @@ do_create_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
     }
 
   error = create_or_drop_histogram_helper (parser, obj, &statement->info.histogram, DO_HISTOGRAM_CREATE);
+  AU_ENABLE (save);
   return error;
 }
 

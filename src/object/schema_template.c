@@ -2000,16 +2000,13 @@ int
 smt_add_histogram (MOP classop, const char *attr_name, int data_type, int histogram_type, int bucket_count)
 {
   int au_save, error = NO_ERROR;
-  bool au_disable_flag = false;
   DB_OBJECT *ret_obj = NULL, *histogram_class = NULL, *histogram_object = NULL;
   DB_VALUE value;
-  MOP class_of;
   DB_OTMPL *obj_tmpl = NULL;
   db_make_null (&value);
 
   /* temporarily disable authorization to access db_serial class */
   AU_DISABLE (au_save);
-  au_disable_flag = true;;
 
   histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
   if (histogram_class == NULL)
@@ -2093,7 +2090,6 @@ end:
       dbt_abort_object (obj_tmpl);
     }
   AU_ENABLE (au_save);
-  au_disable_flag = false;
   return error;
 }
 

@@ -15546,7 +15546,7 @@ error_exit:
       (void) tran_abort_upto_system_savepoint (SM_ADD_HISTOGRAM_SAVEPOINT_NAME);
     }
 
-  return NO_ERROR;
+  return error;
 }
 
 
