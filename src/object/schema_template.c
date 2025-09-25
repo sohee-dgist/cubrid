@@ -2003,7 +2003,7 @@ smt_add_histogram (MOP classop, const char *attr_name, int data_type, int histog
   DB_OBJECT *ret_obj = NULL, *histogram_class = NULL, *class_obj = NULL;
   DB_VALUE value;
   DB_OTMPL *obj_tmpl = NULL, *class_obj_tmpl = NULL;
-  DB_SEQ *histograms = NULL;
+  DB_SEQ *histograms = NULL, *new_histograms = NULL;
   db_make_null (&value);
 
   /* temporarily disable authorization to access db_serial class */
@@ -2095,16 +2095,19 @@ smt_add_histogram (MOP classop, const char *attr_name, int data_type, int histog
   histograms = db_get_set (&value);
   if (histograms == NULL)
     {
-      histograms = set_create_sequence (0);
+      new_histograms = set_create_sequence (0);
+    }
+  else
+    {
+      new_histograms = set_copy (histograms);
     }
   pr_clear_value (&value);
 
-  /* put histograms in sequence*/
   db_make_object (&value, ret_obj);
-  set_put_element (histograms, set_size (histograms), &value);
+  set_add_element (new_histograms, &value);
   pr_clear_value (&value);
 
-  db_make_sequence (&value, histograms);
+  db_make_sequence (&value, new_histograms);
   error = dbt_put_internal (class_obj_tmpl, "histograms", &value);
   pr_clear_value (&value);
 
