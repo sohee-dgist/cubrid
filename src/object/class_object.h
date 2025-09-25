@@ -550,6 +550,15 @@ struct sm_class_constraint
   SM_INDEX_STATUS index_status;
 };
 
+/* histogram */
+typedef struct sm_class_histogram SM_CLASS_HISTOGRAM;
+
+struct sm_class_histogram
+{
+  struct sm_class_histogram *next;
+  DB_OBJECT *histogram_object;
+};
+
 /*
  *    Holds information about a method argument.  This will be used
  *    in a SM_METHOD_SIGNATURE signature structure.
@@ -761,6 +770,7 @@ struct sm_class
   struct parser_context *virtual_query_cache;
   struct tr_schema_cache *triggers;	/* Trigger cache */
   SM_CLASS_CONSTRAINT *constraints;	/* Constraint cache */
+  SM_CLASS_HISTOGRAM *histograms;	/* Histogram info */
   const char *comment;		/* table comment */
   SM_CLASS_CONSTRAINT *fk_ref;	/* fk ref cache */
   SM_PARTITION *partition;	/* partition information */
@@ -812,6 +822,7 @@ struct sm_template
   DB_OBJLIST *ext_references;
 
   DB_SEQ *properties;
+  DB_OBJLIST *histograms;
 
   int *super_id_map;		/* super class id mapping table */
 
@@ -911,18 +922,6 @@ struct sm_descriptor
   SM_NAME_SPACE name_space;	/* component type */
 };
 
-
-/* histogram */
-typedef struct sm_histogram_info SM_HISTOGRAM_INFO;
-
-struct sm_histogram_info
-{
-  const char *attr_name;
-  int data_type;
-  int histogram_type;
-  int bucket_count;
-};
-
 /* free_and_init routine */
 #define classobj_free_threaded_array_and_init(list, clear) \
   do \
@@ -966,6 +965,8 @@ extern int classobj_put_index (DB_SEQ ** properties, SM_CLASS_CONSTRAINT * con, 
 			       SM_FOREIGN_KEY_INFO * fk_info, char *shared_cons_name, bool attr_name_instead_of_id);
 extern int classobj_find_prop_constraint (DB_SEQ * properties, const char *prop_name, const char *cnstr_name,
 					  DB_VALUE * cnstr_val);
+
+extern int classobj_put_histogram (DB_OBJLIST * histograms, SM_CLASS_HISTOGRAM * histogram);
 
 #if defined (ENABLE_RENAME_CONSTRAINT)
 extern int classobj_rename_constraint (DB_SEQ * properties, const char *prop_name, const char *old_name,

@@ -3956,6 +3956,14 @@ do_create_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
     }
 
   error = create_or_drop_histogram_helper (parser, obj, &statement->info.histogram, DO_HISTOGRAM_CREATE);
+  
+  if (error != NO_ERROR)
+    {
+      assert (er_errid () != NO_ERROR);
+      error = er_errid ();
+      return error;
+    }
+
   AU_ENABLE (save);
   return error;
 }
