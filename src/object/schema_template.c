@@ -1976,10 +1976,45 @@ smt_check_histogram_exist (MOP classop, const char *attr_name)
   histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
   if (histogram_class == NULL)
     {
-      error = ER_QPROC_DB_SERIAL_NOT_FOUND;	//TODO
+      error = ER_BO_MISSING_OR_INVALID_CATALOG;
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
       goto end;
     }
+
+  /* class_of, key_attr */
+  db_make_object (&value[0], classop);
+  db_make_string (&value[1], attr_name);
+
+  histogram_obj = db_find_multi_unique (histogram_class, 2, (char **) search_attrs, value_ptrs, DB_FETCH_READ);
+  if (histogram_obj != NULL)
+    {
+      error = ER_LC_CLASSNAME_EXIST;
+      char error_histogram[256];
+      sprintf(error_histogram, "histogram of %s(%s)", sm_get_ch_name(classop), attr_name);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 1, error_histogram);
+      goto end;
+    }
+end:
+  return error;
+}
+
+int
+smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name)
+{
+  int error = NO_ERROR;
+  DB_OBJECT *histogram_class, *histogram_obj = NULL;
+  DB_VALUE value[2];
+  DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
+  const char *search_attrs[2] = { "class_of", "key_attr" };
+
+  histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
+  if (histogram_class == NULL)
+  {
+    error = ER_BO_MISSING_OR_INVALID_CATALOG;
+    er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
+    goto end;
+  }
+
 
   /* class_of, key_attr */
   db_make_object (&value[0], classop);
@@ -1992,6 +2027,14 @@ smt_check_histogram_exist (MOP classop, const char *attr_name)
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
       goto end;
     }
+  else
+    {
+      error = db_drop (histogram_obj);
+      if (error != NO_ERROR)
+        {
+          goto end;
+        }
+    }
 end:
   return error;
 }
@@ -2000,10 +2043,9 @@ int
 smt_add_histogram (MOP classop, const char *attr_name, int data_type, int histogram_type, int bucket_count)
 {
   int au_save, error = NO_ERROR;
-  DB_OBJECT *ret_obj = NULL, *histogram_class = NULL, *class_obj = NULL;
+  DB_OBJECT *ret_obj = NULL, *histogram_class = NULL;
   DB_VALUE value;
-  DB_OTMPL *obj_tmpl = NULL, *class_obj_tmpl = NULL;
-  DB_SEQ *histograms = NULL, *new_histograms = NULL;
+  DB_OTMPL *obj_tmpl = NULL;
   db_make_null (&value);
 
   /* temporarily disable authorization to access db_serial class */
@@ -2082,60 +2124,11 @@ smt_add_histogram (MOP classop, const char *attr_name, int data_type, int histog
       error = er_errid ();
     }
 
-  /* edit the class */
-  class_obj_tmpl = dbt_edit_object (classop);
-  if (class_obj_tmpl == NULL)
-    {
-      error = er_errid ();
-      goto end;
-    }
-
-  /* make sequence of histograms */
-  db_get (classop, "histograms", &value);
-  histograms = db_get_set (&value);
-  if (histograms == NULL)
-    {
-      new_histograms = set_create_sequence (0);
-    }
-  else
-    {
-      new_histograms = set_copy (histograms);
-    }
-  pr_clear_value (&value);
-
-  db_make_object (&value, ret_obj);
-  set_add_element (new_histograms, &value);
-  pr_clear_value (&value);
-
-  db_make_sequence (&value, new_histograms);
-  error = dbt_put_internal (class_obj_tmpl, "histograms", &value);
-  pr_clear_value (&value);
-
-  if (error != NO_ERROR)
-    {
-      assert (er_errid () != NO_ERROR);
-      error = er_errid ();
-      goto end;
-    }
-
-  class_obj = dbt_finish_object (class_obj_tmpl);
-  if (class_obj == NULL)
-    {
-      assert (er_errid () != NO_ERROR);
-      error = er_errid ();
-      goto end;
-    }
-
 end:
   if (obj_tmpl != NULL && ret_obj == NULL)
     {
       dbt_abort_object (obj_tmpl);
     }
-  if (class_obj_tmpl != NULL && class_obj == NULL)
-    {
-      dbt_abort_object (class_obj_tmpl);
-    }
-
   AU_ENABLE (au_save);
   return error;
 }

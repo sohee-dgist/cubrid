@@ -3908,10 +3908,21 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
     {
       attname = (char *) cur_column->info.name.original;
       data_type = cur_column->type_enum;
-      error = sm_add_histogram (obj, attname, data_type, histogram_type, bucket_count);
-      if (error != NO_ERROR)
+      if (do_histogram == DO_HISTOGRAM_DROP)
 	{
-	  return error;
+	  error = sm_drop_histogram (obj, attname);
+	  if (error != NO_ERROR)
+	    {
+	      return error;
+	    }
+	}
+      else
+	{
+	  error = sm_add_histogram (obj, attname, data_type, histogram_type, bucket_count);
+	  if (error != NO_ERROR)
+	    {
+	      return error;
+	    }
 	}
       cur_column = cur_column->next;
     }
@@ -3956,7 +3967,7 @@ do_create_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
     }
 
   error = create_or_drop_histogram_helper (parser, obj, &statement->info.histogram, DO_HISTOGRAM_CREATE);
-  
+
   if (error != NO_ERROR)
     {
       assert (er_errid () != NO_ERROR);
@@ -3967,6 +3978,51 @@ do_create_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
   AU_ENABLE (save);
   return error;
 }
+
+
+/**
+ * do_create_histogram() - Creates a histogram on a class.
+ *   return: Error code if it fails
+ *   parser(in): Parser context
+ *   statement(in): Parse tree of a create histogram statement
+ */
+int
+do_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
+{
+  PT_NODE *cls;
+  DB_OBJECT *obj, *db_class;
+  DB_VALUE value;
+  int error = NO_ERROR, save;
+  AU_DISABLE (save);
+  CHECK_MODIFICATION_ERROR ();
+
+  /* class should be already available */
+  assert (statement->info.histogram.target_table_spec);
+
+  cls = statement->info.histogram.target_table_spec->info.spec.entity_name;
+
+  db_class = sm_find_class (CT_CLASS_NAME);
+  db_make_string (&value, cls->info.name.original);
+  obj = db_find_unique (db_class, "unique_name", &value);
+  if (obj == NULL)
+    {
+      assert (er_errid () != NO_ERROR);
+      return er_errid ();
+    }
+
+  error = create_or_drop_histogram_helper (parser, obj, &statement->info.histogram, DO_HISTOGRAM_DROP);
+
+  if (error != NO_ERROR)
+    {
+      assert (er_errid () != NO_ERROR);
+      error = er_errid ();
+      return error;
+    }
+
+  AU_ENABLE (save);
+  return error;
+}
+
 
 /*
  * do_create_partition() -  Creates partitions

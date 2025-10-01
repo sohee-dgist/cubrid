@@ -1750,6 +1750,9 @@
 
 #define ER_DBLINK_TRAN				    -1367
 
+#define ER_SYNONYM_ALREADY_EXIST                    -1348
+#define ER_SYNONYM_NOT_EXIST                        -1349
+
 #define ER_LAST_ERROR                               -1368
 
 

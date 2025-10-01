@@ -15550,6 +15550,53 @@ error_exit:
 }
 
 
+int
+sm_drop_histogram (MOP classop, const char *attr_name)
+{
+  bool set_savepoint = false;
+  int error = NO_ERROR;
+  DB_AUTH auth;
+  SM_CLASS *class_ = NULL;
+  DB_OBJECT *db_class = NULL;
+
+  if (attr_name == NULL)
+    {
+      ERROR0 (error, ER_OBJ_INVALID_ARGUMENTS);
+      return error;
+    }
+
+  error = tran_system_savepoint (SM_ADD_HISTOGRAM_SAVEPOINT_NAME);
+  if (error != NO_ERROR)
+    {
+      return error;
+    }
+
+  set_savepoint = true;
+  error = au_fetch_class (classop, &class_, AU_FETCH_READ, AU_SELECT);
+  if (error != NO_ERROR)
+    {
+      goto error_exit;
+    }
+
+  error = smt_check_histogram_exist_and_delete (classop, attr_name);
+  if (error != NO_ERROR)
+    {
+      goto error_exit;
+    }
+
+  return error;
+
+error_exit:
+  if (set_savepoint && error != ER_TM_SERVER_DOWN_UNILATERALLY_ABORTED && error != ER_LK_UNILATERALLY_ABORTED)
+    {
+      (void) tran_abort_upto_system_savepoint (SM_ADD_HISTOGRAM_SAVEPOINT_NAME);
+    }
+
+  return error;
+}
+
+
+
 /*
  * sm_save_function_index_info() - Saves the information necessary to recreate
  *			       a function index constraint
