@@ -306,8 +306,7 @@ static CT_ATTR ct_class_atts[] = {
   {"query_specs", NULL_ATTRID, DB_TYPE_SEQUENCE},
   {"indexes", NULL_ATTRID, DB_TYPE_SEQUENCE},
   {"comment", NULL_ATTRID, DB_TYPE_VARCHAR},
-  {"partition", NULL_ATTRID, DB_TYPE_SEQUENCE},
-  {"histograms", NULL_ATTRID, DB_TYPE_SEQUENCE}
+  {"partition", NULL_ATTRID, DB_TYPE_SEQUENCE}
 };
 
 static CT_ATTR ct_attribute_atts[] = {

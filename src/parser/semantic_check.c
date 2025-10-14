@@ -9171,8 +9171,6 @@ pt_check_create_histogram (PARSER_CONTEXT * parser, PT_NODE * node)
 
   name->info.name.db_object = db_obj;
 
-  /* check that histogram already exists */
-  // TODO
 
   pt_check_user_owns_class (parser, name);
   if (pt_has_error (parser))
