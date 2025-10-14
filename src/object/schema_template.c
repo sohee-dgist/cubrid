@@ -1990,7 +1990,7 @@ smt_check_histogram_exist (MOP classop, const char *attr_name)
     {
       error = ER_LC_CLASSNAME_EXIST;
       char error_histogram[256];
-      sprintf(error_histogram, "histogram of %s(%s)", sm_get_ch_name(classop), attr_name);
+      sprintf (error_histogram, "histogram of %s(%s)", sm_get_ch_name (classop), attr_name);
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 1, error_histogram);
       goto end;
     }
@@ -2009,11 +2009,11 @@ smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name)
 
   histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
   if (histogram_class == NULL)
-  {
-    error = ER_BO_MISSING_OR_INVALID_CATALOG;
-    er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
-    goto end;
-  }
+    {
+      error = ER_BO_MISSING_OR_INVALID_CATALOG;
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
+      goto end;
+    }
 
 
   /* class_of, key_attr */
@@ -2021,11 +2021,11 @@ smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name)
   db_make_string (&value[1], attr_name);
 
   histogram_obj = db_find_multi_unique (histogram_class, 2, (char **) search_attrs, value_ptrs, DB_FETCH_READ);
-  if (histogram_obj != NULL)
+  if (histogram_obj == NULL)
     {
       error = ER_LC_UNKNOWN_CLASSNAME;
       char error_histogram[256];
-      sprintf(error_histogram, "histogram of %s(%s)", sm_get_ch_name(classop), attr_name);
+      sprintf (error_histogram, "histogram of %s(%s)", sm_get_ch_name (classop), attr_name);
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 1, error_histogram);
       goto end;
     }
@@ -2033,9 +2033,9 @@ smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name)
     {
       error = db_drop (histogram_obj);
       if (error != NO_ERROR)
-        {
-          goto end;
-        }
+	{
+	  goto end;
+	}
     }
 end:
   return error;
