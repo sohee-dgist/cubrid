@@ -169,6 +169,7 @@ extern int smt_check_index_exist (SM_TEMPLATE * template_, char **out_shared_con
 				  const char **att_names, const int *asc_desc, const SM_PREDICATE_INFO * filter_index,
 				  const SM_FUNCTION_INFO * function_index);
 extern int smt_check_histogram_exist (MOP classop, const char *attr_name);
+extern int smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name);
 
 #if defined(ENABLE_UNUSED_FUNCTION)
 extern void smt_downcase_all_class_info (void);

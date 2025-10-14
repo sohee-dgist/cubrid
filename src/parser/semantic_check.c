@@ -12428,6 +12428,31 @@ pt_check_with_info (PARSER_CONTEXT * parser, PT_NODE * node, SEMANTIC_CHK_INFO *
 	    }
 	}
       break;
+    case PT_DROP_HISTOGRAM:
+      if (parser->host_var_count)
+	{
+	  PT_ERRORm (parser, node, MSGCAT_SET_PARSER_SEMANTIC, MSGCAT_SEMANTIC_HOSTVAR_IN_DDL);
+	}
+      else
+	{
+	  sc_info_ptr->system_class = false;
+	  node = pt_resolve_names (parser, node, sc_info_ptr);
+	  if (!pt_has_error (parser) && node->node_type == PT_CREATE_HISTOGRAM)
+	    {
+	      pt_check_create_histogram (parser, node);
+	    }
+
+	  if (!pt_has_error (parser))
+	    {
+	      node = pt_semantic_type (parser, node, info);
+	    }
+
+	  if (node && !pt_has_error (parser))
+	    {
+	      node = parser_walk_tree (parser, node, NULL, NULL, pt_semantic_check_local, sc_info_ptr);
+	    }
+	}
+      break;
     case PT_SAVEPOINT:
       if ((node->info.savepoint.save_name) && (node->info.savepoint.save_name->info.name.meta_class == PT_PARAMETER))
 	{

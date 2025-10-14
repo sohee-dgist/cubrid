@@ -5527,7 +5527,7 @@ la_apply_statement_log (LA_ITEM * item)
     case CUBRID_STMT_DROP_SERIAL:
 
     case CUBRID_STMT_CREATE_HISTOGRAM:
-      //case CUBRID_STMT_DROP_HISTOGRAM:
+    case CUBRID_STMT_DROP_HISTOGRAM:
 
     case CUBRID_STMT_DROP_DATABASE:
 

@@ -120,7 +120,7 @@ extern int do_prepare_delete (PARSER_CONTEXT * parser, PT_NODE * statement, PT_N
 extern int do_execute_delete (PARSER_CONTEXT * parser, PT_NODE * statement);
 
 extern int do_create_histogram (PARSER_CONTEXT * parser, PT_NODE * statement);
-
+extern int do_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * statement);
 extern int do_drop (PARSER_CONTEXT * parser, PT_NODE * statement);
 
 extern int do_drop_variable (PARSER_CONTEXT * parser, PT_NODE * statement);
