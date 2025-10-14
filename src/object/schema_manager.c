@@ -13684,6 +13684,7 @@ sm_delete_class_mop (MOP op, bool is_cascade_constraints)
 	  if (error != ER_LC_UNKNOWN_CLASSNAME)
 	    {
 	      goto end;
+              AU_ENABLE (save);
 	    }
 	}
       AU_ENABLE (save);
