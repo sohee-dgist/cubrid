@@ -13672,6 +13672,23 @@ sm_delete_class_mop (MOP op, bool is_cascade_constraints)
 	}
     }
 
+
+  /* remove histogram object if exist */
+  for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
+    {
+      int save;
+      AU_DISABLE (save);
+      error = smt_check_histogram_exist_and_delete (op, att->header.name);
+      if (error != NO_ERROR)
+	{
+	  if (error != ER_LC_UNKNOWN_CLASSNAME)
+	    {
+	      goto end;
+	    }
+	}
+      AU_ENABLE (save);
+    }
+
   /* remove auto_increment serial object if exist */
   for (att = class_->ordered_attributes; att; att = att->order_link)
     {

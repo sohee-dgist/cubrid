@@ -3957,9 +3957,7 @@ do_create_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
 
   cls = statement->info.histogram.target_table_spec->info.spec.entity_name;
 
-  db_class = sm_find_class (CT_CLASS_NAME);
-  db_make_string (&value, cls->info.name.original);
-  obj = db_find_unique (db_class, "unique_name", &value);
+  obj = db_find_class (cls->info.name.original);
   if (obj == NULL)
     {
       assert (er_errid () != NO_ERROR);
@@ -4001,9 +3999,7 @@ do_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
 
   cls = statement->info.histogram.target_table_spec->info.spec.entity_name;
 
-  db_class = sm_find_class (CT_CLASS_NAME);
-  db_make_string (&value, cls->info.name.original);
-  obj = db_find_unique (db_class, "unique_name", &value);
+  obj = db_find_class (cls->info.name.original);
   if (obj == NULL)
     {
       assert (er_errid () != NO_ERROR);

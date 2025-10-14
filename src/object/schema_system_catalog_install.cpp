@@ -1268,7 +1268,7 @@ namespace cubschema
 		   CT_DB_HISTOGRAM_NAME,
 		   // columns
     {
-      {"class_of", CT_CLASS_NAME},
+      {"class_of", "object"},
       {"key_attr", format_varchar (255)},
       {"data_type", "integer"},
       {"histogram_type","integer"},
