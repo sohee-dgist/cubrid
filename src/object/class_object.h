@@ -770,7 +770,6 @@ struct sm_class
   struct parser_context *virtual_query_cache;
   struct tr_schema_cache *triggers;	/* Trigger cache */
   SM_CLASS_CONSTRAINT *constraints;	/* Constraint cache */
-  SM_CLASS_HISTOGRAM *histograms;	/* Histogram info */
   const char *comment;		/* table comment */
   SM_CLASS_CONSTRAINT *fk_ref;	/* fk ref cache */
   SM_PARTITION *partition;	/* partition information */
@@ -822,7 +821,6 @@ struct sm_template
   DB_OBJLIST *ext_references;
 
   DB_SEQ *properties;
-  DB_OBJLIST *histograms;
 
   int *super_id_map;		/* super class id mapping table */
 
