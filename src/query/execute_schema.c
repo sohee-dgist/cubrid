@@ -3904,6 +3904,35 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
   histogram_type = histogram_info->histogram_type;
   bucket_count = histogram_info->bucket_count;
   cur_column = histogram_info->target_columns;
+
+  if (nnames == 0)
+    {
+      SM_ATTRIBUTE *att;
+      SM_CLASS *class_ = NULL;
+      error = au_fetch_class (obj, &class_, AU_FETCH_READ, AU_SELECT);
+      for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
+	{
+	  attname = (char *) att->header.name;
+	  data_type = 0;	/* TODO: data_type */
+	  if (do_histogram == DO_HISTOGRAM_DROP)
+	    {
+	      error = sm_drop_histogram (obj, attname);
+	      if (error != NO_ERROR)
+		{
+		  return error;
+		}
+	    }
+	  else
+	    {
+	      error = sm_add_histogram (obj, attname, data_type, histogram_type, bucket_count);
+	      if (error != NO_ERROR)
+		{
+		  return error;
+		}
+	    }
+	}
+    }
+
   for (int i = 0; i < nnames; i++)
     {
       attname = (char *) cur_column->info.name.original;
