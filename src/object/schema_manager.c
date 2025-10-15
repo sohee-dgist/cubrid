@@ -13687,7 +13687,6 @@ sm_delete_class_mop (MOP op, bool is_cascade_constraints)
 	      goto end;
 	    }
 	}
-      er_clear ();
       AU_ENABLE (save);
     }
 
