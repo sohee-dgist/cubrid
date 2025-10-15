@@ -9115,14 +9115,14 @@ pt_check_create_index (PARSER_CONTEXT * parser, PT_NODE * node)
 static void
 pt_check_create_histogram (PARSER_CONTEXT * parser, PT_NODE * node)
 {
-  PT_NODE *name, *col, *col_expr;
+  PT_NODE *name;
   DB_OBJECT *db_obj;
   int is_partition = DB_NOT_PARTITIONED_CLASS;
 
-  /* check that there trying to create an index on a class */
+  /* check that there trying to create an histogram on a class */
   name = node->info.histogram.target_table_spec->info.spec.entity_name;
 
-  /* We cannot create index of a class by using synonym names. */
+  /* We cannot create histogram of a class by using synonym names. */
   if (db_find_synonym (name->info.name.original) != NULL)
     {
       PT_ERRORmf (parser, name, MSGCAT_SET_PARSER_SEMANTIC, MSGCAT_SEMANTIC_IS_NOT_A_CLASS, name->info.name.original);

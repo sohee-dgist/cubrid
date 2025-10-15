@@ -13673,22 +13673,22 @@ sm_delete_class_mop (MOP op, bool is_cascade_constraints)
     }
 
 
-//   /* remove histogram object if exist */
-//   for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
-//     {
-//       int save;
-//       AU_DISABLE (save);
-//       error = smt_check_histogram_exist_and_delete (op, att->header.name);
-//       if (error != NO_ERROR)
-//      {
-//        if (error != ER_LC_UNKNOWN_CLASSNAME)
-//          {
-//            goto end;
-//               AU_ENABLE (save);
-//          }
-//      }
-//       AU_ENABLE (save);
-//     }
+  /* remove histogram object if exist */
+  for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
+    {
+      int save;
+      AU_DISABLE (save);
+      error = smt_check_histogram_exist_and_delete (op, att->header.name);
+      if (error != NO_ERROR)
+	{
+	  if (error != ER_LC_UNKNOWN_CLASSNAME)
+	    {
+	      goto end;
+	      AU_ENABLE (save);
+	    }
+	}
+      AU_ENABLE (save);
+    }
 
   /* remove auto_increment serial object if exist */
   for (att = class_->ordered_attributes; att; att = att->order_link)
@@ -15514,9 +15514,7 @@ sm_add_histogram (MOP classop, const char *attr_name, int data_type, int histogr
 {
   bool set_savepoint = false;
   int error = NO_ERROR;
-  DB_AUTH auth;
   SM_CLASS *class_ = NULL;
-  DB_OBJECT *db_class = NULL;
 
   if (attr_name == NULL)
     {
@@ -15549,13 +15547,7 @@ sm_add_histogram (MOP classop, const char *attr_name, int data_type, int histogr
       goto error_exit;
     }
 
-//   /* 통계 업데이트  | 히스토그램 정보 업데이트 하기 */
-//   error = sm_update_statistics_with_modify_histogram (newmop, STATS_WITH_SAMPlING);
-//   if (error != NO_ERROR)
-//     {
-//       smt_quit (def);
-//       goto error_exit;
-//     }
+  /* TODO: Update Histogram Here */
   return error;
 
 error_exit:
@@ -15573,9 +15565,7 @@ sm_drop_histogram (MOP classop, const char *attr_name)
 {
   bool set_savepoint = false;
   int error = NO_ERROR;
-  DB_AUTH auth;
   SM_CLASS *class_ = NULL;
-  DB_OBJECT *db_class = NULL;
 
   if (attr_name == NULL)
     {

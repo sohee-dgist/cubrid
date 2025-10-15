@@ -3886,7 +3886,7 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
   char *attname = NULL;
   PT_NODE *cur_column = NULL;
   int is_partition = DB_NOT_PARTITIONED_CLASS;
-  DB_OBJECT *histogram_class = NULL;
+
   /* check histogram is allowed on this class */
   error = sm_partitioned_class_type (obj, &is_partition, NULL, NULL);
   if (error != NO_ERROR)
@@ -3946,8 +3946,7 @@ int
 do_create_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
 {
   PT_NODE *cls;
-  DB_OBJECT *obj, *db_class;
-  DB_VALUE value;
+  DB_OBJECT *obj;
   int error = NO_ERROR, save;
   AU_DISABLE (save);
   CHECK_MODIFICATION_ERROR ();
@@ -3988,8 +3987,7 @@ int
 do_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
 {
   PT_NODE *cls;
-  DB_OBJECT *obj, *db_class;
-  DB_VALUE value;
+  DB_OBJECT *obj;
   int error = NO_ERROR, save;
   AU_DISABLE (save);
   CHECK_MODIFICATION_ERROR ();
