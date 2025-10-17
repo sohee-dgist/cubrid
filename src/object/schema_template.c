@@ -1999,7 +1999,7 @@ end:
 }
 
 int
-smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name)
+smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name, bool no_error_if_not_found)
 {
   int error = NO_ERROR;
   DB_OBJECT *histogram_class, *histogram_obj = NULL;
@@ -2023,11 +2023,14 @@ smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name)
   histogram_obj = db_find_multi_unique (histogram_class, 2, (char **) search_attrs, value_ptrs, DB_FETCH_READ);
   if (histogram_obj == NULL)
     {
-      error = ER_LC_UNKNOWN_CLASSNAME;
-      char error_histogram[256];
-      sprintf (error_histogram, "histogram of %s(%s)", sm_get_ch_name (classop), attr_name);
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 1, error_histogram);
-      goto end;
+      if (!no_error_if_not_found)
+	{
+	  error = ER_LC_UNKNOWN_CLASSNAME;
+	  char error_histogram[256];
+	  sprintf (error_histogram, "histogram of %s(%s)", sm_get_ch_name (classop), attr_name);
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 1, error_histogram);
+	  goto end;
+	}
     }
   else
     {

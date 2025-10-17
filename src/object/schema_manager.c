@@ -13678,7 +13678,7 @@ sm_delete_class_mop (MOP op, bool is_cascade_constraints)
     {
       int save;
       AU_DISABLE (save);
-      error = smt_check_histogram_exist_and_delete (op, att->header.name);
+      error = smt_check_histogram_exist_and_delete (op, att->header.name, true);
       if (error != NO_ERROR)
 	{
 	  if (error != ER_LC_UNKNOWN_CLASSNAME)
@@ -15586,7 +15586,7 @@ sm_drop_histogram (MOP classop, const char *attr_name)
       goto error_exit;
     }
 
-  error = smt_check_histogram_exist_and_delete (classop, attr_name);
+  error = smt_check_histogram_exist_and_delete (classop, attr_name, false);
   if (error != NO_ERROR)
     {
       goto error_exit;
