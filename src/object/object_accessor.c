@@ -3780,7 +3780,7 @@ obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE 
     }
 
   result =
-    btree_find_multi_uniques (ws_oid (obj_tmpl->classobj), obj_tmpl->pruning_type, unique_btid, unique_key, size,
+    btree_find_multi_uniques (ws_oid (obj_tmpl->classobj), obj_tmpl->pruning_type, unique_btid, unique_key, 1,
 			      op_type, &oids, &oid_count);
 
   if (result == BTREE_ERROR_OCCURRED)
@@ -3797,6 +3797,10 @@ obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE 
     }
 
 end_find:
+  if (obj_tmpl != NULL)
+    {
+      dbt_abort_object (obj_tmpl);
+    }
   if (unique_key != NULL)
     {
       pr_clear_value (unique_key);

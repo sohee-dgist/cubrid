@@ -2006,7 +2006,6 @@ smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name, bool n
   DB_VALUE value[2];
   DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
   const char *search_attrs[2] = { "class_of", "key_attr" };
-
   histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
   if (histogram_class == NULL)
     {
@@ -2020,7 +2019,7 @@ smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name, bool n
   db_make_object (&value[0], classop);
   db_make_string (&value[1], attr_name);
 
-  histogram_obj = db_find_multi_unique (histogram_class, 2, (char **) search_attrs, value_ptrs, DB_FETCH_READ);
+  histogram_obj = db_find_multi_unique (histogram_class, 2, (char **) search_attrs, value_ptrs, DB_FETCH_WRITE);
   if (histogram_obj == NULL)
     {
       if (!no_error_if_not_found)

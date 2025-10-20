@@ -4866,6 +4866,7 @@ or_put_value (OR_BUF * buf, DB_VALUE * value, int collapse_null, int include_dom
 
   dbval_type = DB_VALUE_DOMAIN_TYPE (value);
   type = pr_type_from_id (dbval_type);
+  assert (dbval_type <= DB_TYPE_LAST);
 
   if (type == NULL)
     {

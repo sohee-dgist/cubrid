@@ -11966,6 +11966,7 @@ do_create_midxkey_for_constraint (DB_OTMPL * tmpl, SM_CLASS_CONSTRAINT * constra
 	}
 
       attr_dom = tp_domain_copy ((*attr)->domain, false);
+      assert (attr_dom->type->id <= DB_TYPE_LAST);
       if (attr_dom == NULL)
 	{
 	  error = ER_FAILED;
@@ -12041,11 +12042,13 @@ do_create_midxkey_for_constraint (DB_OTMPL * tmpl, SM_CLASS_CONSTRAINT * constra
       error = ER_FAILED;
       goto error_return;
     }
-  midxkey.domain = tp_domain_cache (midxkey.domain);
+  //midxkey.domain = tp_domain_cache (midxkey.domain);
+  assert (midxkey.domain->type->id <= DB_TYPE_LAST);
   midxkey.min_max_val.position = -1;
   midxkey.min_max_val.type = MIN_COLUMN;
 
   error = db_make_midxkey (key, &midxkey);
+  assert (key->domain.general_info.type <= DB_TYPE_LAST);
   if (error != NO_ERROR)
     {
       goto error_return;
@@ -12054,6 +12057,7 @@ do_create_midxkey_for_constraint (DB_OTMPL * tmpl, SM_CLASS_CONSTRAINT * constra
   return NO_ERROR;
 
 error_return:
+  assert (false);
   if (midxkey.buf != NULL)
     {
       db_private_free (NULL, midxkey.buf);
@@ -12068,6 +12072,7 @@ error_return:
     }
   return error;
 }
+
 
 /*
  * do_create_odku_stmt () - create an UPDATE statement for ON DUPLICATE KEY
