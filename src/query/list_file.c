@@ -5960,8 +5960,9 @@ qfile_lookup_list_cache_entry (THREAD_ENTRY * thread_p, XASL_CACHE_ENTRY * xasl,
 
   if (lent)
     {
+#if defined(SERVER_MODE)
       unsigned int i;
-
+#endif
       /* check if it is marked to be deleted */
       if (lent->deletion_marker)
 	{
@@ -6067,11 +6068,12 @@ QFILE_LIST_CACHE_ENTRY *
 qfile_update_list_cache_entry (THREAD_ENTRY * thread_p, int list_ht_no, const DB_VALUE_ARRAY * params,
 			       const QFILE_LIST_ID * list_id, XASL_CACHE_ENTRY * xasl)
 {
-  QFILE_LIST_CACHE_ENTRY *lent, *old, **p, **q, **r;
+  QFILE_LIST_CACHE_ENTRY *lent;
   MHT_TABLE *ht;
-  int tran_index;
+
 #if defined(SERVER_MODE)
-  TRAN_ISOLATION tran_isolation;
+int tran_index;
+TRAN_ISOLATION tran_isolation;
 #if defined(WINDOWS)
   unsigned int num_elements;
 #else
@@ -6081,9 +6083,8 @@ qfile_update_list_cache_entry (THREAD_ENTRY * thread_p, int list_ht_no, const DB
   size_t i_idx, num_active_users;
 #endif
 #endif /* SERVER_MODE */
-  unsigned int n;
   HL_HEAPID old_pri_heap_id;
-  int i, j, k;
+  int i;
   int alloc_size;
 
   if (QFILE_IS_LIST_CACHE_DISABLED)
@@ -6100,8 +6101,8 @@ qfile_update_list_cache_entry (THREAD_ENTRY * thread_p, int list_ht_no, const DB
       return NULL;
     }
 
-  tran_index = LOG_FIND_THREAD_TRAN_INDEX (thread_p);
 #if defined(SERVER_MODE)
+  tran_index = LOG_FIND_THREAD_TRAN_INDEX (thread_p);
   tran_isolation = logtb_find_isolation (tran_index);
 #endif /* SERVER_MODE */
 
@@ -6289,9 +6290,8 @@ end:
 int
 qfile_end_use_of_list_cache_entry (THREAD_ENTRY * thread_p, QFILE_LIST_CACHE_ENTRY * lent, bool marker)
 {
-  int tran_index;
-  bool invalidate = false;
 #if defined(SERVER_MODE)
+  int tran_index;
   int *p, *r;
 #if defined(WINDOWS)
   unsigned int num_elements;

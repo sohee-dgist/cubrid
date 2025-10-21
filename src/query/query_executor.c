@@ -943,7 +943,6 @@ qexec_generate_tuple_descriptor (THREAD_ENTRY * thread_p, QFILE_LIST_ID * list_i
 {
   QPROC_TPLDESCR_STATUS status;
   size_t size;
-  int i;
 
   status = QPROC_TPLDESCR_FAILURE;	/* init */
 
@@ -4513,9 +4512,8 @@ qexec_hash_gby_put_next (THREAD_ENTRY * thread_p, const RECDES * recdes, void *a
   AGGREGATE_HASH_CONTEXT *context = state->agg_hash_context;
   SORT_REC *key;
   char *data;
-  int rc, peek;
+  int rc;
 
-  peek = COPY;
   for (key = (SORT_REC *) recdes->data; key; key = key->next)
     {
       /* read tuple */
@@ -4569,7 +4567,6 @@ qexec_hash_gby_put_next (THREAD_ENTRY * thread_p, const RECDES * recdes, void *a
 	    }
 	  else
 	    {
-	      peek = PEEK;	/* avoid unnecessary COPY */
 	    }
 	  qmgr_free_old_page_and_init (thread_p, page, list_idp->tfile_vfid);
 	}
@@ -8325,8 +8322,9 @@ qexec_init_next_partition (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * spec, XAS
   OID class_oid;
   HFID class_hfid;
   BTID btid;
+#if defined(SERVER_MODE)
   PARTITION_SPEC_TYPE *prev_partition_spec = spec->curent;
-
+#endif
   if (spec->type != TARGET_CLASS && spec->type != TARGET_CLASS_ATTR)
     {
       return S_END;
