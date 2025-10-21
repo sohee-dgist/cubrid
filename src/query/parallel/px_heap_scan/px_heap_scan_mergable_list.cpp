@@ -117,17 +117,6 @@ namespace parallel_heap_scan
       }
 
     size = list_id->type_list.type_cnt * sizeof (bool);
-    list_id->tpl_descr.clear_f_val_at_clone_decache = (bool *) malloc (size);
-    if (list_id->tpl_descr.clear_f_val_at_clone_decache == NULL)
-      {
-	er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, size);
-	return false;
-      }
-    for (i = 0; i < list_id->type_list.type_cnt; i++)
-      {
-	list_id->tpl_descr.clear_f_val_at_clone_decache[i] = false;
-      }
-
     return true;
   }
 

@@ -157,7 +157,6 @@ namespace parallel_heap_scan
     std::size_t  tlen, tpl_size, toffset;
     int n_size;
 
-    bool clear_compressed_string = true;
     DB_VALUE *dbval_p;
     HEAP_SCAN_ID *hsid = (HEAP_SCAN_ID *) &scan_id->s.hsid;
     n_preds = regu_var_list_len (hsid->scan_pred.regu_list);
@@ -230,7 +229,7 @@ namespace parallel_heap_scan
 	    tuple_p = (char *) (m_tpl_buf.tpl) + toffset;
 	  }
 
-	if (qdata_copy_db_value_to_tuple_value (dbval_p, clear_compressed_string, tuple_p, &tval_size) != NO_ERROR)
+	if (qdata_copy_db_value_to_tuple_value (dbval_p, tuple_p, &tval_size) != NO_ERROR)
 	  {
 	    assert (false);
 	  }
