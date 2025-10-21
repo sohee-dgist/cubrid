@@ -16168,6 +16168,14 @@ do_replicate_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
       repl_stmt.statement_type = CUBRID_STMT_DROP_INDEX;
       break;
 
+    case PT_CREATE_HISTOGRAM:
+      repl_stmt.statement_type = CUBRID_STMT_CREATE_HISTOGRAM;
+      break;
+
+    case PT_DROP_HISTOGRAM:
+      repl_stmt.statement_type = CUBRID_STMT_DROP_HISTOGRAM;
+      break;
+
     case PT_CREATE_SERIAL:
       repl_stmt.statement_type = CUBRID_STMT_CREATE_SERIAL;
       break;
