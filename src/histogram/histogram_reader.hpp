@@ -27,7 +27,7 @@ namespace hist
 //
 // Buckets area (variable):
 //   For each i in [0, nbuckets):
-//     data      : 8B   (ptr or Value)
+//     data_hi    : 8B   (ptr or Value)
 //     cumulative: f64
 //     approx_ndv: f64  (present only if has_ndv==1)
 //
