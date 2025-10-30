@@ -1,4 +1,3 @@
-#pragma once
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -8,7 +7,7 @@
 #include <limits>
 #include "error_manager.h"
 #include <variant>
-
+#include "dbtype.h"
 namespace hist
 {
 
@@ -33,17 +32,15 @@ namespace hist
 //
 // String blob (trailing):
 //   str_size bytes; bucket string data points to (len, off) inside this blob.
-
-  // 실제 타입을 사용하는 템플릿
-  using HistogramTypes = std::variant<std::int64_t, double, std::string_view>;
-  using Type = std::uint32_t;
+  constexpr std::uint32_t BUCKET_RECORD_SIZE = 8 + 8 + 8; // data + cumulative + approx_ndv
+  using HistogramTypes = std::variant<std::int64_t, double, std::string_view, std::string>;
   struct HeaderV1
   {
     char           magic[4];   // "HST1"
     std::uint32_t  version;
     std::uint32_t  nbuckets;
     std::uint32_t  str_size;
-    Type type;       // Not Same to DB Type
+    std::uint32_t type;       // Not Same to DB Type
     std::uint32_t  total_size; // total size of the histogram
   };
 
@@ -72,7 +69,7 @@ namespace hist
 
       template<typename T>
       T bucket_hi (std::uint32_t i) const;
-      
+
       double bucket_rows (std::uint32_t i) const;
 
     private:
@@ -87,12 +84,11 @@ namespace hist
       std::string_view str_blob_{};
       const char *bucket_area_begin_ = nullptr;
       const char *buckets_end_       = nullptr;
-      const std::uint32_t *index_base_ = nullptr;
 
       std::uint32_t nb_ = 0;
       std::uint32_t str_size_ = 0;
-      Type type_ = 0;
       std::uint32_t total_size_ = 0;
+      TypeIndex type_ = DB_TYPE_UNKNOWN;
   };
 
 

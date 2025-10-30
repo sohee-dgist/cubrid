@@ -6,7 +6,6 @@
 
 namespace hist
 {
-  const std::size_t BUCKET_RECORD_SIZE = 8 + 8 + 8; // data + cumulative + approx_ndv
   // ---------- get_value template specialization ----------
   template<>
   std::int32_t HistogramReader::get_value<std::int32_t> (const void *ptr) const
@@ -62,7 +61,7 @@ namespace hist
 
     nb_       = get_value<std::int32_t> (&H->nbuckets);
     str_size_ = get_value<std::int32_t> (&H->str_size);
-    type_ = get_value<Type> (&H->type);
+    type_ = get_value<TypeIndex> (&H->type);
     total_size_ = get_value<std::int32_t> (&H->total_size);
     assert (total_size_ == blob_.size());
 
@@ -70,19 +69,13 @@ namespace hist
     const char *p   = blob_.data() + sizeof (HeaderV1);
     const char *end = blob_.data() + blob_.size();
 
-    index_base_ = reinterpret_cast<const std::uint32_t *> (p);
-    p += sizeof (std::uint32_t) * nb_;
 
     bucket_area_begin_ = p;
 
     /* find the last record */
-    std::uint32_t max_off = 0;
-    for (std::uint32_t i = 0; i < nb_; ++i)
-      {
-	max_off = std::max (max_off, get_value<std::uint32_t> (index_base_ + i));
-      }
+    std::uint32_t max_off = BUCKET_RECORD_SIZE*nb_;
     const char *last = bucket_area_begin_ + max_off;
-    
+
     if (last + BUCKET_RECORD_SIZE > end)
       {
 	return ER_FAILED;
@@ -101,7 +94,7 @@ namespace hist
   const char *HistogramReader::bucket_rec (std::uint32_t i) const
   {
     assert (i < nb_);
-    std::uint32_t off = get_value<std::uint32_t> (index_base_ + i);
+    std::uint32_t off = i*BUCKET_RECORD_SIZE;
     const char *rec = bucket_area_begin_ + off;
     assert (rec >= bucket_area_begin_ && rec < buckets_end_);
     return rec;
@@ -139,28 +132,28 @@ namespace hist
   template<>
   std::int64_t HistogramReader::bucket_hi<std::int64_t> (std::uint32_t i) const
   {
-    return get_value<std::int64_t>(bucket_hi_value_ptr(i));
+    return get_value<std::int64_t> (bucket_hi_value_ptr (i));
   }
 
   template<>
-  double HistogramReader::bucket_hi<double> (std::uint32_t i) const       
+  double HistogramReader::bucket_hi<double> (std::uint32_t i) const
   {
-    return get_value<double>(bucket_hi_value_ptr(i));
+    return get_value<double> (bucket_hi_value_ptr (i));
   }
 
   template<>
   std::string_view HistogramReader::bucket_hi<std::string_view> (std::uint32_t i) const
   {
-    const char *p = bucket_hi_value_ptr(i);
-    std::uint32_t len32 = get_value<std::uint32_t>(p);
-    std::uint32_t off32 = get_value<std::uint32_t>(p + 4);
-    
+    const char *p = bucket_hi_value_ptr (i);
+    std::uint32_t len32 = get_value<std::uint32_t> (p);
+    std::uint32_t off32 = get_value<std::uint32_t> (p + 4);
+
     if (len32 <= 4) // inline data
       {
-	return std::string_view{ p+4, static_cast<std::size_t>(len32-4) };
+	return std::string_view{ p+4, static_cast<std::size_t> (len32-4) };
       }
     assert (off32 + len32 <= str_size_);
-    return std::string_view{str_blob_.data() + off32, static_cast<std::size_t>(len32)};
+    return std::string_view{str_blob_.data() + off32, static_cast<std::size_t> (len32)};
   }
 
 } // namespace hist
