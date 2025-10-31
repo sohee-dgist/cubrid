@@ -6072,8 +6072,8 @@ qfile_update_list_cache_entry (THREAD_ENTRY * thread_p, int list_ht_no, const DB
   MHT_TABLE *ht;
 
 #if defined(SERVER_MODE)
-int tran_index;
-TRAN_ISOLATION tran_isolation;
+  int tran_index;
+  TRAN_ISOLATION tran_isolation;
 #if defined(WINDOWS)
   unsigned int num_elements;
 #else
