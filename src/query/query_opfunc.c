@@ -513,7 +513,6 @@ qdata_copy_val_list_to_tuple (THREAD_ENTRY * thread_p, VAL_LIST * val_list, qfil
   int tval_size, tlen, tpl_size;
   int n_size, toffset;
   int flags;
-  bool clear_compressed_string = false;
 
   tpl_size = 0;
   tlen = QFILE_TUPLE_LENGTH_SIZE;
@@ -557,7 +556,7 @@ qdata_copy_val_list_to_tuple (THREAD_ENTRY * thread_p, VAL_LIST * val_list, qfil
 	  tuple_record_p->size = tpl_size;
 	  tuple_p = (char *) (tuple_record_p->tpl) + toffset;
 	}
-      if (qdata_copy_db_value_to_tuple_value (dbval_p, clear_compressed_string, tuple_p, &tval_size) != NO_ERROR)
+      if (qdata_copy_db_value_to_tuple_value (dbval_p, tuple_p, &tval_size) != NO_ERROR)
 	{
 	  return ER_FAILED;
 	}

@@ -231,10 +231,6 @@ namespace parallel_heap_scan
 	    return;
 	  }
 	size = tl.writer_result_p->type_list.type_cnt * sizeof (bool);
-	for (int i = 0; i < tl.writer_result_p->type_list.type_cnt; i++)
-	  {
-	    tl.writer_result_p->tpl_descr.clear_f_val_at_clone_decache[i] = false;
-	  }
 	tl.tpl_buf.tpl = (char *) db_private_alloc (thread_p, DB_PAGESIZE);
 	if (tl.tpl_buf.tpl == nullptr)
 	  {
