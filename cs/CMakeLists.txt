@@ -426,6 +426,18 @@ set(PARALLEL_QUERY_EXECUTE_HEADERS
   ${PARALLEL_QUERY_EXECUTE_DIR}/px_query_checker.hpp
   )
 
+set (HISTOGRAM_SOURCES
+  ${HISTOGRAM_DIR}/histogram_cl.c
+  ${HISTOGRAM_DIR}/histogram_builder.cpp
+  ${HISTOGRAM_DIR}/histogram_reader.cpp
+  )
+
+set (HISTOGRAM_HEADERS
+  ${HISTOGRAM_DIR}/histogram_cl.h
+  ${HISTOGRAM_DIR}/histogram_builder.hpp
+  ${HISTOGRAM_DIR}/histogram_reader.hpp
+  )
+
 list(APPEND CONNECTION_SOURCES ${CONNECTION_DIR}/heartbeat.c)
 if(UNIX)
   list(APPEND EXECUTABLE_SOURCES ${EXECUTABLES_DIR}/checksumdb.c)

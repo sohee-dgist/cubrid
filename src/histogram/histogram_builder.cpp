@@ -1,18 +1,10 @@
 #include "histogram_builder.hpp"
 #include "histogram_reader.hpp"
 #include <cstring>
-#include <stdexcept>
 #include "object_domain.h"
 
 namespace hist
 {
-
-  // Forward declarations of template specializations used below
-  template<> void HistogramBuilder::write<std::int32_t> (char *&dest, std::int32_t v);
-  template<> void HistogramBuilder::write<std::int64_t> (char *&dest, std::int64_t v);
-  template<> void HistogramBuilder::write<double> (char *&dest, double v);
-  template<> void HistogramBuilder::write<std::string> (char *&dest, std::string v);
-
   void HistogramBuilder::add (HistogramTypes hi, double cumulative, double approx_ndv)
   {
     assert (cumulative >= 0.0);

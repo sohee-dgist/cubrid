@@ -20,9 +20,6 @@ namespace hist
 //   nbuckets  : u32
 //   str_size  : u32
 //
-// Index table (fixed-size):
-//   offsets[nbuckets] : u32 each, offset of bucket i record
-//                       relative to bucket_area_begin (first record is usually 0)
 //
 // Buckets area (variable):
 //   For each i in [0, nbuckets):
@@ -88,7 +85,7 @@ namespace hist
       std::uint32_t nb_ = 0;
       std::uint32_t str_size_ = 0;
       std::uint32_t total_size_ = 0;
-      TypeIndex type_ = DB_TYPE_UNKNOWN;
+      std::uint32_t type_ = DB_TYPE_UNKNOWN;
   };
 
 
