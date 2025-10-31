@@ -61,7 +61,7 @@ namespace hist
 
     nb_       = get_value<std::int32_t> (&H->nbuckets);
     str_size_ = get_value<std::int32_t> (&H->str_size);
-    type_ = get_value<TypeIndex> (&H->type);
+    type_ = static_cast<std::uint32_t> (get_value<std::int32_t> (&H->type));
     total_size_ = get_value<std::int32_t> (&H->total_size);
     assert (total_size_ == blob_.size());
 
@@ -88,6 +88,7 @@ namespace hist
 
     /* read string blob */
     str_blob_ = std::string_view{buckets_end_, static_cast<std::size_t> (str_size_)};
+    return NO_ERROR;
   }
 
 // ---------- record navigation ----------
@@ -106,25 +107,25 @@ namespace hist
   }
 
 // ---------- access ----------
-  double HistogramReader::bucket_cumulative (std::uint32_t i) const
+  std::int64_t HistogramReader::bucket_cumulative (std::uint32_t i) const
   {
     const char *p = bucket_rec (i) + 8;
-    return get_value<double> (p);
+    return get_value<std::int64_t> (p);
   }
 
-  double HistogramReader::bucket_approx_ndv (std::uint32_t i) const
+  std::int64_t HistogramReader::bucket_approx_ndv (std::uint32_t i) const
   {
     assert (i < nb_);
     const char *rec = bucket_rec (i);
     const char *p = rec + 16;
-    return get_value<double> (p);
+    return get_value<std::int64_t> (p);
   }
 
-  double HistogramReader::bucket_rows (std::uint32_t i) const
+  std::int64_t HistogramReader::bucket_rows (std::uint32_t i) const
   {
     assert (i < nb_);
-    const double cur  = bucket_cumulative (i);
-    const double prev = (i == 0) ? 0.0 : bucket_cumulative (i - 1);
+    const std::int64_t cur  = bucket_cumulative (i);
+    const std::int64_t prev = (i == 0) ? 0 : bucket_cumulative (i - 1);
     return cur - prev;
   }
 

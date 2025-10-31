@@ -8,19 +8,20 @@
 
 namespace hist
 {
-
+  using HistogramTypes = std::variant<std::int64_t, double, std::string_view, std::string>;
   class HistogramBuilder
   {
     public:
-      void add (HistogramTypes hi, double cumulative, double approx_ndv = std::numeric_limits<double>::quiet_NaN());
+      void add (HistogramTypes data_hi, std::int64_t cumulative,
+		std::int64_t approx_ndv = std::numeric_limits<std::int64_t>::quiet_NaN());
       char *build (THREAD_ENTRY *thread_p, DB_TYPE type);
 
     private:
       struct Bucket
       {
-	HistogramTypes   data_hi;
-	double        cumulative;
-	double        approx_ndv;
+	HistogramTypes   data_hi;  // std::variant: int32_t, int64_t, double, string 중 하나
+	std::int64_t     cumulative;
+	std::int64_t     approx_ndv;
       };
 
       HeaderV1 header_;

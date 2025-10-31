@@ -1,3 +1,4 @@
+#pragma once
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -30,7 +31,6 @@ namespace hist
 // String blob (trailing):
 //   str_size bytes; bucket string data points to (len, off) inside this blob.
   constexpr std::uint32_t BUCKET_RECORD_SIZE = 8 + 8 + 8; // data + cumulative + approx_ndv
-  using HistogramTypes = std::variant<std::int64_t, double, std::string_view, std::string>;
   struct HeaderV1
   {
     char           magic[4];   // "HST1"
@@ -61,13 +61,13 @@ namespace hist
 	return nb_ ? bucket_cumulative (nb_ - 1) : 0;
       }
 
-      double bucket_cumulative (std::uint32_t i) const;
-      double bucket_approx_ndv (std::uint32_t i) const;
+      std::int64_t bucket_cumulative (std::uint32_t i) const;
+      std::int64_t bucket_approx_ndv (std::uint32_t i) const;
 
       template<typename T>
       T bucket_hi (std::uint32_t i) const;
 
-      double bucket_rows (std::uint32_t i) const;
+      std::int64_t bucket_rows (std::uint32_t i) const;
 
     private:
       template<typename T>

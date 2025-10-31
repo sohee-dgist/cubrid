@@ -1,8 +1,8 @@
 WITH src AS (
   SELECT /*+ RECOMPILE */
-         t.<COLUMN> AS val
-  FROM   <TABLE> t
-  WHERE  val IS NOT NULL
+         t.a AS val
+  FROM  t
+  WHERE  t.a IS NOT NULL
 ),
 cnt AS (
   SELECT val, COUNT(*) AS c
@@ -18,14 +18,14 @@ acc AS (
 ),
 param AS (
   SELECT
-    CASE WHEN n > 0 THEN CEIL(n * 1.0 / <BUCKETS>) ELSE 1 END AS cap,
+    CASE WHEN n > 0 THEN CEIL(n * 1.0 / 30) ELSE 1 END AS cap,
     n
   FROM acc
   LIMIT 1
 ),
 b AS (
   SELECT
-    LEAST( FLOOR( (acc.cum - 1) / param.cap ), <BUCKETS> - 1 ) AS bid,
+    LEAST( FLOOR( (acc.cum - 1) / param.cap ), 30 - 1 ) AS bid,
     acc.val,
     acc.c                   AS rows_for_val
   FROM acc, param

@@ -61,6 +61,7 @@
 #include "dbtype.h"
 #include "jsp_cl.h"
 #include "msgcat_glossary.hpp"
+#include "histogram_cl.h"
 
 #if defined (SUPPRESS_STRLEN_WARNING)
 #define strlen(s1)  ((int) strlen(s1))
@@ -3948,6 +3949,7 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
       else
 	{
 	  error = sm_add_histogram (obj, attname, data_type, histogram_type, bucket_count);
+          error = analyze_classes (NULL,  db_get_class_name(obj), attname, 30, false);
 	  if (error != NO_ERROR)
 	    {
 	      return error;

@@ -1,4 +1,4 @@
-#include "thread_entry.hpp"
+#include "thread_compat.hpp"
 
 static const char *HISTOGRAM_QUERY_TEMPLATE =
   "WITH src AS (\n"
@@ -40,5 +40,7 @@ static const char *HISTOGRAM_QUERY_TEMPLATE =
   "  SUM(SUM(b.rows_for_val)) OVER (ORDER BY b.bid) AS cumulative,\n"
   "  COUNT(*)                                       AS approx_ndv\n" "FROM b\n" "GROUP BY b.bid\n" "ORDER BY b.bid\n";
 
+int analyze_classes (THREAD_ENTRY * thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
+		     int with_fullscan);
 int get_histogram (THREAD_ENTRY * thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
 		   int with_fullscan, char *histogram_blob);
