@@ -4,7 +4,9 @@
 #include "histogram_builder.hpp"
 #include "thread_compat.hpp"
 #include "db_query.h"
-
+#include "locator_cl.h"
+#include "schema_manager.h"
+#include "schema_system_catalog_constants.h"
 
 /*
  * analyze_all_classes
@@ -16,11 +18,19 @@
  */
 int
 analyze_classes (THREAD_ENTRY * thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
-		 int with_fullscan)
+		 int with_fullscan, MOP classop)
 {
   int error = NO_ERROR;
   char *histogram_blob = NULL;
-  error = get_histogram (thread_p, tbl_name, attr_name, max_number_of_buckets, with_fullscan, histogram_blob);
+  int histogram_total_length = 0;
+  error =
+    get_histogram (thread_p, tbl_name, attr_name, max_number_of_buckets, with_fullscan, &histogram_blob,
+		   &histogram_total_length);
+  if (error != NO_ERROR)
+    {
+      return error;
+    }
+  error = set_histogram (thread_p, tbl_name, attr_name, histogram_blob, histogram_total_length, classop);
   if (error != NO_ERROR)
     {
       return error;
@@ -32,7 +42,7 @@ analyze_classes (THREAD_ENTRY * thread_p, const char *tbl_name, const char *attr
 
 int
 get_histogram (THREAD_ENTRY * thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
-	       int with_fullscan, char *histogram_blob)
+	       int with_fullscan, char **histogram_blob, int *histogram_total_length)
 {
   int error = NO_ERROR;
   DB_QUERY_RESULT *query_result;
@@ -135,11 +145,85 @@ get_histogram (THREAD_ENTRY * thread_p, const char *tbl_name, const char *attr_n
     }
   while (db_query_next_tuple (query_result) == DB_CURSOR_SUCCESS);
 
-  histogram_blob = histogram_builder.build (thread_p, type);
-  if (histogram_blob == NULL)
+  *histogram_blob = histogram_builder.build (thread_p, type, histogram_total_length);
+  if (*histogram_blob == NULL)
     {
       return ER_FAILED;
     }
 
   return NO_ERROR;
+}
+
+int
+set_histogram (THREAD_ENTRY * thread_p, const char *tbl_name, const char *attr_name, char *histogram_blob,
+	       int histogram_total_length, MOP classop)
+{
+  int error = NO_ERROR;
+  DB_OBJECT *histogram_class, *histogram_obj, *edit_histogram_object = NULL;
+  DB_OTMPL *obj_tmpl = NULL;
+  DB_VALUE value[2];
+  DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
+  DB_VALUE histogram_value;
+  const char *search_attrs[2] = { "class_of", "key_attr" };
+
+  histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
+  if (histogram_class == NULL)
+    {
+      error = ER_BO_MISSING_OR_INVALID_CATALOG;
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
+      goto end;
+    }
+
+  /* class_of, key_attr */
+  db_make_object (&value[0], classop);
+  db_make_string (&value[1], attr_name);
+
+  histogram_obj = db_find_multi_unique (histogram_class, 2, (char **) search_attrs, value_ptrs, DB_FETCH_READ);
+  if (histogram_obj == NULL)
+    {
+      error = ER_LC_CLASSNAME_EXIST;
+      char error_histogram[256];
+      sprintf (error_histogram, "histogram of %s(%s)", sm_get_ch_name (classop), attr_name);
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 1, error_histogram);
+      goto end;
+    }
+
+  obj_tmpl = dbt_edit_object (histogram_obj);
+  if (obj_tmpl == NULL)
+    {
+      assert (er_errid () != NO_ERROR);
+      error = er_errid ();
+      goto end;
+    }
+
+  db_make_varbit (&histogram_value, 1073741823, histogram_blob, histogram_total_length);
+  error = dbt_put (obj_tmpl, "histogram_values", &histogram_value);
+  if (error != NO_ERROR)
+    {
+      goto end;
+    }
+
+  edit_histogram_object = dbt_finish_object (obj_tmpl);
+  if (edit_histogram_object == NULL)
+    {
+      assert (er_errid () != NO_ERROR);
+      error = er_errid ();
+      goto end;
+    }
+
+  assert (edit_histogram_object == histogram_obj);
+  obj_tmpl = NULL;
+
+  error = locator_flush_instance (edit_histogram_object);
+  if (error != NO_ERROR)
+    {
+      goto end;
+    }
+
+end:
+  db_value_clear (value_ptrs[0]);
+  db_value_clear (value_ptrs[1]);
+  db_value_clear (&histogram_value);
+  assert (error == NO_ERROR);	// for debug
+  return error;
 }

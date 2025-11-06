@@ -14,7 +14,7 @@ namespace hist
     public:
       void add (HistogramTypes data_hi, std::int64_t cumulative,
 		std::int64_t approx_ndv = std::numeric_limits<std::int64_t>::quiet_NaN());
-      char *build (THREAD_ENTRY *thread_p, DB_TYPE type);
+      char *build (THREAD_ENTRY *thread_p, DB_TYPE type, int *histogram_total_length);
 
     private:
       struct Bucket

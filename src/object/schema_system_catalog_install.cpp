@@ -344,6 +344,14 @@ namespace cubschema
     return s;
   }
 
+  const inline std::string format_varbit (const int size)
+  {
+    std::string s ("varbit(");
+    s += std::to_string (size);
+    s += ")";
+    return s;
+  }
+
   const inline std::string format_numeric (const int prec, const int scale)
   {
     std::string s ("numeric(");

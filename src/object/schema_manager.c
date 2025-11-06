@@ -15567,7 +15567,6 @@ sm_add_histogram (MOP classop, const char *attr_name, int data_type, int histogr
       goto error_exit;
     }
 
-  /* TODO: Update Histogram Here */
   return error;
 
 error_exit:

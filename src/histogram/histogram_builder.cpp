@@ -51,7 +51,7 @@ namespace hist
     buckets_.push_back (Bucket{data_hi, cumulative, approx_ndv});
   }
 
-  char *HistogramBuilder::build (THREAD_ENTRY *thread_p, DB_TYPE type)
+  char *HistogramBuilder::build (THREAD_ENTRY *thread_p, DB_TYPE type, int *histogram_total_length)
   {
     // ---- precompute record sizes  ----
     const std::uint32_t bucket_area_size = hist::BUCKET_RECORD_SIZE * buckets_.size();
@@ -213,6 +213,7 @@ namespace hist
     H.total_size = ntohl (sizeof (H) + bucket_area_size + cur_str_off_);
     memcpy (buffer, &H, sizeof (H));
     assert (end_buffer - buffer == sizeof (H) + bucket_area_size + cur_str_off_);
+    *histogram_total_length = sizeof (H) + bucket_area_size + cur_str_off_;
 
     // write header
     return buffer;

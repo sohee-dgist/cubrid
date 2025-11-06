@@ -41,6 +41,8 @@ static const char *HISTOGRAM_QUERY_TEMPLATE =
   "  COUNT(*)                                       AS approx_ndv\n" "FROM b\n" "GROUP BY b.bid\n" "ORDER BY b.bid\n";
 
 int analyze_classes (THREAD_ENTRY * thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
-		     int with_fullscan);
+		     int with_fullscan, MOP classop);
 int get_histogram (THREAD_ENTRY * thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
-		   int with_fullscan, char *histogram_blob);
+		   int with_fullscan, char **histogram_blob, int *histogram_total_length);
+int set_histogram (THREAD_ENTRY * thread_p, const char *tbl_name, const char *attr_name, char *histogram_blob,
+		   int histogram_total_length, MOP classop);

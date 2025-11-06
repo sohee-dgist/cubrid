@@ -3949,7 +3949,7 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
       else
 	{
 	  error = sm_add_histogram (obj, attname, data_type, histogram_type, bucket_count);
-	  error = analyze_classes (NULL, db_get_class_name (obj), attname, 30, false);
+	  error = analyze_classes (NULL, db_get_class_name (obj), attname, 30, false, obj);
 	  if (error != NO_ERROR)
 	    {
 	      return error;
