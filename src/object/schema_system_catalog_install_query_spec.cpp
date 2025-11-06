@@ -1535,7 +1535,6 @@ sm_define_view_db_histogram_spec (void)
 	"SELECT "
 	  "[h].[class_of] AS [class_of], "
 	  "[h].[key_attr] AS [key_attr], "
-	  "[h].[data_type] AS [data_type], "
 	  "[h].[histogram_type] AS [histogram_type], " // TODO : integer -> varchar(32)
 	  "[h].[bucket_count] AS [bucket_count], "
 	  "[h].[histogram_values] AS [histogram_values] "

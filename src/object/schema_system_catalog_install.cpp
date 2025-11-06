@@ -1285,7 +1285,6 @@ namespace cubschema
     {
       {"class_of", "object"},
       {"key_attr", format_varchar (255)},
-      {"data_type", "integer"},
       {"histogram_type","integer"},
       {"bucket_count", "integer"},
       {"histogram_values", format_varchar (1073741823) }

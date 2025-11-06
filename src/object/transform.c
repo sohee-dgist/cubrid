@@ -419,7 +419,6 @@ static CT_ATTR ct_partition_atts[] = {
 static CT_ATTR ct_histogram_atts[] = {
   {"class_of", NULL_ATTRID, DB_TYPE_OBJECT},
   {"key_attr", NULL_ATTRID, DB_TYPE_VARCHAR},
-  {"data_type", NULL_ATTRID, DB_TYPE_INTEGER},
   {"histogram_type", NULL_ATTRID, DB_TYPE_INTEGER},
   {"bucket_count", NULL_ATTRID, DB_TYPE_INTEGER}
 };

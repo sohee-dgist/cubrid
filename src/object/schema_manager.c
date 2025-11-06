@@ -15530,7 +15530,7 @@ error_exit:
 
 
 int
-sm_add_histogram (MOP classop, const char *attr_name, int data_type, int histogram_type, int bucket_count)
+sm_add_histogram (MOP classop, const char *attr_name, int histogram_type, int bucket_count)
 {
   bool set_savepoint = false;
   int error = NO_ERROR;
@@ -15561,7 +15561,7 @@ sm_add_histogram (MOP classop, const char *attr_name, int data_type, int histogr
       goto error_exit;
     }
 
-  error = smt_add_histogram (classop, attr_name, data_type, histogram_type, bucket_count);
+  error = smt_add_histogram (classop, attr_name, histogram_type, bucket_count);
   if (error != NO_ERROR)
     {
       goto error_exit;

@@ -61,7 +61,7 @@
 #include "dbtype.h"
 #include "jsp_cl.h"
 #include "msgcat_glossary.hpp"
-#include "histogram_cl.h"
+#include "histogram_cl.hpp"
 
 #if defined (SUPPRESS_STRLEN_WARNING)
 #define strlen(s1)  ((int) strlen(s1))
@@ -3879,7 +3879,7 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 				 PT_HISTOGRAM_INFO * const histogram_info, DO_HISTOGRAM do_histogram)
 {
   int error = NO_ERROR;
-  int data_type, histogram_type, bucket_count, nnames = 0;
+  int histogram_type, bucket_count, nnames = 0;
   char *attname = NULL;
   PT_NODE *cur_column = NULL;
   int is_partition = DB_NOT_PARTITIONED_CLASS;
@@ -3910,7 +3910,6 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
       for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
 	{
 	  attname = (char *) att->header.name;
-	  data_type = 0;	/* TODO: data_type */
 	  if (do_histogram == DO_HISTOGRAM_DROP)
 	    {
 	      error = sm_drop_histogram (obj, attname);
@@ -3921,7 +3920,7 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	    }
 	  else
 	    {
-	      error = sm_add_histogram (obj, attname, data_type, histogram_type, bucket_count);
+	      error = sm_add_histogram (obj, attname, histogram_type, bucket_count);
 	      if (error != NO_ERROR)
 		{
 		  return error;
@@ -3933,7 +3932,6 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
   for (int i = 0; i < nnames; i++)
     {
       attname = (char *) cur_column->info.name.original;
-      data_type = cur_column->type_enum;
       if (do_histogram == DO_HISTOGRAM_DROP)
 	{
 	  error = sm_drop_histogram (obj, attname);
@@ -3944,7 +3942,7 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	}
       else
 	{
-	  error = sm_add_histogram (obj, attname, data_type, histogram_type, bucket_count);
+	  error = sm_add_histogram (obj, attname, histogram_type, bucket_count);
 	  error = analyze_classes (NULL, db_get_class_name (obj), attname, 30, false, obj);
 	  if (error != NO_ERROR)
 	    {

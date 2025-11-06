@@ -428,13 +428,13 @@ set(PARALLEL_QUERY_EXECUTE_HEADERS
   )
 
 set (HISTOGRAM_SOURCES
-  ${HISTOGRAM_DIR}/histogram_cl.c
+  ${HISTOGRAM_DIR}/histogram_cl.cpp
   ${HISTOGRAM_DIR}/histogram_builder.cpp
   ${HISTOGRAM_DIR}/histogram_reader.cpp
   )
 
 set (HISTOGRAM_HEADERS
-  ${HISTOGRAM_DIR}/histogram_cl.h
+  ${HISTOGRAM_DIR}/histogram_cl.hpp
   ${HISTOGRAM_DIR}/histogram_builder.hpp
   ${HISTOGRAM_DIR}/histogram_reader.hpp
   )
