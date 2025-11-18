@@ -1,4 +1,9 @@
 #include "thread_compat.hpp"
+
+// Forward declaration for PT_NODE
+struct parser_node;
+typedef struct parser_node PT_NODE;
+
 static const char *HISTOGRAM_QUERY_TEMPLATE =
 	"WITH src AS (SELECT %s AS val FROM %s WHERE %s IS NOT NULL), "
 	"cnt AS (SELECT val, COUNT(*) AS c FROM src GROUP BY val), "
@@ -30,3 +35,5 @@ int get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *att
 		   int with_fullscan, char **histogram_blob, int *histogram_total_length);
 int set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, char *histogram_blob,
 		   int histogram_total_length, MOP classop);
+void histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
+int db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj);

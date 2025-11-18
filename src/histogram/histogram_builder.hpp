@@ -9,6 +9,13 @@
 namespace hist
 {
   using HistogramTypes = std::variant<std::int64_t, double, std::string_view, std::string>;
+  struct Bucket
+  {
+    HistogramTypes   data_hi;  // std::variant: int32_t, int64_t, double, string 중 하나
+    std::int64_t     cumulative;
+    std::int64_t     approx_ndv;
+  };
+
   class HistogramBuilder
   {
     public:
@@ -17,13 +24,6 @@ namespace hist
       char *build (THREAD_ENTRY *thread_p, DB_TYPE type, int *histogram_total_length);
 
     private:
-      struct Bucket
-      {
-	HistogramTypes   data_hi;  // std::variant: int32_t, int64_t, double, string 중 하나
-	std::int64_t     cumulative;
-	std::int64_t     approx_ndv;
-      };
-
       HeaderV1 header_;
       std::vector<Bucket> buckets_;
       std::int32_t cur_str_off_ = 0;

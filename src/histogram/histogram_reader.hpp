@@ -37,7 +37,7 @@ namespace hist
     std::uint32_t  version;
     std::uint32_t  nbuckets;
     std::uint32_t  str_size;
-    std::uint32_t type;       // Not Same to DB Type
+    std::uint32_t  type;       // DB_TYPE
     std::uint32_t  total_size; // total size of the histogram
   };
 

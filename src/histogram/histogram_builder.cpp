@@ -59,20 +59,20 @@ namespace hist
     // ---- header ----
     HeaderV1 H{};
     std::memcpy (H.magic, "HST1", 4);
-    H.version  = ntohl (1);
-    H.nbuckets = ntohl (static_cast<std::uint32_t> (buckets_.size()));
-    H.type = ntohl (static_cast<std::uint32_t> (type));
+    H.version  = htonl (1);
+    H.nbuckets = htonl (static_cast<std::uint32_t> (buckets_.size()));
+    H.type = htonl (static_cast<std::uint32_t> (type));
     H.str_size = 0; // Fix Later
     H.total_size = 0; // Fix Later
 
-    char *buffer = static_cast<char *> (db_private_alloc (thread_p, sizeof (H) + bucket_area_size)); // records
+    char *buffer = static_cast<char *> (db_private_alloc (thread_p, sizeof (HeaderV1) + bucket_area_size)); // records
     if (buffer == NULL)
       {
 	return NULL;
       }
-    std::memset (buffer, 0, sizeof (H) + bucket_area_size); // initialize to zero
-    char *end_buffer = buffer + sizeof (H) + bucket_area_size;
-    char *buffer_ptr = buffer + sizeof (H);
+    std::memset (buffer, 0, sizeof (HeaderV1) + bucket_area_size); // initialize to zero
+    char *end_buffer = buffer + sizeof (HeaderV1) + bucket_area_size;
+    char *buffer_ptr = buffer + sizeof (HeaderV1);
     char *str_blob_ptr;
     // buckets area
     if (buckets_.empty())
@@ -198,22 +198,23 @@ namespace hist
 	  }
 	// write string
 	assert (str_blob_ptr == str_blob_ptr_end);
-	buffer = static_cast<char *> (db_private_realloc (thread_p, buffer, sizeof (H) + bucket_area_size + cur_str_off_));
+	buffer = static_cast<char *> (db_private_realloc (thread_p, buffer,
+				      sizeof (HeaderV1) + bucket_area_size + cur_str_off_));
 	if (buffer == NULL)
 	  {
 	    db_private_free (thread_p, str_blob_ptr);
 	    return NULL;
 	  }
-	memcpy (buffer + sizeof (H) + bucket_area_size, str_blob_ptr, cur_str_off_);
+	memcpy (buffer + sizeof (HeaderV1) + bucket_area_size, str_blob_ptr, cur_str_off_);
 	end_buffer += cur_str_off_;
 	db_private_free (thread_p, str_blob_ptr);
       }
 
-    H.str_size = ntohl (cur_str_off_);
-    H.total_size = ntohl (sizeof (H) + bucket_area_size + cur_str_off_);
-    memcpy (buffer, &H, sizeof (H));
-    assert (end_buffer - buffer == sizeof (H) + bucket_area_size + cur_str_off_);
-    *histogram_total_length = sizeof (H) + bucket_area_size + cur_str_off_;
+    H.str_size = htonl (static_cast<std::uint32_t> (cur_str_off_));
+    H.total_size = htonl (static_cast<std::uint32_t> (sizeof (HeaderV1) + bucket_area_size + cur_str_off_));
+    memcpy (buffer, &H, sizeof (HeaderV1));
+    assert (static_cast<size_t> (end_buffer - buffer) == sizeof (HeaderV1) + bucket_area_size + cur_str_off_);
+    *histogram_total_length = sizeof (HeaderV1) + bucket_area_size + cur_str_off_;
 
     // write header
     return buffer;

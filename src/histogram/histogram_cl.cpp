@@ -9,6 +9,8 @@
 #include "schema_system_catalog_constants.h"
 #include <stdio.h>
 #include <stdbool.h>
+#include <string>
+#include "parser.h"
 
 /*
  * analyze_all_classes
@@ -109,27 +111,27 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 	  // int를 std::int64_t로 변환하여 variant 생성
 	  hist::HistogramTypes hi = static_cast < std::int64_t > (db_get_int (&value[1]));
 	  histogram_builder.add (hi, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
+	  type = DB_TYPE_INTEGER;
+	  break;
 	}
-	type = DB_TYPE_INTEGER;
-	break;
 	case DB_TYPE_BIGINT:
 	{
 	  // int64_t를 variant로 생성
 	  std::int64_t val = db_get_bigint (&value[1]);
 	  hist::HistogramTypes hi {val};
 	  histogram_builder.add (hi, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
+	  type = DB_TYPE_BIGINT;
+	  break;
 	}
-	type = DB_TYPE_BIGINT;
-	break;
 	case DB_TYPE_DOUBLE:
 	{
 	  // double을 variant로 생성
 	  double val = db_get_double (&value[1]);
 	  hist::HistogramTypes hi {val};
 	  histogram_builder.add (hi, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
+	  type = DB_TYPE_DOUBLE;
+	  break;
 	}
-	type = DB_TYPE_DOUBLE;
-	break;
 	case DB_TYPE_STRING:
 	{
 	  // string을 variant로 생성 (복사 생성으로 안전하게)
@@ -141,9 +143,9 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 	  std::string str_val (str);	// 복사 생성 - 안전
 	  hist::HistogramTypes hi {str_val};
 	  histogram_builder.add (hi, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
+	  type = DB_TYPE_STRING;
+	  break;
 	}
-	type = DB_TYPE_STRING;
-	break;
 	default:
 	  assert (false);
 	  break;
@@ -165,33 +167,13 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 	       int histogram_total_length, MOP classop)
 {
   int error = NO_ERROR;
-  DB_OBJECT *histogram_class, *histogram_obj, *edit_histogram_object = NULL;
+  DB_OBJECT *histogram_obj, *edit_histogram_object = NULL;
   DB_OTMPL *obj_tmpl = NULL;
-  DB_VALUE value[2];
-  DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
   DB_VALUE histogram_value;
-  const char *search_attrs[2] = { "class_of", "key_attr" };
-
-  histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
-  if (histogram_class == NULL)
+  error = db_get_histogram (classop, attr_name, &histogram_obj);
+  if (error != NO_ERROR)
     {
-      error = ER_BO_MISSING_OR_INVALID_CATALOG;
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
-      goto end;
-    }
-
-  /* class_of, key_attr */
-  db_make_object (&value[0], classop);
-  db_make_string (&value[1], attr_name);
-
-  histogram_obj = db_find_multi_unique (histogram_class, 2, (char **) search_attrs, value_ptrs, DB_FETCH_READ);
-  if (histogram_obj == NULL)
-    {
-      error = ER_LC_CLASSNAME_EXIST;
-      char error_histogram[256];
-      sprintf (error_histogram, "histogram of %s(%s)", sm_get_ch_name (classop), attr_name);
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 1, error_histogram);
-      goto end;
+      return error;
     }
 
   obj_tmpl = dbt_edit_object (histogram_obj);
@@ -202,7 +184,7 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
       goto end;
     }
 
-  db_make_varbit (&histogram_value, 1073741823, histogram_blob, histogram_total_length);
+  db_make_varbit (&histogram_value, 1073741823, histogram_blob, histogram_total_length * 8);
   error = dbt_put (obj_tmpl, "histogram_values", &histogram_value);
   if (error != NO_ERROR)
     {
@@ -227,9 +209,89 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
     }
 
 end:
-  db_value_clear (value_ptrs[0]);
-  db_value_clear (value_ptrs[1]);
   db_value_clear (&histogram_value);
   assert (error == NO_ERROR);	// for debug
   return error;
+}
+
+void
+histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
+{
+  *selectivity = 0.0;
+  int error = NO_ERROR;
+  /* get object from db histogram class */
+  assert (lhs->node_type == PT_NAME);
+  const char *tbl_name = lhs->info.name.resolved;
+  const char *attr_name = lhs->info.name.original;
+  MOP classop = db_find_class (tbl_name);
+  DB_VALUE histogram_value;
+
+  DB_OBJECT *histogram_obj = NULL;
+  int histogram_total_length = 0;
+  error = db_get_histogram (classop, attr_name, &histogram_obj);
+  if (error != NO_ERROR)
+    {
+      return;
+    }
+
+  if (histogram_obj == NULL)
+    {
+      *selectivity = (double) 0.001;
+      return;
+    }
+
+  /* get histgoram */
+  error = db_get (histogram_obj, "histogram_values", &histogram_value);
+  if (error != NO_ERROR)
+    {
+      *selectivity = (double) 0.001;
+      return;
+    }
+  const char *histogram_blob_ptr = db_get_bit (&histogram_value, &histogram_total_length);
+  if (histogram_blob_ptr == NULL || histogram_total_length <= 0)
+    {
+      *selectivity = (double) 0.001;
+      return;
+    }
+  // string_view로 변환할 때 명시적으로 길이 지정
+  std::string_view histogram_blob (histogram_blob_ptr, static_cast<std::size_t> (histogram_total_length / 8));
+
+  hist::HistogramReader histogram_reader;
+  error = histogram_reader.reset (histogram_blob);
+  if (error != NO_ERROR)
+    {
+      *selectivity = (double) 0.001;
+      return;
+    }
+  return;
+}
+
+int
+db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj)
+{
+  int error = NO_ERROR;
+  DB_OBJECT *histogram_class;
+  DB_OTMPL *obj_tmpl = NULL;
+  DB_VALUE value[2];
+  DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
+  DB_VALUE histogram_value;
+  const char *search_attrs[2] = { "class_of", "key_attr" };
+
+  histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
+  if (histogram_class == NULL)
+    {
+      error = ER_BO_MISSING_OR_INVALID_CATALOG;
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
+      return error;
+    }
+
+  db_make_object (&value[0], classop);
+  db_make_string (&value[1], attr_name);
+
+  *histogram_obj = db_find_multi_unique (histogram_class, 2, (char **) search_attrs, value_ptrs, DB_FETCH_READ);
+
+  db_value_clear (value_ptrs[0]);
+  db_value_clear (value_ptrs[1]);
+
+  return NO_ERROR;
 }

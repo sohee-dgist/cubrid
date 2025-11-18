@@ -59,24 +59,24 @@ namespace hist
 	return error;
       }
 
-    nb_       = get_value<std::int32_t> (&H->nbuckets);
-    str_size_ = get_value<std::int32_t> (&H->str_size);
+    nb_       = get_value<std::uint32_t> (&H->nbuckets);
+    str_size_ = get_value<std::uint32_t> (&H->str_size);
     type_ = static_cast<std::uint32_t> (get_value<std::int32_t> (&H->type));
-    total_size_ = get_value<std::int32_t> (&H->total_size);
+    total_size_ = get_value<std::uint32_t> (&H->total_size);
     assert (total_size_ == blob_.size());
 
     /* read index table for O(1) access to bucket record */
     const char *p   = blob_.data() + sizeof (HeaderV1);
-    const char *end = blob_.data() + blob_.size();
+    const char *end = blob_.data() + total_size_;
 
 
     bucket_area_begin_ = p;
 
     /* find the last record */
-    std::uint32_t max_off = BUCKET_RECORD_SIZE*nb_;
+    std::uint32_t max_off = BUCKET_RECORD_SIZE * nb_;
     const char *last = bucket_area_begin_ + max_off;
 
-    if (last + BUCKET_RECORD_SIZE > end)
+    if (last > end)
       {
 	return ER_FAILED;
       }

@@ -51,6 +51,7 @@
 #include "network_interface_cl.h"
 #include "dbtype.h"
 #include "regu_var.hpp"
+#include "histogram_cl.hpp"
 
 #define TEST_DUMP_PLAN_SCAN_COST 0
 #define TEST_DUMP_PLAN_SORT_COST 0
@@ -9579,6 +9580,8 @@ qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	  break;
 
 	case PC_CONST:
+	  histogram_get_equal_selectivity (lhs, rhs, &selectivity);
+	  break;
 	case PC_HOST_VAR:
 	case PC_SUBQUERY:
 	case PC_SET:
