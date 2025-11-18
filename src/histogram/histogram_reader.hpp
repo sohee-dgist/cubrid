@@ -66,9 +66,47 @@ namespace hist
 
       template<typename T>
       T bucket_hi (std::uint32_t i) const;
-
       std::int64_t bucket_rows (std::uint32_t i) const;
+      template <typename T>
+      std::uint32_t find_bucket (const T &value) const
+      {
+	// nb_ == 0 은 설계상 거의 없겠지만, 방어적으로 처리
+	if (nb_ == 0)
+	  {
+	    return 0;
+	  }
 
+	std::uint32_t lo = 0;
+	std::uint32_t hi = nb_ - 1;
+	std::uint32_t ans = nb_ - 1; // 기본값: 마지막 버킷
+
+	while (lo <= hi)
+	  {
+	    std::uint32_t mid = lo + (hi - lo) / 2;
+	    T hi_val = bucket_hi<T> (mid);
+
+	    if (value <= hi_val)
+	      {
+		// (low, hi] 에서 hi 부분에 들어감 → 후보 인덱스
+		ans = mid;
+		if (mid == 0)
+		  {
+		    break; // 더 왼쪽은 없음
+		  }
+		hi = mid - 1;
+	      }
+	    else
+	      {
+		// value > HI[mid] → 더 오른쪽 버킷을 봐야 함
+		lo = mid + 1;
+	      }
+	  }
+
+	// ans 는 항상 [0, nb_-1] 범위
+	//  - value > HI[nb_-1] 이면 갱신이 안 돼서 nb_-1 유지
+	//  - 그 외에는 lower_bound(HI, value) 결과
+	return ans;
+      }
     private:
       template<typename T>
       T get_value (const void *ptr) const;

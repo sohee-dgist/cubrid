@@ -80,7 +80,7 @@ namespace hist
       {
 	return ER_FAILED;
       }
-    buckets_end_ = last + BUCKET_RECORD_SIZE; // data + cumulative
+    buckets_end_ = last;
     if (buckets_end_ + str_size_ != end)
       {
 	return ER_FAILED;
@@ -137,6 +137,13 @@ namespace hist
   }
 
   template<>
+  std::int32_t HistogramReader::bucket_hi<std::int32_t> (std::uint32_t i) const
+  {
+    // DB_TYPE_INTEGER는 std::int64_t로 저장되지만, std::int32_t로 읽을 수 있음
+    return static_cast<std::int32_t> (get_value<std::int64_t> (bucket_hi_value_ptr (i)));
+  }
+
+  template<>
   double HistogramReader::bucket_hi<double> (std::uint32_t i) const
   {
     return get_value<double> (bucket_hi_value_ptr (i));
@@ -157,4 +164,5 @@ namespace hist
     return std::string_view{str_blob_.data() + off32, static_cast<std::size_t> (len32)};
   }
 
+  // ---------- get_equal_selectivity ----------
 } // namespace hist
