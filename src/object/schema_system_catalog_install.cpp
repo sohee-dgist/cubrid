@@ -353,7 +353,7 @@ namespace cubschema
 
   const inline std::string format_varbit (const int size)
   {
-    std::string s ("varbit(");
+    std::string s ("bit varying(");
     s += std::to_string (size);
     s += ")";
     return s;
@@ -1287,7 +1287,7 @@ namespace cubschema
       {"key_attr", format_varchar (255)},
       {"histogram_type","integer"},
       {"bucket_count", "integer"},
-      {"histogram_values", format_varchar (1073741823) }
+      {"histogram_values", format_varbit (1073741823) }
     },
 // constraint
     {
@@ -2080,10 +2080,9 @@ namespace cubschema
     {
       {"class_of", "object"},
       {"key_attr", format_varchar (255)},
-      {"data_type", "integer"},
       {"histogram_type","integer"},
       {"bucket_count", "integer"},
-      {"histogram_values", format_varchar (1024)},
+      {"histogram_values", format_varbit (1024)},
       {attribute_kind::QUERY_SPEC, sm_define_view_db_histogram_spec ()}
     },
 // constraint
