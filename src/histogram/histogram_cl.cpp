@@ -14,7 +14,7 @@
 
 /*
  * analyze_all_classes
- *
+ * 
  * return:
  *   with_fullscan(in): true iff WITH FULLSCAN
  *
@@ -278,7 +278,7 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
       break;
     }
 
-  *selectivity = (static_cast<double> (histogram_reader.bucket_rows (bucket_index - 1)) / static_cast<double>
+  *selectivity = (static_cast<double> (histogram_reader.bucket_rows (bucket_index)) / static_cast<double>
 		  (histogram_reader.total_rows())) /
 		 static_cast<double> (histogram_reader.bucket_approx_ndv (bucket_index));
   return;

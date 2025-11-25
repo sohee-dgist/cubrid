@@ -93,7 +93,7 @@ namespace hist
 	      {
 		// int64_t 값을 int32_t로 변환하여 저장 (실제로는 32bit 값이므로)
 		std::int64_t val = std::get<std::int64_t> (b.data_hi);
-		write<std::int32_t> (buffer_ptr, static_cast<std::int32_t> (val));
+		write<std::int64_t> (buffer_ptr, static_cast<std::int64_t> (val));
 	      }
 	    else
 	      {
