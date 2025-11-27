@@ -99,14 +99,28 @@ namespace hist
 	      }
 	  }
 
-	if (bucket_approx_ndv (lo) == 1)
+	/* mcv check */
+	while (lo >= 0 && lo < nb_ && bucket_approx_ndv (lo) == 1)
 	  {
 	    T mcv_val = bucket_hi<T> (lo);
 
-	    if (! (value == mcv_val))
+	    if (value == mcv_val)
 	      {
-		/* this is not MCV value */
-		return -1;
+		return lo;
+	      }
+
+	    if (value < mcv_val)
+	      {
+		--lo;
+	      }
+	    else
+	      {
+		assert (false); /* impossible */
+	      }
+
+	    if (lo < 0 || lo >= nb_)
+	      {
+		break;
 	      }
 	  }
 
