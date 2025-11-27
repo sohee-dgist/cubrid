@@ -118,12 +118,15 @@ namespace hist
     assert (i < nb_);
     const char *rec = bucket_rec (i);
     const char *p = rec + 16;
-    return get_value<std::int64_t> (p);
+    std::int64_t result;
+    result = get_value<std::int64_t> (p);
+    assert (result > 0);
+    return result;
   }
 
   std::int64_t HistogramReader::bucket_rows (std::uint32_t i) const
   {
-    assert (i < nb_);
+    assert (i < 0 || i < nb_);
     const std::int64_t cur  = bucket_cumulative (i);
     const std::int64_t prev = (i == 0) ? 0 : bucket_cumulative (i - 1);
     return cur - prev;

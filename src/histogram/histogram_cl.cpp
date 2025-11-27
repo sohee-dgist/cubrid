@@ -278,7 +278,7 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
 {
   *selectivity = 0.0;
   int error = NO_ERROR;
-  std::uint32_t bucket_index = 0;
+  int bucket_index = 0;
   /* get object from db histogram class */
   assert (lhs->node_type == PT_NAME);
   const char *tbl_name = lhs->info.name.resolved;
@@ -431,7 +431,12 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
       assert (false); /* impossible to reach here - blocked at parser layer first */
       break;
     }
+  if (bucket_index == -1) /* not found */
 
+    {
+      *selectivity = 0.0;
+      return;
+    }
 
   *selectivity = (static_cast<double> (histogram_reader.bucket_rows (bucket_index)) / static_cast<double>
 		  (histogram_reader.total_rows())) /
