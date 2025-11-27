@@ -168,6 +168,7 @@ namespace hist
 	  {
 	    return NULL;
 	  }
+	char *cur_str_blob_ptr = str_blob_ptr;
 	std::memset (str_blob_ptr, 0, cur_str_off_); // initialize to zero
 	char *str_blob_ptr_end = str_blob_ptr + cur_str_off_;
 	for (const auto &b : buckets_)
@@ -191,13 +192,13 @@ namespace hist
 
 		if (str_val.length() > 4)
 		  {
-		    memcpy (str_blob_ptr, str_val.data(), str_val.length());
-		    str_blob_ptr += str_val.length();
+		    memcpy (cur_str_blob_ptr, str_val.data(), str_val.length());
+		    cur_str_blob_ptr += str_val.length();
 		  }
 	      }
 	  }
 	// write string
-	assert (str_blob_ptr == str_blob_ptr_end);
+	assert (cur_str_blob_ptr == str_blob_ptr_end);
 	buffer = static_cast<char *> (db_private_realloc (thread_p, buffer,
 				      sizeof (HeaderV1) + bucket_area_size + cur_str_off_));
 	if (buffer == NULL)
@@ -206,14 +207,12 @@ namespace hist
 	    return NULL;
 	  }
 	memcpy (buffer + sizeof (HeaderV1) + bucket_area_size, str_blob_ptr, cur_str_off_);
-	end_buffer += cur_str_off_;
 	db_private_free (thread_p, str_blob_ptr);
       }
 
     H.str_size = htonl (static_cast<std::uint32_t> (cur_str_off_));
     H.total_size = htonl (static_cast<std::uint32_t> (sizeof (HeaderV1) + bucket_area_size + cur_str_off_));
     memcpy (buffer, &H, sizeof (HeaderV1));
-    assert (static_cast<size_t> (end_buffer - buffer) == sizeof (HeaderV1) + bucket_area_size + cur_str_off_);
     *histogram_total_length = sizeof (HeaderV1) + bucket_area_size + cur_str_off_;
 
     // write header

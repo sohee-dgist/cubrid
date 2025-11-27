@@ -14,7 +14,7 @@
 
 /*
  * analyze_all_classes
- * 
+ *
  * return:
  *   with_fullscan(in): true iff WITH FULLSCAN
  *
@@ -53,10 +53,10 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
   DB_QUERY_ERROR query_error;
   hist::HistogramBuilder histogram_builder;
   DB_TYPE type = DB_TYPE_UNKNOWN;
-  bool sampling_scan = false;
+  bool sampling_scan = true;
   int number_of_mcv = 3;	// TODO
 
-  char query_buf[1024];
+  char query_buf[1024+222+254]; // TODO GET MAX TABLE NAME LENGTH FROM SQL.H
   if (sampling_scan)
     {
       snprintf (query_buf, sizeof (query_buf), HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE, attr_name, tbl_name,
@@ -93,63 +93,122 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
   do
     {
       DB_VALUE value[5];
+      hist::HistogramTypes hi{};
       error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("bid"), &value[0]);
       error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("endpoint"), &value[1]);
       error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("rows_in_bucket"), &value[2]);
       error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("cumulative"), &value[3]);
       error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("approx_ndv"), &value[4]);
-
       if (error != NO_ERROR)
 	{
 	  return error;
 	}
-
       switch (value[1].domain.general_info.type)
 	{
 	case DB_TYPE_INTEGER:
 	{
-	  // int를 std::int64_t로 변환하여 variant 생성
-	  hist::HistogramTypes hi = static_cast < std::int64_t > (db_get_int (&value[1]));
-	  histogram_builder.add (hi, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
-	  type = DB_TYPE_INTEGER;
+	  hi = static_cast < std::int64_t > (db_get_int (&value[1]));
 	  break;
 	}
-	case DB_TYPE_BIGINT:
+	case DB_TYPE_SHORT:
 	{
-	  // int64_t를 variant로 생성
-	  std::int64_t val = db_get_bigint (&value[1]);
-	  hist::HistogramTypes hi {val};
-	  histogram_builder.add (hi, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
-	  type = DB_TYPE_BIGINT;
+	  hi = static_cast < std::int64_t > (db_get_short (&value[1]));
+	  break;
+	}
+	case DB_TYPE_FLOAT:
+	{
+	  double val = db_get_float (&value[1]);
+	  hi = val;
 	  break;
 	}
 	case DB_TYPE_DOUBLE:
 	{
-	  // double을 variant로 생성
 	  double val = db_get_double (&value[1]);
-	  hist::HistogramTypes hi {val};
-	  histogram_builder.add (hi, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
-	  type = DB_TYPE_DOUBLE;
+	  hi = val;
 	  break;
 	}
+	case DB_TYPE_NUMERIC:
+	{
+	  /* Actually, the numeric type is a 16-byte value with very high precision,
+	   * but for approximate statistical calculations it's probably better not to
+	   * rely on the full 16-byte precision. */
+	  double val;
+	  numeric_coerce_num_to_double (db_get_numeric (&value[1]), db_value_scale (&value[1]), &val);
+	  hi = val;
+	  break;
+	}
+	case DB_TYPE_BIT:
+	case DB_TYPE_VARBIT:
+	{
+	  /* deal as char type */
+	  int length = 0;
+	  const char *str = db_get_bit (&value[1], &length);
+	  if (str == NULL)
+	    {
+	      return ER_FAILED;
+	    }
+	  std::string str_val (str, length);
+	  hi = str_val;
+	  break;
+	}
+	case DB_TYPE_CHAR: /* later consider for null trailing exists */
 	case DB_TYPE_STRING:
 	{
-	  // string을 variant로 생성 (복사 생성으로 안전하게)
 	  const char *str = db_get_string (&value[1]);
 	  if (str == NULL)
 	    {
 	      return ER_FAILED;
 	    }
-	  std::string str_val (str);	// 복사 생성 - 안전
-	  hist::HistogramTypes hi {str_val};
-	  histogram_builder.add (hi, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
-	  type = DB_TYPE_STRING;
+	  std::string str_val (str);
+	  hi = str_val;
+	  break;
+	}
+	case DB_TYPE_TIME:
+	{
+	  DB_TIME *time = db_get_time (&value[1]);
+	  hi = static_cast<std::uint64_t> (*time);
+	  break;
+	}
+	case DB_TYPE_TIMESTAMP:
+	case DB_TYPE_TIMESTAMPLTZ:
+	{
+	  DB_TIMESTAMP *timestamp = db_get_timestamp (&value[1]);
+	  hi = static_cast<std::uint64_t> (*timestamp);
+	  break;
+	}
+	case DB_TYPE_DATE:
+	{
+	  DB_DATE *date = db_get_date (&value[1]);
+	  hi = static_cast<std::uint64_t> (*date);
+	  break;
+	}
+	case DB_TYPE_MONETARY:
+	{
+	  /* Its use is deprecated, but it has been kept for backporting purposes. */
+	  DB_MONETARY *monetary = db_get_monetary (&value[1]);
+	  hi = static_cast<std::uint64_t> (monetary->amount);
+	  break;
+	}
+	case DB_TYPE_TIMESTAMPTZ:
+	{
+	  DB_TIMESTAMPTZ *timestamptz = db_get_timestamptz (&value[1]);
+	  hi = static_cast<std::uint64_t> (timestamptz->timestamp);
+	  break;
+	}
+	case DB_TYPE_DATETIMETZ:
+	case DB_TYPE_DATETIMELTZ:
+	{
+	  /* in comparison, the order is maintained by date and time */
+	  DB_DATETIMETZ *datetimetz = db_get_datetimetz (&value[1]);
+	  hi = static_cast<std::uint64_t> (datetimetz->datetime.date) << 32 | datetimetz->datetime.time;
 	  break;
 	}
 	default:
-	  assert (false);
+	  assert (false); /* impossible to reach here - blocked at parser layer first */
 	  break;
 	}
+      histogram_builder.add (hi, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
+      type = static_cast<DB_TYPE> (value[1].domain.general_info.type);
     }
   while (db_query_next_tuple (query_result) == DB_CURSOR_SUCCESS);
 
@@ -254,7 +313,8 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
       *selectivity = (double) 0.001;
       return;
     }
-  // string_view로 변환할 때 명시적으로 길이 지정
+
+  /* need length of histogram_blob_ptr */
   std::string_view histogram_blob (histogram_blob_ptr, static_cast<std::size_t> (histogram_total_length / 8));
 
   hist::HistogramReader histogram_reader;
@@ -273,10 +333,105 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
       bucket_index = histogram_reader.find_bucket<std::int32_t> (val);
       break;
     }
-    default:
-      assert (false); //TODO: Not implemented
+    case DB_TYPE_SHORT:
+    {
+      std::int32_t val = static_cast<std::int32_t> (db_get_short (&rhs->info.value.db_value));
+      bucket_index = histogram_reader.find_bucket<std::int32_t> (val);
       break;
     }
+    case DB_TYPE_FLOAT:
+    {
+      double val = db_get_float (&rhs->info.value.db_value);
+      bucket_index = histogram_reader.find_bucket<double> (val);
+      break;
+    }
+    case DB_TYPE_DOUBLE:
+    {
+      double val = db_get_double (&rhs->info.value.db_value);
+      bucket_index = histogram_reader.find_bucket<double> (val);
+      break;
+    }
+    case DB_TYPE_NUMERIC:
+    {
+      double val;
+      numeric_coerce_num_to_double (db_get_numeric (&rhs->info.value.db_value), db_value_scale (&rhs->info.value.db_value),
+				    &val);
+      bucket_index = histogram_reader.find_bucket<double> (val);
+      break;
+    }
+    case DB_TYPE_BIT:
+    case DB_TYPE_VARBIT:
+    {
+      int length = 0;
+      const char *str = db_get_bit (&rhs->info.value.db_value, &length);
+      if (str == NULL)
+	{
+	  *selectivity = (double) 0.001;
+	  return;
+	}
+      std::string str_val (str, length);
+      bucket_index = histogram_reader.find_bucket<std::string> (str_val);
+      break;
+    }
+    case DB_TYPE_CHAR: /* later consider for null trailing exists */
+    case DB_TYPE_STRING:
+    {
+      const char *str = db_get_string (&rhs->info.value.db_value);
+      if (str == NULL)
+	{
+	  *selectivity = (double) 0.001;
+	  return;
+	}
+      std::string str_val (str);
+      bucket_index = histogram_reader.find_bucket<std::string> (str_val);
+      break;
+    }
+    case DB_TYPE_TIME:
+    {
+
+      DB_TIME *time = db_get_time (&rhs->info.value.db_value);
+      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t> (*time));
+      break;
+    }
+    case DB_TYPE_TIMESTAMP:
+    case DB_TYPE_TIMESTAMPLTZ:
+    {
+
+      DB_TIMESTAMP *timestamp = db_get_timestamp (&rhs->info.value.db_value);
+      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t> (*timestamp));
+      break;
+    }
+    case DB_TYPE_DATE:
+    {
+      DB_DATE *date = db_get_date (&rhs->info.value.db_value);
+      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t> (*date));
+      break;
+    }
+    case DB_TYPE_MONETARY:
+    {
+      DB_MONETARY *monetary = db_get_monetary (&rhs->info.value.db_value);
+      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t> (monetary->amount));
+      break;
+    }
+    case DB_TYPE_TIMESTAMPTZ:
+    {
+      DB_TIMESTAMPTZ *timestamptz = db_get_timestamptz (&rhs->info.value.db_value);
+      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t> (timestamptz->timestamp));
+      break;
+    }
+    case DB_TYPE_DATETIMETZ:
+    case DB_TYPE_DATETIMELTZ:
+    {
+      DB_DATETIMETZ *datetimetz = db_get_datetimetz (&rhs->info.value.db_value);
+      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t>
+		     (datetimetz->datetime.date) << 32 | datetimetz->datetime.time);
+      break;
+    }
+    default:
+      assert (false); /* impossible to reach here - blocked at parser layer first */
+      break;
+    }
+
 
   *selectivity = (static_cast<double> (histogram_reader.bucket_rows (bucket_index)) / static_cast<double>
 		  (histogram_reader.total_rows())) /

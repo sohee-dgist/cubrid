@@ -109,8 +109,8 @@ namespace hist
 	//   value = 2  → 1
 	//   value = 3  → 2
 	//   value > 3  → 위의 클램프 로직으로 2
-        // 여기에서는 템플릿 특수화 (compare val에 대해서 필요할 것 같아 보임. (강조!))
-        // 나머지 경우에 대해서는 잘 모르겠네..............
+	// 여기에서는 템플릿 특수화 (compare val에 대해서 필요할 것 같아 보임. (강조!))
+	// 나머지 경우에 대해서는 잘 모르겠네..............
 	return lo;
 
       }
@@ -134,7 +134,7 @@ namespace hist
       // 왜냐하면 굳이 정확할 필요는 없을 거 같다.
 
       // 그러면 CHARSET에 대한 비교가 필요한데, 왜 CHARSET에 대한 비교는 COLLATION이 필요한 것일까?
-      
+
       std::uint32_t type_ = DB_TYPE_UNKNOWN;
 
   };

@@ -164,5 +164,26 @@ namespace hist
     return std::string_view{str_blob_.data() + off32, static_cast<std::size_t> (len32)};
   }
 
+  template<>
+  std::string HistogramReader::bucket_hi<std::string> (std::uint32_t i) const
+  {
+    const char *p = bucket_hi_value_ptr (i);
+    std::uint32_t len32 = get_value<std::uint32_t> (p);
+    std::uint32_t off32 = get_value<std::uint32_t> (p + 4);
+
+    if (len32 <= 4) // inline data
+      {
+	return std::string{ p+4, static_cast<std::size_t> (len32) };
+      }
+    assert (off32 + len32 <= str_size_);
+    return std::string{str_blob_.data() + off32, static_cast<std::size_t> (len32)};
+  }
+
+  template<>
+  unsigned long HistogramReader::bucket_hi<unsigned long> (std::uint32_t i) const
+  {
+    return static_cast<unsigned long> (get_value<std::int64_t> (bucket_hi_value_ptr (i)));
+  }
+
   // ---------- get_equal_selectivity ----------
 } // namespace hist
