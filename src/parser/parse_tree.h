@@ -1987,8 +1987,8 @@ struct pt_histogram_info
 {
   PT_NODE *target_table_spec;	/* PT_SPEC */
   PT_NODE *target_columns;	/* PT_COLUMN_LIST (PT_NAME) */
-  int histogram_type;		/* histogram type */
   int bucket_count;		/* bucket count */
+  int with_fullscan;		/* with fullscan */
 };
 
 /* CREATE/DROP INDEX INFO */

@@ -7336,8 +7336,8 @@ pt_print_create_entity (PARSER_CONTEXT * parser, PT_NODE * p)
 static PT_NODE *
 pt_init_create_histogram (PT_NODE * p)
 {
-  p->info.histogram.histogram_type = 0;
   p->info.histogram.bucket_count = 256;
+  p->info.histogram.with_fullscan = 0;
   return p;
 }
 
@@ -7350,7 +7350,7 @@ pt_init_create_histogram (PT_NODE * p)
 static PT_NODE *
 pt_init_drop_histogram (PT_NODE * p)
 {
-  p->info.histogram.histogram_type = 0;
+  p->info.histogram.with_fullscan = 0;
   p->info.histogram.bucket_count = 0;
   return p;
 }

@@ -1285,7 +1285,7 @@ namespace cubschema
     {
       {"class_of", "object"},
       {"key_attr", format_varchar (255)},
-      {"histogram_type","integer"},
+      {"with_fullscan","integer"},
       {"bucket_count", "integer"},
       {"histogram_values", format_varbit (1073741823) }
     },
@@ -2080,7 +2080,7 @@ namespace cubschema
     {
       {"class_of", "object"},
       {"key_attr", format_varchar (255)},
-      {"histogram_type","integer"},
+      {"with_fullscan","integer"},
       {"bucket_count", "integer"},
       {"histogram_values", format_varbit (1024)},
       {attribute_kind::QUERY_SPEC, sm_define_view_db_histogram_spec ()}

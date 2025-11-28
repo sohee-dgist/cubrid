@@ -148,7 +148,7 @@ namespace hist
 
   std::int64_t HistogramReader::bucket_rows (std::uint32_t i) const
   {
-    assert (i < 0 || i < nb_);
+    assert (i < nb_);
     const std::int64_t cur  = bucket_cumulative (i);
     const std::int64_t prev = (i == 0) ? 0 : bucket_cumulative (i - 1);
     return cur - prev;

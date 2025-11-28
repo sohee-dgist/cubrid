@@ -3879,7 +3879,7 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 				 PT_HISTOGRAM_INFO * const histogram_info, DO_HISTOGRAM do_histogram)
 {
   int error = NO_ERROR;
-  int histogram_type, bucket_count, nnames = 0;
+  int bucket_count, nnames = 0;
   char *attname = NULL;
   PT_NODE *cur_column = NULL;
   int is_partition = DB_NOT_PARTITIONED_CLASS;
@@ -3898,7 +3898,6 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 
   /* fill infos for catlaog table TODO: data_type, duplication check */
   nnames = pt_length_of_list (histogram_info->target_columns);
-  histogram_type = histogram_info->histogram_type;
   bucket_count = histogram_info->bucket_count;
   cur_column = histogram_info->target_columns;
 
@@ -3920,7 +3919,7 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	    }
 	  else
 	    {
-	      error = sm_add_histogram (obj, attname, histogram_type, bucket_count);
+	      error = sm_add_histogram (obj, attname, bucket_count, true);
 	      if (error != NO_ERROR)
 		{
 		  return error;
@@ -3942,7 +3941,7 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	}
       else
 	{
-	  error = sm_add_histogram (obj, attname, histogram_type, bucket_count);
+	  error = sm_add_histogram (obj, attname, bucket_count, true);
 	  error = analyze_classes (NULL, db_get_class_name (obj), attname, 30, false, obj);
 	  if (error != NO_ERROR)
 	    {

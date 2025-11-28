@@ -707,11 +707,13 @@ BEGIN_SUPPRESS_WARNING_BISON_FLEX
 %type <node> rename_class_list
 %type <node> rename_class_pair
 %type <node> drop_stmt
+%type <node> drop_histogram_stmt
 %type <node> opt_index_column_name_list
 %type <node> index_column_name_list
 %type <node> histogram_column_list
 %type <node> histogram_column
 %type <node> update_statistics_stmt
+%type <node> update_histogram_stmt
 %type <node> only_class_name_list
 %type <node> opt_level_spec
 %type <node> char_string_literal_list
@@ -1174,6 +1176,7 @@ BEGIN_SUPPRESS_WARNING_BISON_FLEX
 %token BOOLEAN_
 %token BOTH_
 %token BREADTH
+%token BUCKETS
 %token BY
 %token CALL
 %token CASCADE
@@ -1987,6 +1990,12 @@ stmt_
                   $$ = $1; }
 	| update_statistics_stmt
 		{ DBG_TRACE_GRAMMAR(stmt_, | update_statstics_stmt);
+                  $$ = $1; }
+	| update_histogram_stmt
+		{ DBG_TRACE_GRAMMAR(stmt_, | update_histogram_stmt);
+                  $$ = $1; }
+	| drop_histogram_stmt
+		{ DBG_TRACE_GRAMMAR(stmt_, | drop_histogram_stmt);
                   $$ = $1; }
 	| drop_stmt
 		{ DBG_TRACE_GRAMMAR(stmt_, | drop_stmt);
@@ -5179,6 +5188,77 @@ update_statistics_stmt
 
 		DBG_PRINT}}
 	;
+
+update_histogram_stmt
+        : ANALYZE TABLE only_class_name UPDATE HISTOGRAM ON_ histogram_column_list WITH unsigned_integer BUCKETS opt_with_fullscan
+                {{ DBG_TRACE_GRAMMAR(update_histogram_stmt, | ANALYZE TABLE only_class_name UPDATE HISTOGRAM ON histogram_column_list WITH unsigned_integer BUCKETS opt_with_fullscan );
+                        PT_NODE *uhs = parser_new_node (this_parser, PT_CREATE_HISTOGRAM);
+                        PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
+                        if (uhs && target_t)
+                        {
+                            target_t->info.spec.entity_name = $3;
+                            PARSER_SAVE_ERR_CONTEXT (target_t, @3.buffer_pos)
+                            target_t->info.spec.meta_class = PT_CLASS;
+                            uhs->info.histogram.target_table_spec = target_t;
+
+                            uhs->info.histogram.target_columns = $7;
+                            uhs->info.histogram.bucket_count = $9->info.value.data_value.i;
+                            uhs->info.histogram.with_fullscan = $11;             
+                        }
+
+                        $$ = uhs;
+                        PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
+                DBG_PRINT }}
+        | ANALYZE TABLE only_class_name UPDATE HISTOGRAM WITH unsigned_integer BUCKETS opt_with_fullscan
+                {{ DBG_TRACE_GRAMMAR(update_histogram_stmt, | ANALYZE TABLE only_class_name UPDATE HISTOGRAM WITH unsigned_integer BUCKETS opt_with_fullscan );
+                        PT_NODE *uhs = parser_new_node (this_parser, PT_CREATE_HISTOGRAM);
+                        PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
+                        if (uhs && target_t)
+                        {
+                            target_t->info.spec.entity_name = $3;
+                            PARSER_SAVE_ERR_CONTEXT (target_t, @3.buffer_pos)
+                            target_t->info.spec.meta_class = PT_CLASS;
+                            uhs->info.histogram.target_table_spec = target_t;
+                            uhs->info.histogram.target_columns = NULL;
+                            uhs->info.histogram.bucket_count = $7->info.value.data_value.i;
+                            uhs->info.histogram.with_fullscan = $9;
+                        }
+
+                        $$ = uhs;
+                        PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
+                DBG_PRINT }}
+        ;
+drop_histogram_stmt
+        : ANALYZE TABLE only_class_name DROP HISTOGRAM ON_ histogram_column_list
+                {{ DBG_TRACE_GRAMMAR(drop_histogram_stmt, | ANALYZE TABLE only_class_name DROP HISTOGRAM ON histogram_column_list);
+                        PT_NODE *dhs = parser_new_node (this_parser, PT_DROP_HISTOGRAM);
+                        PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
+                        if (dhs && target_t)
+                        {
+                            target_t->info.spec.entity_name = $3;
+                            PARSER_SAVE_ERR_CONTEXT (target_t, @3.buffer_pos)
+                            target_t->info.spec.meta_class = PT_CLASS;
+                            dhs->info.histogram.target_table_spec = target_t;
+                            dhs->info.histogram.target_columns = $7;
+                        }
+                        $$ = dhs;
+                        PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
+                DBG_PRINT }}
+        | ANALYZE TABLE only_class_name DROP HISTOGRAM
+                {{ DBG_TRACE_GRAMMAR(drop_histogram_stmt, | ANALYZE TABLE only_class_name DROP HISTOGRAM ON histogram_column_list);
+                        PT_NODE *dhs = parser_new_node (this_parser, PT_DROP_HISTOGRAM);
+                        PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
+                        if (dhs && target_t)
+                        {
+                            target_t->info.spec.entity_name = $3;
+                            PARSER_SAVE_ERR_CONTEXT (target_t, @3.buffer_pos)
+                            target_t->info.spec.meta_class = PT_CLASS;
+                            dhs->info.histogram.target_table_spec = target_t;
+                        }
+                        $$ = dhs;
+                        PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
+                DBG_PRINT }}
+        ;
 
 only_class_name_list
 	: only_class_name_list ',' only_class_name

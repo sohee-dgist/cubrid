@@ -124,7 +124,7 @@ namespace hist
 	  }
 
 	/* mcv check */
-	while (lo >= 0 && lo < nb_ && bucket_approx_ndv (lo) == 1)
+	while (lo >= 0 && lo < static_cast<int> (nb_) && bucket_approx_ndv (lo) == 1)
 	  {
 	    T mcv_val = bucket_hi<T> (lo);
 
@@ -142,7 +142,7 @@ namespace hist
 		assert (false); /* impossible */
 	      }
 
-	    if (lo < 0 || lo >= nb_)
+	    if (lo < 0 || lo >= static_cast<int> (nb_))
 	      {
 		break;
 	      }
