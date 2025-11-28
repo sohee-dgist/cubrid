@@ -3961,13 +3961,13 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 
 
 /**
- * do_create_histogram() - Creates a histogram on a class.
+ * do_update_histogram() - Creates a histogram on a class.
  *   return: Error code if it fails
  *   parser(in): Parser context
  *   statement(in): Parse tree of a create histogram statement
  */
 int
-do_create_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
+do_update_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
 {
   PT_NODE *cls;
   DB_OBJECT *obj;
@@ -4002,7 +4002,7 @@ do_create_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
 
 
 /**
- * do_create_histogram() - Creates a histogram on a class.
+ * do_update_histogram() - Creates a histogram on a class.
  *   return: Error code if it fails
  *   parser(in): Parser context
  *   statement(in): Parse tree of a create histogram statement

@@ -9076,7 +9076,7 @@ pt_check_create_index (PARSER_CONTEXT * parser, PT_NODE * node)
 }
 
 static void
-pt_check_create_histogram (PARSER_CONTEXT * parser, PT_NODE * node)
+pt_check_update_histogram (PARSER_CONTEXT * parser, PT_NODE * node)
 {
   PT_NODE *name;
   DB_OBJECT *db_obj;
@@ -12364,7 +12364,7 @@ pt_check_with_info (PARSER_CONTEXT * parser, PT_NODE * node, SEMANTIC_CHK_INFO *
 	}
       break;
 
-    case PT_CREATE_HISTOGRAM:
+    case PT_UPDATE_HISTOGRAM:
       if (parser->host_var_count)
 	{
 	  PT_ERRORm (parser, node, MSGCAT_SET_PARSER_SEMANTIC, MSGCAT_SEMANTIC_HOSTVAR_IN_DDL);
@@ -12373,9 +12373,9 @@ pt_check_with_info (PARSER_CONTEXT * parser, PT_NODE * node, SEMANTIC_CHK_INFO *
 	{
 	  sc_info_ptr->system_class = false;
 	  node = pt_resolve_names (parser, node, sc_info_ptr);
-	  if (!pt_has_error (parser) && node->node_type == PT_CREATE_HISTOGRAM)
+	  if (!pt_has_error (parser) && node->node_type == PT_UPDATE_HISTOGRAM)
 	    {
-	      pt_check_create_histogram (parser, node);
+	      pt_check_update_histogram (parser, node);
 	    }
 
 	  if (!pt_has_error (parser))
@@ -12398,9 +12398,9 @@ pt_check_with_info (PARSER_CONTEXT * parser, PT_NODE * node, SEMANTIC_CHK_INFO *
 	{
 	  sc_info_ptr->system_class = false;
 	  node = pt_resolve_names (parser, node, sc_info_ptr);
-	  if (!pt_has_error (parser) && node->node_type == PT_CREATE_HISTOGRAM)
+	  if (!pt_has_error (parser) && node->node_type == PT_UPDATE_HISTOGRAM)
 	    {
-	      pt_check_create_histogram (parser, node);
+	      pt_check_update_histogram (parser, node);
 	    }
 
 	  if (!pt_has_error (parser))

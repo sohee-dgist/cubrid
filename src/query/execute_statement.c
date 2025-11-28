@@ -3159,7 +3159,7 @@ do_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
 	case PT_CREATE_SERIAL:
 	case PT_CREATE_TRIGGER:
 	case PT_CREATE_USER:
-	case PT_CREATE_HISTOGRAM:
+	case PT_UPDATE_HISTOGRAM:
 	case PT_DROP_HISTOGRAM:
 	case PT_ALTER:
 	case PT_ALTER_INDEX:
@@ -3238,8 +3238,8 @@ do_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
 	  error = do_create_index (parser, statement);
 	  break;
 
-	case PT_CREATE_HISTOGRAM:
-	  error = do_create_histogram (parser, statement);
+	case PT_UPDATE_HISTOGRAM:
+	  error = do_update_histogram (parser, statement);
 	  break;
 
 	case PT_DROP_HISTOGRAM:
@@ -3865,7 +3865,7 @@ do_execute_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
     case PT_CREATE_SERIAL:
     case PT_CREATE_TRIGGER:
     case PT_CREATE_USER:
-    case PT_CREATE_HISTOGRAM:
+    case PT_UPDATE_HISTOGRAM:
     case PT_DROP_HISTOGRAM:
     case PT_ALTER:
     case PT_ALTER_INDEX:
@@ -3940,8 +3940,8 @@ do_execute_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
     case PT_CREATE_USER:
       err = do_create_user (parser, statement);
       break;
-    case PT_CREATE_HISTOGRAM:
-      err = do_create_histogram (parser, statement);
+    case PT_UPDATE_HISTOGRAM:
+      err = do_update_histogram (parser, statement);
       break;
     case PT_DROP_HISTOGRAM:
       err = do_drop_histogram (parser, statement);
@@ -16173,8 +16173,8 @@ do_replicate_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
       repl_stmt.statement_type = CUBRID_STMT_DROP_INDEX;
       break;
 
-    case PT_CREATE_HISTOGRAM:
-      repl_stmt.statement_type = CUBRID_STMT_CREATE_HISTOGRAM;
+    case PT_UPDATE_HISTOGRAM:
+      repl_stmt.statement_type = CUBRID_STMT_UPDATE_HISTOGRAM;
       break;
 
     case PT_DROP_HISTOGRAM:

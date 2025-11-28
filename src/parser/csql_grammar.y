@@ -3163,75 +3163,6 @@ create_stmt
 			PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
 
 		DBG_PRINT}}
-	| CREATE					/* 1 */
-		{                                       /* 2 */
-                        DBG_TRACE_GRAMMAR(create_stmt, | CREATE);
-			PT_NODE* node = parser_new_node (this_parser, PT_CREATE_HISTOGRAM);
-			parser_push_hint_node (node);
-			push_msg (MSGCAT_SYNTAX_INVALID_CREATE_HISTOGRAM);
-                }
-	  HISTOGRAM 					/* 3 */
-		{ pop_msg(); }				/* 4 */
-	  ON_                                           /* 5 */
-	  only_class_name                               /* 6 */
-	  '(' histogram_column_list ')'                 /* 8 */
-	  opt_comment_spec                              /* 9 */
-		{{ DBG_TRACE_GRAMMAR (create_stmt, | CREATE HISTOGRAM ON_ ~);
-
-			PT_NODE *node = parser_pop_hint_node ();
-                        PARSER_SAVE_ERR_CONTEXT (node, @$.buffer_pos)
-                        PT_NODE *ocs = parser_new_node(this_parser, PT_SPEC);
-
-			if (node && ocs)
-			  {
-                            PT_NODE *col;
-			    int arg_count = 0, prefix_col_count = 0;
-			    ocs->info.spec.entity_name = $6;
-                            PARSER_SAVE_ERR_CONTEXT (ocs, @6.buffer_pos)
-                            ocs->info.spec.meta_class = PT_CLASS;
-                            node->info.histogram.target_table_spec = ocs;
-                            col = $8;
-
-                            prefix_col_count = parser_count_prefix_columns (col, &arg_count);
-                            node->info.histogram.target_columns = col;
-			  }
-
-			$$ = node;
-			PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-
-		DBG_PRINT}}
-	| CREATE					/* 1 */
-		{                                       /* 2 */
-                        DBG_TRACE_GRAMMAR(create_stmt, | CREATE);
-			PT_NODE* node = parser_new_node (this_parser, PT_CREATE_HISTOGRAM);
-			parser_push_hint_node (node);
-			push_msg (MSGCAT_SYNTAX_INVALID_CREATE_HISTOGRAM);
-                }
-	  HISTOGRAM 					/* 3 */
-		{ pop_msg(); }				/* 4 */
-	  ON_                                           /* 5 */
-	  only_class_name                               /* 6 */
-	  opt_comment_spec                              /* 9 */
-		{{ DBG_TRACE_GRAMMAR (create_stmt, | CREATE HISTOGRAM ON_ ~);
-
-			PT_NODE *node = parser_pop_hint_node ();
-                        PARSER_SAVE_ERR_CONTEXT (node, @$.buffer_pos)
-                        PT_NODE *ocs = parser_new_node(this_parser, PT_SPEC);
-
-			if (node && ocs)
-			  {
-			    int arg_count = 0, prefix_col_count = 0;
-			    ocs->info.spec.entity_name = $6;
-                            PARSER_SAVE_ERR_CONTEXT (ocs, @6.buffer_pos)
-                            ocs->info.spec.meta_class = PT_CLASS;
-                            node->info.histogram.target_table_spec = ocs;
-                            node->info.histogram.target_columns = NULL;
-			  }
-
-			$$ = node;
-			PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-
-		DBG_PRINT}}
 	| CREATE                        		/* 1 */
 	  opt_or_replace                		/* 2 */
 	  FUNCTION					/* 3 */
@@ -4883,75 +4814,6 @@ drop_stmt
 			PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
 
 		DBG_PRINT}}
-        | DROP  					/* 1 */
-		{                                       /* 2 */
-                        DBG_TRACE_GRAMMAR(create_stmt, | CREATE);
-			PT_NODE* node = parser_new_node (this_parser, PT_DROP_HISTOGRAM);
-			parser_push_hint_node (node);
-			push_msg (MSGCAT_SYNTAX_INVALID_DROP_HISTOGRAM);
-                }
-	  HISTOGRAM 					/* 3 */
-		{ pop_msg(); }				/* 4 */
-	  ON_                                           /* 5 */
-	  only_class_name                               /* 6 */
-	  '(' histogram_column_list ')'                 /* 8 */
-	  opt_comment_spec                              /* 9 */
-		{{ DBG_TRACE_GRAMMAR (create_stmt, | DROP HISTOGRAM ON_ ~);
-
-			PT_NODE *node = parser_pop_hint_node ();
-                        PARSER_SAVE_ERR_CONTEXT (node, @$.buffer_pos)
-                        PT_NODE *ocs = parser_new_node(this_parser, PT_SPEC);
-
-			if (node && ocs)
-			  {
-                            PT_NODE *col, *temp;
-			    int arg_count = 0, prefix_col_count = 0;
-			    ocs->info.spec.entity_name = $6;
-                            PARSER_SAVE_ERR_CONTEXT (ocs, @6.buffer_pos)
-                            ocs->info.spec.meta_class = PT_CLASS;
-                            node->info.histogram.target_table_spec = ocs;
-                            col = $8;
-
-                            prefix_col_count = parser_count_prefix_columns (col, &arg_count);
-                            node->info.histogram.target_columns = col;
-			  }
-
-			$$ = node;
-			PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-
-		DBG_PRINT}}
-        | DROP  					/* 1 */
-		{                                       /* 2 */
-                        DBG_TRACE_GRAMMAR(create_stmt, | CREATE);
-			PT_NODE* node = parser_new_node (this_parser, PT_DROP_HISTOGRAM);
-			parser_push_hint_node (node);
-			push_msg (MSGCAT_SYNTAX_INVALID_DROP_HISTOGRAM);
-                }
-	  HISTOGRAM 					/* 3 */
-		{ pop_msg(); }				/* 4 */
-	  ON_                                           /* 5 */
-	  only_class_name                               /* 6 */
-	  opt_comment_spec                              /* 9 */
-		{{ DBG_TRACE_GRAMMAR (create_stmt, | DROP HISTOGRAM ON_ ~);
-
-			PT_NODE *node = parser_pop_hint_node ();
-                        PARSER_SAVE_ERR_CONTEXT (node, @$.buffer_pos)
-                        PT_NODE *ocs = parser_new_node(this_parser, PT_SPEC);
-
-			if (node && ocs)
-			  {
-			    int arg_count = 0, prefix_col_count = 0;
-			    ocs->info.spec.entity_name = $6;
-                            PARSER_SAVE_ERR_CONTEXT (ocs, @6.buffer_pos)
-                            ocs->info.spec.meta_class = PT_CLASS;
-                            node->info.histogram.target_table_spec = ocs;
-                            node->info.histogram.target_columns = NULL;
-			  }
-
-			$$ = node;
-			PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-
-		DBG_PRINT}}
 	| DROP FUNCTION procedure_or_function_name_list
 		{{ DBG_TRACE_GRAMMAR(drop_stmt, | DROP FUNCTION procedure_or_function_name_list);
 
@@ -5192,7 +5054,7 @@ update_statistics_stmt
 update_histogram_stmt
         : ANALYZE TABLE only_class_name UPDATE HISTOGRAM ON_ histogram_column_list WITH unsigned_integer BUCKETS opt_with_fullscan
                 {{ DBG_TRACE_GRAMMAR(update_histogram_stmt, | ANALYZE TABLE only_class_name UPDATE HISTOGRAM ON histogram_column_list WITH unsigned_integer BUCKETS opt_with_fullscan );
-                        PT_NODE *uhs = parser_new_node (this_parser, PT_CREATE_HISTOGRAM);
+                        PT_NODE *uhs = parser_new_node (this_parser, PT_UPDATE_HISTOGRAM);
                         PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
                         if (uhs && target_t)
                         {
@@ -5211,7 +5073,7 @@ update_histogram_stmt
                 DBG_PRINT }}
         | ANALYZE TABLE only_class_name UPDATE HISTOGRAM WITH unsigned_integer BUCKETS opt_with_fullscan
                 {{ DBG_TRACE_GRAMMAR(update_histogram_stmt, | ANALYZE TABLE only_class_name UPDATE HISTOGRAM WITH unsigned_integer BUCKETS opt_with_fullscan );
-                        PT_NODE *uhs = parser_new_node (this_parser, PT_CREATE_HISTOGRAM);
+                        PT_NODE *uhs = parser_new_node (this_parser, PT_UPDATE_HISTOGRAM);
                         PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
                         if (uhs && target_t)
                         {

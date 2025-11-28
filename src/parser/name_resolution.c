@@ -3294,22 +3294,7 @@ pt_bind_names (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue
       *continue_walk = PT_LIST_WALK;
       break;
 
-    case PT_CREATE_HISTOGRAM:
-      scopestack.specs = node->info.histogram.target_table_spec;
-      bind_arg->scopes = &scopestack;
-      spec_frame.next = bind_arg->spec_frames;
-      spec_frame.extra_specs = NULL;
-      bind_arg->spec_frames = &spec_frame;
-      pt_bind_scope (parser, bind_arg);
-
-      parser_walk_leaves (parser, node, pt_bind_names, bind_arg, pt_bind_names_post, bind_arg);
-
-      bind_arg->spec_frames = bind_arg->spec_frames->next;
-      bind_arg->scopes = bind_arg->scopes->next;
-
-      *continue_walk = PT_LIST_WALK;
-      break;
-
+    case PT_UPDATE_HISTOGRAM:
     case PT_DROP_HISTOGRAM:
       scopestack.specs = node->info.histogram.target_table_spec;
       bind_arg->scopes = &scopestack;
