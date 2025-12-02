@@ -7336,8 +7336,6 @@ pt_print_create_entity (PARSER_CONTEXT * parser, PT_NODE * p)
 static PT_NODE *
 pt_init_update_histogram (PT_NODE * p)
 {
-  p->info.histogram.bucket_count = 256;
-  p->info.histogram.with_fullscan = 0;
   return p;
 }
 
@@ -7368,8 +7366,6 @@ pt_apply_update_histogram (PARSER_CONTEXT * parser, PT_NODE * p, void *arg)
 {
   PT_APPLY_WALK (parser, p->info.histogram.target_table_spec, arg);
   PT_APPLY_WALK (parser, p->info.histogram.target_columns, arg);
-  PT_APPLY_WALK (parser, p->info.histogram.bucket_count, arg);
-  PT_APPLY_WALK (parser, p->info.histogram.with_fullscan, arg);
   return p;
 }
 

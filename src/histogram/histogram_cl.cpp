@@ -45,7 +45,7 @@
  */
 int
 analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
-		 int with_fullscan, MOP classop)
+		 bool with_fullscan, MOP classop)
 {
   int error = NO_ERROR;
   char *histogram_blob = NULL;
@@ -69,18 +69,17 @@ analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_
 
 int
 get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
-	       int with_fullscan, char **histogram_blob, int *histogram_total_length)
+	       bool with_fullscan, char **histogram_blob, int *histogram_total_length)
 {
   int error = NO_ERROR;
   DB_QUERY_RESULT *query_result;
   DB_QUERY_ERROR query_error;
   hist::HistogramBuilder histogram_builder;
   DB_TYPE type = DB_TYPE_UNKNOWN;
-  bool sampling_scan = true;
   int number_of_mcv = 3;	// TODO
 
   char query_buf[1024+222+254]; // TODO GET MAX TABLE NAME LENGTH FROM SQL.H
-  if (sampling_scan)
+  if (with_fullscan)
     {
       snprintf (query_buf, sizeof (query_buf), HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE, attr_name, tbl_name,
 		attr_name, number_of_mcv, max_number_of_buckets, max_number_of_buckets);
@@ -494,5 +493,128 @@ db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj)
   db_value_clear (value_ptrs[0]);
   db_value_clear (value_ptrs[1]);
 
+  return NO_ERROR;
+}
+
+bool
+is_histogrammable_type (DB_TYPE type)
+{
+  switch (type)
+    {
+    /* numeric */
+    case DB_TYPE_INTEGER:
+    case DB_TYPE_SHORT:
+    case DB_TYPE_FLOAT:
+    case DB_TYPE_DOUBLE:
+    case DB_TYPE_NUMERIC:
+    case DB_TYPE_MONETARY:
+      return true;
+
+    /* bit string */
+    case DB_TYPE_BIT:
+    case DB_TYPE_VARBIT:
+      return true;
+
+    /* character string */
+    case DB_TYPE_CHAR:
+    case DB_TYPE_STRING:
+      return true;
+
+    /* date / time */
+    case DB_TYPE_TIME:
+    case DB_TYPE_DATE:
+    case DB_TYPE_TIMESTAMP:
+    case DB_TYPE_TIMESTAMPLTZ:
+    case DB_TYPE_TIMESTAMPTZ:
+    case DB_TYPE_DATETIMELTZ:
+    case DB_TYPE_DATETIMETZ:
+      return true;
+
+    default:
+      return false;
+    }
+}
+
+/*===========================================================================*/
+/* dump_histogram */
+
+/*
++------------------ HISTOGRAM ------------------+
+| column : age (int)                            |
+| rows   : 100000   sample : 10000 (10.0%)      |
+| pages  : 120 / 500                            |
+| buckets: 16        nulls  : 123               |
++------------------------------------------------+
+#00 [-inf,  10] rows=  1234(0.012) ndv=10  cum=0.012
+
+*/
+
+/*===========================================================================*/
+#define HIST_DUMP_WIDTH 47  /* inner width of the histogram */
+
+int
+dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with_fullscan, int error, FILE *f)
+{
+  char line[HIST_DUMP_WIDTH + 1];
+  SM_CLASS *class_ = NULL;
+  const char *col_name = attr_name;
+  const char *type_name = db_get_type_name (attr_type);
+  int rows_scanned = 0;
+  int bucket_count = 0;
+  double null_frequency = 0.0;
+  if (error != NO_ERROR)
+    {
+      snprintf (line, sizeof (line), "ERROR: Failed to dump histogram column: %s", attr_name);
+      fprintf (f, "| %-47s|\n", line);
+      fprintf (f, "+------------------------------------------------+\n");
+      return NO_ERROR;
+    }
+
+  class_ = sm_get_class_with_statistics (classop);
+  if (class_ == NULL)
+    {
+      return ER_FAILED;
+    }
+
+  /* top border */
+  fputs ("+------------------ HISTOGRAM ------------------+\n", f);
+
+  /* column line */
+  snprintf (line, sizeof (line), " column : %s (%s)", col_name, type_name);
+  fprintf (f, "| %-47s|\n", line);
+
+  /* rows + sample line */
+  if (with_fullscan)
+    {
+      snprintf (line, sizeof (line),
+		" rows   : %d   sample : %d (%.1f%%)",
+		class_->stats->heap_num_objects, rows_scanned, (double) rows_scanned / class_->stats->heap_num_objects * 100.0);
+    }
+  else
+    {
+      snprintf (line, sizeof (line),
+		" rows   : %d ",
+		class_->stats->heap_num_objects);
+    }
+  fprintf (f, "| %-47s|\n", line);
+
+  /* pages line */
+  snprintf (line, sizeof (line),
+	    " pages  : %d / %d",
+	    std::min (class_->stats->heap_num_pages, class_->stats->heap_num_objects), class_->stats->heap_num_pages);
+  fprintf (f, "| %-47s|\n", line);
+
+  /* buckets + nulls line */
+  snprintf (line, sizeof (line),
+	    " buckets: %d        nulls  : %.0f",
+	    bucket_count, null_frequency);
+  fprintf (f, "| %-47s|\n", line);
+
+  /* bottom border */
+  fputs ("+------------------------------------------------+\n", f);
+
+  /* bucket line */
+  //TODO: add bucket line
+  //fprintf (f, "#%02d [...] ...\n", ...);
   return NO_ERROR;
 }

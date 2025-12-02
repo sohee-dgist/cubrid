@@ -23,6 +23,7 @@
 #ifndef _HISTOGRAM_CL_HPP_
 #define _HISTOGRAM_CL_HPP_
 
+#include <cstdio>
 #include "thread_compat.hpp"
 
 // Forward declaration for PT_NODE
@@ -55,12 +56,13 @@ static const char *HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE =
 	"COUNT(*) AS approx_ndv, MAX(is_mcv) AS is_mcv FROM all_buckets GROUP BY bid ORDER BY MAX(val);";
 
 int analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
-		     int with_fullscan, MOP classop);
+		     bool with_fullscan, MOP classop);
 int get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
-		   int with_fullscan, char **histogram_blob, int *histogram_total_length);
+		   bool with_fullscan, char **histogram_blob, int *histogram_total_length);
 int set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, char *histogram_blob,
 		   int histogram_total_length, MOP classop);
 void histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
 int db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj);
-
+bool is_histogrammable_type (DB_TYPE type);
+int dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with_fullscan, int error, FILE *f);
 #endif // _HISTOGRAM_CL_HPP_

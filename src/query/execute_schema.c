@@ -3868,21 +3868,23 @@ do_alter_index (PARSER_CONTEXT * parser, const PT_NODE * statement)
 
 
 /*
- * create_or_drop_histogram_helper() - Creates or drops a histogram on a class.
+ * update_or_drop_histogram_helper() - Creates or drops a histogram on a class.
  *   return: Error code
  *   parser(in): Parser context
  *   obj(in): Class object
  *   histogram_info(in): Histogram information
 */
 static int
-create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
+update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 				 PT_HISTOGRAM_INFO * const histogram_info, DO_HISTOGRAM do_histogram)
 {
   int error = NO_ERROR;
   int bucket_count, nnames = 0;
+  bool with_fullscan = false;
   char *attname = NULL;
   PT_NODE *cur_column = NULL;
   int is_partition = DB_NOT_PARTITIONED_CLASS;
+  DB_TYPE attr_type = DB_TYPE_NULL;
 
   /* check histogram is allowed on this class */
   error = sm_partitioned_class_type (obj, &is_partition, NULL, NULL);
@@ -3896,10 +3898,18 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
       return ER_NOT_ALLOWED_ACCESS_TO_PARTITION;
     }
 
-  /* fill infos for catlaog table TODO: data_type, duplication check */
+  /* fill infos for catlaog table */
   nnames = pt_length_of_list (histogram_info->target_columns);
   bucket_count = histogram_info->bucket_count;
   cur_column = histogram_info->target_columns;
+  with_fullscan = histogram_info->with_fullscan ? true : false;
+
+  /* update statistics for class first */
+  error = sm_update_statistics (obj, with_fullscan);
+  if (error != NO_ERROR)
+    {
+      return error;
+    }
 
   if (nnames == 0)
     {
@@ -3919,9 +3929,37 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	    }
 	  else
 	    {
-	      error = sm_add_histogram (obj, attname, bucket_count, true);
+	      /* type check for the attribute */
+	      attr_type = TP_DOMAIN_TYPE (att->domain);
+	      if (!is_histogrammable_type (attr_type))
+		{
+		  error = ER_OBJ_INVALID_ARGUMENTS;
+		  dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+		  continue;
+		}
+
+	      /* create histogram catalog entry */
+	      error = sm_add_histogram (obj, attname, bucket_count, with_fullscan);
 	      if (error != NO_ERROR)
 		{
+		  if (error != ER_LC_CLASSNAME_EXIST)
+		    {
+		      dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+		      return error;
+		    }
+		}
+	      /* update the histogram */
+	      error = analyze_classes (NULL, db_get_class_name (obj), attname, bucket_count, with_fullscan, obj);
+	      if (error != NO_ERROR)
+		{
+		  dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+		  return error;
+		}
+	      /* TODO: dump the histogram */
+	      error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+	      if (error != NO_ERROR)
+		{
+		  assert (false);
 		  return error;
 		}
 	    }
@@ -3941,10 +3979,41 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	}
       else
 	{
-	  error = sm_add_histogram (obj, attname, bucket_count, true);
-	  error = analyze_classes (NULL, db_get_class_name (obj), attname, 30, false, obj);
+	  /* type check for the attribute */
+	  DB_ATTRIBUTE *attribute;
+	  DB_DOMAIN *attr_domain;
+
+	  attribute = db_get_attribute (obj, attname);
+	  attr_domain = db_attribute_domain (attribute);
+	  attr_type = TP_DOMAIN_TYPE (attr_domain);
+
+	  if (!is_histogrammable_type (attr_type))
+	    {
+	      error = ER_OBJ_INVALID_ARGUMENTS;
+	      dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+	      continue;
+	    }
+	  /* create histogram catalog entry */
+	  error = sm_add_histogram (obj, attname, bucket_count, with_fullscan);
 	  if (error != NO_ERROR)
 	    {
+	      if (error != ER_LC_CLASSNAME_EXIST)
+		{
+		  dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+		  return error;
+		}
+	    }
+	  /* update the histogram */
+	  error = analyze_classes (NULL, db_get_class_name (obj), attname, bucket_count, with_fullscan, obj);
+	  if (error != NO_ERROR)
+	    {
+	      return error;
+	    }
+	  /* TODO: dump the histogram */
+	  error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+	  if (error != NO_ERROR)
+	    {
+	      assert (false);
 	      return error;
 	    }
 	}
@@ -3961,7 +4030,7 @@ create_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 
 
 /**
- * do_update_histogram() - Creates a histogram on a class.
+ * do_update_histogram() - Create or Update a histogram on a class.
  *   return: Error code if it fails
  *   parser(in): Parser context
  *   statement(in): Parse tree of a create histogram statement
@@ -3987,7 +4056,7 @@ do_update_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
       return er_errid ();
     }
 
-  error = create_or_drop_histogram_helper (parser, obj, &statement->info.histogram, DO_HISTOGRAM_CREATE);
+  error = update_or_drop_histogram_helper (parser, obj, &statement->info.histogram, DO_HISTOGRAM_CREATE);
 
   if (error != NO_ERROR)
     {
@@ -4028,7 +4097,7 @@ do_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
       return er_errid ();
     }
 
-  error = create_or_drop_histogram_helper (parser, obj, &statement->info.histogram, DO_HISTOGRAM_DROP);
+  error = update_or_drop_histogram_helper (parser, obj, &statement->info.histogram, DO_HISTOGRAM_DROP);
 
   if (error != NO_ERROR)
     {

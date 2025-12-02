@@ -9119,7 +9119,8 @@ pt_check_update_histogram (PARSER_CONTEXT * parser, PT_NODE * node)
       PT_ERRORm (parser, name, MSGCAT_SET_PARSER_SEMANTIC, MSGCAT_SEMANTIC_NO_INDEX_ON_VCLASS);
       return;
     }
-  /* check if this is a partition class (TODO: to be implemented) */
+
+  /* check if this is a partition class (TODO: not implemented) */
   if (sm_partitioned_class_type (db_obj, &is_partition, NULL, NULL) != NO_ERROR)
     {
       PT_ERROR (parser, node, er_msg ());
@@ -9134,7 +9135,7 @@ pt_check_update_histogram (PARSER_CONTEXT * parser, PT_NODE * node)
 
   name->info.name.db_object = db_obj;
 
-
+  /* auth check */
   pt_check_user_owns_class (parser, name);
   if (pt_has_error (parser))
     {

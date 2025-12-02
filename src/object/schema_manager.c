@@ -15535,6 +15535,7 @@ sm_add_histogram (MOP classop, const char *attr_name, int bucket_count, bool wit
   bool set_savepoint = false;
   int error = NO_ERROR;
   SM_CLASS *class_ = NULL;
+  DB_OBJECT *obj = NULL;
 
   if (attr_name == NULL)
     {
