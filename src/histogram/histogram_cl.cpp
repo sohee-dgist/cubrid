@@ -79,7 +79,7 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
   int number_of_mcv = 3;	// TODO
 
   char query_buf[1024+222+254]; // TODO GET MAX TABLE NAME LENGTH FROM SQL.H
-  if (with_fullscan)
+  if (!with_fullscan)
     {
       snprintf (query_buf, sizeof (query_buf), HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE, attr_name, tbl_name,
 		attr_name, number_of_mcv, max_number_of_buckets, max_number_of_buckets);
@@ -561,6 +561,10 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   const char *type_name = db_get_type_name (attr_type);
   int rows_scanned = 0;
   int bucket_count = 0;
+  DB_VALUE histogram_value;
+  DB_OBJECT *histogram_obj = NULL;
+  int histogram_total_length = 0;
+
   double null_frequency = 0.0;
   if (error != NO_ERROR)
     {
@@ -576,15 +580,59 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
       return ER_FAILED;
     }
 
+  error = db_get_histogram (classop, attr_name, &histogram_obj);
+  if (error != NO_ERROR)
+    {
+      return ER_FAILED;
+    }
+
+  if (histogram_obj == NULL)
+    {
+      return ER_FAILED;
+    }
+
+  /* get histgoram */
+  error = db_get (histogram_obj, "histogram_values", &histogram_value);
+  if (error != NO_ERROR)
+    {
+      return ER_FAILED;
+    }
+
+  const char *histogram_blob_ptr = db_get_bit (&histogram_value, &histogram_total_length);
+  if (histogram_blob_ptr == NULL || histogram_total_length <= 0)
+    {
+      return ER_FAILED;
+    }
+
+  /* need length of histogram_blob_ptr */
+  std::string_view histogram_blob (histogram_blob_ptr, static_cast<std::size_t> (histogram_total_length / 8));
+
+  hist::HistogramReader histogram_reader;
+  error = histogram_reader.reset (histogram_blob);
+  if (error != NO_ERROR)
+    {
+      return ER_FAILED;
+    }
+
   /* top border */
-  fputs ("+------------------ HISTOGRAM ------------------+\n", f);
+  fputs ("+------------------ HISTOGRAM -------------------+\n", f);
 
   /* column line */
   snprintf (line, sizeof (line), " column : %s (%s)", col_name, type_name);
   fprintf (f, "| %-47s|\n", line);
 
   /* rows + sample line */
-  if (with_fullscan)
+  rows_scanned = static_cast<int> (histogram_reader.total_rows());
+
+  if (class_->stats->heap_num_objects <= 0 || class_->stats->heap_num_pages <= 0)
+    {
+      snprintf (line, sizeof (line), "Empty histogram for column: %s", attr_name);
+      fprintf (f, "| %-47s|\n", line);
+      fprintf (f, "+------------------------------------------------+\n");
+      return NO_ERROR;
+    }
+
+  if (!with_fullscan)
     {
       snprintf (line, sizeof (line),
 		" rows   : %d   sample : %d (%.1f%%)",
@@ -593,28 +641,69 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   else
     {
       snprintf (line, sizeof (line),
-		" rows   : %d ",
-		class_->stats->heap_num_objects);
+		" rows   : %d ", static_cast<int> (histogram_reader.total_rows()));
     }
   fprintf (f, "| %-47s|\n", line);
 
-  /* pages line */
+  /* buckets + null frec line : TODO add null frequency */
   snprintf (line, sizeof (line),
-	    " pages  : %d / %d",
-	    std::min (class_->stats->heap_num_pages, class_->stats->heap_num_objects), class_->stats->heap_num_pages);
-  fprintf (f, "| %-47s|\n", line);
-
-  /* buckets + nulls line */
-  snprintf (line, sizeof (line),
-	    " buckets: %d        nulls  : %.0f",
-	    bucket_count, null_frequency);
+	    " buckets + mcv: %d",
+	    static_cast<int> (histogram_reader.bucket_count()));
   fprintf (f, "| %-47s|\n", line);
 
   /* bottom border */
   fputs ("+------------------------------------------------+\n", f);
 
-  /* bucket line */
-  //TODO: add bucket line
-  //fprintf (f, "#%02d [...] ...\n", ...);
+  const double total_rows = static_cast<double> (histogram_reader.total_rows ());
+  const int bucket_cnt = static_cast<int> (histogram_reader.bucket_count ());
+
+  for (int i = 0; i < bucket_cnt; i++)
+    {
+      const int rows = static_cast<int> (histogram_reader.bucket_rows (i));
+      const double sel =
+	      (total_rows > 0.0
+	       ? static_cast<double> (rows) / total_rows
+	       : 0.0);
+
+      const std::int32_t ndv =
+	      static_cast<std::int32_t> (histogram_reader.bucket_approx_ndv (i));
+      const bool is_mcv = (ndv == 1);
+      const double cum_sel =
+	      (total_rows > 0.0
+	       ? static_cast<double> (histogram_reader.bucket_cumulative (i)) / total_rows
+	       : 0.0);
+
+      const char *mcv_suffix = is_mcv ? " (MCV)" : "";
+
+      if (i == 0)
+	{
+	  std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
+	  std::fprintf (f,
+			"#%02d (-inf, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
+			i,
+			hi.c_str (),
+			rows,
+			sel,
+			ndv,
+			mcv_suffix,
+			cum_sel);
+	}
+      else
+	{
+	  std::string lo = histogram_reader.bucket_hi_dump_with_type (i - 1, attr_type);
+	  std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
+	  std::fprintf (f,
+			"#%02d (%s, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
+			i,
+			lo.c_str (),
+			hi.c_str (),
+			rows,
+			sel,
+			ndv,
+			mcv_suffix,
+			cum_sel);
+	}
+    }
+
   return NO_ERROR;
 }

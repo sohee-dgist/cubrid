@@ -210,5 +210,91 @@ namespace hist
     return static_cast<unsigned long> (get_value<std::int64_t> (bucket_hi_value_ptr (i)));
   }
 
+  // ---------- bucket_hi dump template specialization ----------
+  template<>
+  std::string HistogramReader::bucket_hi_dump<std::int64_t> (std::uint32_t i) const
+  {
+    return std::to_string (get_value<std::int64_t> (bucket_hi_value_ptr (i)));
+  }
+
+  template<>
+  std::string HistogramReader::bucket_hi_dump<std::int32_t> (std::uint32_t i) const
+  {
+    return std::to_string (static_cast<std::int32_t> (get_value<std::int64_t> (bucket_hi_value_ptr (i))));
+  }
+
+  template<>
+  std::string HistogramReader::bucket_hi_dump<double> (std::uint32_t i) const
+  {
+    return std::to_string (get_value<double> (bucket_hi_value_ptr (i)));
+  }
+
+  template<>
+  std::string HistogramReader::bucket_hi_dump<std::string_view> (std::uint32_t i) const
+  {
+    const char *p = bucket_hi_value_ptr (i);
+    std::uint32_t len32 = get_value<std::uint32_t> (p);
+    std::uint32_t off32 = get_value<std::uint32_t> (p + 4);
+
+    if (len32 <= 4) // inline data
+      {
+	return std::string{ p+4, static_cast<std::size_t> (len32-4) };
+      }
+    assert (off32 + len32 <= str_size_);
+    return std::string{str_blob_.data() + off32, static_cast<std::size_t> (std::min (len32, static_cast<std::uint32_t> (8)))};
+  }
+
+  template<>
+  std::string HistogramReader::bucket_hi_dump<std::string> (std::uint32_t i) const
+  {
+    const char *p = bucket_hi_value_ptr (i);
+    std::uint32_t len32 = get_value<std::uint32_t> (p);
+    std::uint32_t off32 = get_value<std::uint32_t> (p + 4);
+
+    if (len32 <= 4) // inline data
+      {
+	return std::string{ p+4, static_cast<std::size_t> (len32) };
+      }
+    assert (off32 + len32 <= str_size_);
+    return std::string{str_blob_.data() + off32, static_cast<std::size_t> (std::min (len32, static_cast<std::uint32_t> (8)))};
+  }
+
+  template<>
+  std::string HistogramReader::bucket_hi_dump<unsigned long> (std::uint32_t i) const
+  {
+    return std::to_string (static_cast<unsigned long> (get_value<std::int64_t> (bucket_hi_value_ptr (i))));
+  }
+
+  std::string HistogramReader::bucket_hi_dump_with_type (std::uint32_t i, DB_TYPE attr_type) const
+  {
+    switch (attr_type)
+      {
+      case DB_TYPE_INTEGER:
+      case DB_TYPE_SHORT:
+	return bucket_hi_dump<std::int32_t> (i);
+      case DB_TYPE_FLOAT:
+      case DB_TYPE_DOUBLE:
+      case DB_TYPE_NUMERIC:
+	return bucket_hi_dump<double> (i);
+      case DB_TYPE_BIT:
+      case DB_TYPE_VARBIT:
+      case DB_TYPE_CHAR: /* later consider for null trailing exists */
+      case DB_TYPE_STRING:
+	return bucket_hi_dump<std::string> (i);
+      case DB_TYPE_TIME:
+	return bucket_hi_dump<std::int64_t> (i);
+      case DB_TYPE_TIMESTAMP:
+      case DB_TYPE_TIMESTAMPLTZ:
+      case DB_TYPE_DATE:
+      case DB_TYPE_MONETARY:
+      case DB_TYPE_TIMESTAMPTZ:
+      case DB_TYPE_DATETIMETZ:
+      case DB_TYPE_DATETIMELTZ:
+	return bucket_hi_dump<std::uint64_t> (i);
+      default:
+	assert (false);
+	return "";
+      }
+  }
   // ---------- get_equal_selectivity ----------
 } // namespace hist

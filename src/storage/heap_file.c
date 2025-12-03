@@ -39,6 +39,7 @@
 #include "porting.h"
 #include "porting_inline.hpp"
 #include "record_descriptor.hpp"
+#include <random>
 #include "slotted_page.h"
 #include "overflow_file.h"
 #include "boot_sr.h"
@@ -7889,6 +7890,22 @@ heap_get_record_data_when_all_ready (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT *
   return S_ERROR;
 }
 
+static int
+random_poisson_weight (int weight)
+{
+// *INDENT-OFF*
+  static thread_local std::mt19937 rng { std::random_device{} () };
+// *INDENT-ON*
+  if (weight <= 0)
+    {
+      return 0;
+    }
+
+  std::poisson_distribution < int >dist (weight);
+  return dist (rng);
+}
+
+
 /*
  * heap_next_internal () - Retrieve of peek next object.
  *
@@ -8114,8 +8131,9 @@ heap_next_internal (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid,
 		      if (sampling)
 			{
 			  /* skip pages */
+			  int skip_count = random_poisson_weight (sampling->weight);
 			  if (heap_vpid_skip_next (thread_p, hfid, &scan_cache->page_watcher, &old_page_watcher,
-						   sampling->weight, &vpid, scan_cache) == S_ERROR)
+						   skip_count, &vpid, scan_cache) == S_ERROR)
 			    {
 			      return S_ERROR;
 			    }

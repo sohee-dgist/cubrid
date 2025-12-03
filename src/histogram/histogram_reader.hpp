@@ -90,6 +90,9 @@ namespace hist
 
       template<typename T>
       T bucket_hi (std::uint32_t i) const;
+      template<typename T>
+      std::string bucket_hi_dump (std::uint32_t i) const;
+      std::string bucket_hi_dump_with_type (std::uint32_t i, DB_TYPE attr_type) const;
       std::int64_t bucket_rows (std::uint32_t i) const;
       template <typename T>
       int find_bucket (const T &value) const
