@@ -507,7 +507,7 @@ struct pgbuf_bcb
 #if defined(SERVER_MODE)
   THREAD_ENTRY *next_wait_thrd;	/* BCB waiting queue */
 #endif				/* SERVER_MODE */
-#if defined(SERVER_MODE) && !defined(NDEBUG)
+#if defined(SERVER_MODE)
   THREAD_ENTRY *latch_last_thread;	/* last thread that acquired latch */
 #endif				/* SERVER_MODE && !NDEBUG */
   PGBUF_BCB *hash_next;		/* next hash chain */
@@ -5401,7 +5401,7 @@ pgbuf_initialize_bcb_table (void)
 #if defined(SERVER_MODE)
       bufptr->next_wait_thrd = NULL;
 #endif /* SERVER_MODE */
-#if defined(SERVER_MODE) && !defined(NDEBUG)
+#if defined(SERVER_MODE)
       bufptr->latch_last_thread = NULL;
 #endif /* SERVER_MODE && !NDEBUG */
 
@@ -6242,7 +6242,7 @@ pgbuf_latch_bcb_upon_fix (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, PGBUF_LAT
 	  holder->perf_stat.hold_has_write_latch = 0;
 	}
       holder->perf_stat.dirty_before_hold = buf_is_dirty;
-#if defined(SERVER_MODE) && !defined(NDEBUG)
+#if defined(SERVER_MODE)
       bufptr->latch_last_thread = thread_p;
 #endif /* SERVER_MODE && !NDEBUG */
 
@@ -6288,7 +6288,7 @@ pgbuf_latch_bcb_upon_fix (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, PGBUF_LAT
 	  holder->perf_stat.dirty_before_hold = buf_is_dirty;
 	}
 #endif /* SERVER_MODE */
-#if defined(SERVER_MODE) && !defined(NDEBUG)
+#if defined(SERVER_MODE)
       bufptr->latch_last_thread = thread_p;
 #endif /* SERVER_MODE && !NDEBUG */
 
@@ -6384,7 +6384,7 @@ pgbuf_latch_bcb_upon_fix (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, PGBUF_LAT
       holder->perf_stat.dirtied_by_holder = 0;
       holder->perf_stat.dirty_before_hold = buf_is_dirty;
       *is_latch_wait = true;
-#if defined(SERVER_MODE) && !defined(NDEBUG)
+#if defined(SERVER_MODE)
       bufptr->latch_last_thread = thread_p;
 #endif /* SERVER_MODE && !NDEBUG */
       return NO_ERROR;
@@ -6469,7 +6469,7 @@ pgbuf_unlatch_bcb_upon_unfix (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, int h
 
   if (is_zero_fcnt)
     {
-#if defined(SERVER_MODE) && !defined(NDEBUG)
+#if defined(SERVER_MODE)
       bufptr->latch_last_thread = NULL;
 #endif /* SERVER_MODE && !NDEBUG */
       /* When oldest_unflush_lsa of a page is set, its dirty mark should also be set */
@@ -7262,7 +7262,10 @@ pgbuf_wakeup_reader_writer (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr)
 		}
 	      can_grant = true;
 	      impl_new.impl.fcnt += thrd_entry->request_fix_count;
-	      impl_new.impl.latch_mode = (PGBUF_LATCH_MODE) thrd_entry->request_latch_mode;
+	      impl_new.impl.latch_mode = (PGBUF_LATCH_MODE) (uint16_t) thrd_entry->request_latch_mode;
+	      assert_release (impl_new.impl.latch_mode == PGBUF_NO_LATCH || impl_new.impl.latch_mode == PGBUF_LATCH_READ
+			      || impl_new.impl.latch_mode == PGBUF_LATCH_WRITE
+			      || impl_new.impl.latch_mode == PGBUF_LATCH_FLUSH);
 	    }
 	  else if (impl.impl.latch_mode == PGBUF_LATCH_READ)
 	    {
@@ -8127,6 +8130,7 @@ pgbuf_claim_bcb_for_fix (THREAD_ENTRY * thread_p, const VPID * vpid, PAGE_FETCH_
   bool success;
   int tran_index = LOG_FIND_THREAD_TRAN_INDEX (thread_p);
   PGBUF_STATUS *show_status = &pgbuf_Pool.show_status[tran_index];
+  PGBUF_ATOMIC_LATCH_IMPL impl;
 
 #if defined (ENABLE_SYSTEMTAP)
   bool monitored = false;
@@ -8199,7 +8203,10 @@ pgbuf_claim_bcb_for_fix (THREAD_ENTRY * thread_p, const VPID * vpid, PAGE_FETCH_
   /* initialize the BCB */
   bufptr->vpid = *vpid;
   assert (!pgbuf_bcb_avoid_victim (bufptr));
-  set_latch (&bufptr->atomic_latch, PGBUF_NO_LATCH);
+  impl.impl.latch_mode = PGBUF_NO_LATCH;
+  impl.impl.waiter_exists = false;
+  impl.impl.fcnt = 0;
+  bufptr->atomic_latch.store (impl.raw);
   pgbuf_bcb_update_flags (thread_p, bufptr, 0, PGBUF_BCB_ASYNC_FLUSH_REQ);	/* todo: why this?? */
   pgbuf_bcb_check_and_reset_fix_and_avoid_dealloc (bufptr, ARG_FILE_LINE);
   LSA_SET_NULL (&bufptr->oldest_unflush_lsa);
@@ -8354,6 +8361,7 @@ pgbuf_claim_bcb_for_fix (THREAD_ENTRY * thread_p, const VPID * vpid, PAGE_FETCH_
 static int
 pgbuf_victimize_bcb (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr)
 {
+  PGBUF_ATOMIC_LATCH_IMPL impl;
 #if defined(SERVER_MODE)
   if (thread_p == NULL)
     {
@@ -8384,6 +8392,10 @@ pgbuf_victimize_bcb (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr)
       return ER_FAILED;
     }
 
+  impl.impl.latch_mode = PGBUF_LATCH_INVALID;
+  impl.impl.waiter_exists = false;
+  impl.impl.fcnt = 0;
+  bufptr->atomic_latch.store (impl.raw);
   /* If above function returns success, the caller is still holding bufptr->mutex.
    * Otherwise, the caller does not hold bufptr->mutex.
    */
@@ -8622,6 +8634,7 @@ static PGBUF_BCB *
 pgbuf_get_bcb_from_invalid_list (THREAD_ENTRY * thread_p)
 {
   PGBUF_BCB *bufptr;
+  PGBUF_ATOMIC_LATCH_IMPL impl;
 #if defined(SERVER_MODE)
   int rv;
 #endif /* SERVER_MODE */
@@ -8651,6 +8664,10 @@ pgbuf_get_bcb_from_invalid_list (THREAD_ENTRY * thread_p)
 
       PGBUF_BCB_LOCK (bufptr);
       bufptr->next_BCB = NULL;
+      impl.impl.latch_mode = PGBUF_LATCH_INVALID;
+      impl.impl.waiter_exists = false;
+      impl.impl.fcnt = 0;
+      bufptr->atomic_latch.store (impl.raw);
       pgbuf_bcb_change_zone (thread_p, bufptr, 0, PGBUF_VOID_ZONE);
 
       perfmon_inc_stat (thread_p, PSTAT_PB_VICTIM_USE_INVALID_BCB);
@@ -8673,10 +8690,14 @@ pgbuf_put_bcb_into_invalid_list (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr)
 #if defined(SERVER_MODE)
   int rv;
 #endif /* SERVER_MODE */
+  PGBUF_ATOMIC_LATCH_IMPL impl;
 
   /* the caller is holding bufptr->mutex */
   VPID_SET_NULL (&bufptr->vpid);
-  set_latch (&bufptr->atomic_latch, PGBUF_LATCH_INVALID);
+  impl.impl.latch_mode = PGBUF_LATCH_INVALID;
+  impl.impl.waiter_exists = false;
+  impl.impl.fcnt = 0;
+  bufptr->atomic_latch.store (impl.raw);
   assert ((bufptr->flags & PGBUF_BCB_FLAGS_MASK) == 0);
   pgbuf_bcb_change_zone (thread_p, bufptr, 0, PGBUF_INVALID_ZONE);
   pgbuf_bcb_check_and_reset_fix_and_avoid_dealloc (bufptr, ARG_FILE_LINE);
