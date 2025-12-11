@@ -129,8 +129,13 @@ namespace hist
   }
 
 // ---------- access ----------
-  std::int64_t HistogramReader::bucket_cumulative (std::uint32_t i) const
+  std::int64_t HistogramReader::bucket_cumulative (std::int32_t i) const
   {
+    if (i < 0)
+      {
+	return 0;
+      }
+
     const char *p = bucket_rec (i) + 8;
     return get_value<std::int64_t> (p);
   }
@@ -156,27 +161,46 @@ namespace hist
 
 // ---------- bucket_hi template specialization ----------
   template<>
-  std::int64_t HistogramReader::bucket_hi<std::int64_t> (std::uint32_t i) const
+  std::int64_t HistogramReader::bucket_hi<std::int64_t> (std::int32_t i) const
   {
+    if (i < 0)
+      {
+	return std::numeric_limits<std::int64_t>::min();
+      }
+
     return get_value<std::int64_t> (bucket_hi_value_ptr (i));
   }
 
   template<>
-  std::int32_t HistogramReader::bucket_hi<std::int32_t> (std::uint32_t i) const
+  std::int32_t HistogramReader::bucket_hi<std::int32_t> (std::int32_t i) const
   {
-    // DB_TYPE_INTEGER는 std::int64_t로 저장되지만, std::int32_t로 읽을 수 있음
+    if (i < 0)
+      {
+	return std::numeric_limits<std::int32_t>::min();
+      }
+
     return static_cast<std::int32_t> (get_value<std::int64_t> (bucket_hi_value_ptr (i)));
   }
 
   template<>
-  double HistogramReader::bucket_hi<double> (std::uint32_t i) const
+  double HistogramReader::bucket_hi<double> (std::int32_t i) const
   {
+    if (i < 0)
+      {
+	return std::numeric_limits<double>::min();
+      }
+
     return get_value<double> (bucket_hi_value_ptr (i));
   }
 
   template<>
-  std::string_view HistogramReader::bucket_hi<std::string_view> (std::uint32_t i) const
+  std::string_view HistogramReader::bucket_hi<std::string_view> (std::int32_t i) const
   {
+    if (i < 0)
+      {
+	return std::string_view{""};
+      }
+
     const char *p = bucket_hi_value_ptr (i);
     std::uint32_t len32 = get_value<std::uint32_t> (p);
     std::uint32_t off32 = get_value<std::uint32_t> (p + 4);
@@ -190,9 +214,9 @@ namespace hist
   }
 
   template<>
-  std::string HistogramReader::bucket_hi<std::string> (std::uint32_t i) const
+  std::string HistogramReader::bucket_hi<std::string> (std::int32_t i) const
   {
-    const char *p = bucket_hi_value_ptr (i);
+    const char *p = bucket_hi_value_ptr (static_cast<std::uint32_t> (i));
     std::uint32_t len32 = get_value<std::uint32_t> (p);
     std::uint32_t off32 = get_value<std::uint32_t> (p + 4);
 
@@ -205,9 +229,9 @@ namespace hist
   }
 
   template<>
-  unsigned long HistogramReader::bucket_hi<unsigned long> (std::uint32_t i) const
+  unsigned long HistogramReader::bucket_hi<unsigned long> (std::int32_t i) const
   {
-    return static_cast<unsigned long> (get_value<std::int64_t> (bucket_hi_value_ptr (i)));
+    return static_cast<unsigned long> (get_value<std::int64_t> (bucket_hi_value_ptr (static_cast<std::uint32_t> (i))));
   }
 
   // ---------- bucket_hi dump template specialization ----------

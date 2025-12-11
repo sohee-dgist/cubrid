@@ -409,19 +409,6 @@ QO_PLAN_VTBL *all_vtbls[] = {
   &qo_worst_plan_vtbl
 };
 
-/* Structural equivalence classes for expressions */
-
-typedef enum PRED_CLASS
-{
-  PC_ATTR,
-  PC_CONST,
-  PC_HOST_VAR,
-  PC_SUBQUERY,
-  PC_SET,
-  PC_OTHER,
-  PC_MULTI_ATTR
-} PRED_CLASS;
-
 static double qo_or_selectivity (QO_ENV * env, double lhs_sel, double rhs_sel);
 
 static double qo_and_selectivity (QO_ENV * env, double lhs_sel, double rhs_sel);
@@ -437,8 +424,6 @@ static double qo_between_selectivity (QO_ENV * env, PT_NODE * pt_expr);
 static double qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr);
 
 static double qo_all_some_in_selectivity (QO_ENV * env, PT_NODE * pt_expr);
-
-static PRED_CLASS qo_classify (PT_NODE * attr);
 
 static int qo_index_cardinality (QO_ENV * env, PT_NODE * attr);
 
@@ -9840,7 +9825,22 @@ qo_comp_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	  break;
 
 	case PC_CONST:
-	  histogram_get_comp_selectivity (lhs, rhs, &selectivity);
+	  if (pt_expr->info.expr.op == PT_GE)
+	    {
+	      histogram_get_comp_selectivity (lhs, rhs, true, true, &selectivity);
+	    }
+	  else if (pt_expr->info.expr.op == PT_GT)
+	    {
+	      histogram_get_comp_selectivity (lhs, rhs, true, false, &selectivity);
+	    }
+	  else if (pt_expr->info.expr.op == PT_LE)
+	    {
+	      histogram_get_comp_selectivity (lhs, rhs, false, true, &selectivity);
+	    }
+	  else if (pt_expr->info.expr.op == PT_LT)
+	    {
+	      histogram_get_comp_selectivity (lhs, rhs, false, false, &selectivity);
+	    }
 	  break;
 
 	default:
@@ -9853,7 +9853,22 @@ qo_comp_selectivity (QO_ENV * env, PT_NODE * pt_expr)
       switch (pc_rhs)
 	{
 	case PC_ATTR:
-	  histogram_get_comp_selectivity (rhs, lhs, &selectivity);
+	  if (pt_expr->info.expr.op == PT_GE)
+	    {
+	      histogram_get_comp_selectivity (rhs, lhs, false, false, &selectivity);
+	    }
+	  else if (pt_expr->info.expr.op == PT_GT)
+	    {
+	      histogram_get_comp_selectivity (rhs, lhs, false, true, &selectivity);
+	    }
+	  else if (pt_expr->info.expr.op == PT_LE)
+	    {
+	      histogram_get_comp_selectivity (rhs, lhs, true, false, &selectivity);
+	    }
+	  else if (pt_expr->info.expr.op == PT_LT)
+	    {
+	      histogram_get_comp_selectivity (rhs, lhs, true, true, &selectivity);
+	    }
 	  break;
 
 	default:
@@ -9975,9 +9990,42 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
       pc1 = qo_classify (arg1);
 
       if (op_type == PT_BETWEEN_GE_LE || op_type == PT_BETWEEN_GE_LT || op_type == PT_BETWEEN_GT_LE
-	  || op_type == PT_BETWEEN_GT_LT)
+	  || op_type == PT_BETWEEN_GT_LT || op_type == PT_BETWEEN_INF_LT || op_type == PT_BETWEEN_INF_LE
+	  || op_type == PT_BETWEEN_GE_INF || op_type == PT_BETWEEN_GT_INF)
 	{
-	  selectivity = DEFAULT_BETWEEN_SELECTIVITY;
+	  double selectivity_a = 0.0, selectivity_b = 0.0;
+	  if (op_type == PT_BETWEEN_GE_LE)
+	    {
+	      /* selectivity = sel_le(b) - sel_lt(a) */
+	      histogram_get_comp_selectivity (lhs, arg1, false, false, &selectivity_a);
+	      histogram_get_comp_selectivity (lhs, arg2, false, true, &selectivity_b);
+	      selectivity = selectivity_b - selectivity_a;
+	    }
+	  else if (op_type == PT_BETWEEN_GE_LT)
+	    {
+	      /* selectivity = sel_lt(b) - sel_lt(a) */
+	      histogram_get_comp_selectivity (lhs, arg1, false, false, &selectivity_a);
+	      histogram_get_comp_selectivity (lhs, arg2, false, false, &selectivity_b);
+	      selectivity = selectivity_b - selectivity_a;
+	    }
+	  else if (op_type == PT_BETWEEN_GT_LE)
+	    {
+	      /* selectivity = sel_le(b) - sel_lt(a) */
+	      histogram_get_comp_selectivity (lhs, arg1, false, true, &selectivity_a);
+	      histogram_get_comp_selectivity (lhs, arg2, false, true, &selectivity_b);
+	      selectivity = selectivity_b - selectivity_a;
+	    }
+	  else if (op_type == PT_BETWEEN_GT_LT)
+	    {
+	      /* selectivity = sel_lt(b) - sel_lt(a) */
+	      histogram_get_comp_selectivity (lhs, arg1, false, true, &selectivity_a);
+	      histogram_get_comp_selectivity (lhs, arg2, false, false, &selectivity_b);
+	      selectivity = selectivity_b - selectivity_a;
+	    }
+	  if (selectivity <= 0.0)
+	    {
+	      selectivity = DEFAULT_RANGE_SELECTIVITY;
+	    }
 	}
       else if (op_type == PT_BETWEEN_EQ_NA)
 	{
@@ -10128,7 +10176,7 @@ qo_all_some_in_selectivity (QO_ENV * env, PT_NODE * pt_expr)
  *   return: PRED_CLASS
  *   attr(in): pt node to classify
  */
-static PRED_CLASS
+PRED_CLASS
 qo_classify (PT_NODE * attr)
 {
   switch (attr->node_type)

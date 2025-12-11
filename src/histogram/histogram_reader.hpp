@@ -85,11 +85,11 @@ namespace hist
 	return nb_ ? bucket_cumulative (nb_ - 1) : 0;
       }
 
-      std::int64_t bucket_cumulative (std::uint32_t i) const;
+      std::int64_t bucket_cumulative (std::int32_t i) const;
       std::int64_t bucket_approx_ndv (std::uint32_t i) const;
 
       template<typename T>
-      T bucket_hi (std::uint32_t i) const;
+      T bucket_hi (std::int32_t i) const;
       template<typename T>
       std::string bucket_hi_dump (std::uint32_t i) const;
       std::string bucket_hi_dump_with_type (std::uint32_t i, DB_TYPE attr_type) const;

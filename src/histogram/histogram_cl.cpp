@@ -448,10 +448,103 @@ histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
     }
 }
 
+static double
+numeric_domain_frac_i32_lt (std::int32_t lo, std::int32_t hi, std::int32_t v)
+{
+  if (v <= lo)
+    {
+      return 0.0;
+    }
+  if (v >= hi)
+    {
+      return 1.0;
+    }
+  return (v - lo) / (hi - lo);
+}
+
+double numeric_domain_frac_u64_lt (std::uint64_t lo, std::uint64_t hi, std::uint64_t v)
+{
+  if (v >= hi)
+    {
+      return 1.0;
+    }
+  const long double dlo = static_cast<long double> (lo);
+  const long double dhi = static_cast<long double> (hi);
+  const long double dv  = static_cast<long double> (v);
+  const long double den = dhi - dlo;
+
+  long double t = (dv - dlo) / den;
+  return static_cast<double> (t);
+}
+
+double numeric_domain_frac_dbl_lt (double lo, double hi, double v)
+{
+  if (v >= hi)
+    {
+      return 1.0;
+    }
+  const long double dlo = static_cast<long double> (lo);
+  const long double dhi = static_cast<long double> (hi);
+  const long double dv  = static_cast<long double> (v);
+  const long double den = dhi - dlo;
+
+  long double t = (dv - dlo) / den;
+  return static_cast<double> (t);
+}
+
+static double
+clamp01 (double x)
+{
+  if (x < 0.0)
+    {
+      return 0.0;
+    }
+  if (x > 1.0)
+    {
+      return 1.0;
+    }
+  return x;
+}
+
+static double
+string_pos (const unsigned char *s, std::size_t len, std::size_t max_len = 16)
+{
+  const long double base = 257.0L;
+
+  long double acc = 0.0L;
+  long double factor = 1.0L;
+
+  const std::size_t use_len = (len < max_len) ? len : max_len;
+
+  for (std::size_t i = 0; i < use_len; ++i)
+    {
+      factor /= base;
+      const unsigned char ch = s[i];
+      acc += static_cast<long double> (ch) * factor;
+    }
+
+  return static_cast<double> (acc);
+}
+static double
+string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::string &v)
+{
+  auto to_bytes = [] (const std::string &s) -> const unsigned char *
+  {
+    return reinterpret_cast<const unsigned char *> (s.data ());
+  };
+
+  const double plo = string_pos (to_bytes (lo), lo.size ());
+  const double phi = string_pos (to_bytes (hi), hi.size ());
+  const double pv  = string_pos (to_bytes (v),  v.size ());
+
+  const double den = phi - plo;
+  double t = (pv - plo) / den;
+  return clamp01 (t);
+}
+
 void
 histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
 {
-
   assert (selectivity != NULL);
 
   hist::HistogramReader histogram_reader;
@@ -518,8 +611,206 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
 }
 
 void
-histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
+histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool include_equal, double *selectivity)
 {
+  assert (selectivity != NULL);
+
+  PRED_CLASS pc_rhs = qo_classify (rhs);
+  if (pc_rhs != PC_CONST)
+    {
+      *selectivity = DEFAULT_COMP_SELECTIVITY;
+      return;
+    }
+
+  hist::HistogramReader histogram_reader;
+
+  if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
+    {
+      *selectivity = DEFAULT_COMP_SELECTIVITY;
+      return;
+    }
+
+  histogram_key key;
+  if (!histogram_extract_key (&rhs->info.value.db_value, key))
+    {
+      *selectivity = DEFAULT_COMP_SELECTIVITY;
+      return;
+    }
+
+  int bucket_index = -1;
+  const double total_rows = histogram_reader.total_rows ();
+  double bucket_rows = 0.0;
+
+  /* caculate bucket_rows for column <= rhs or column < rhs */
+  switch (key.kind)
+    {
+    case histogram_key_kind::i32:
+      bucket_index = histogram_reader.find_bucket<std::int32_t> (key.i32);
+
+      if (bucket_index < 0)
+	{
+	  *selectivity = 0.0;
+	  return;
+	}
+
+      if (histogram_reader.bucket_approx_ndv (bucket_index) == 1)
+	{
+	  if (histogram_reader.check_value_included<std::int32_t> (bucket_index, key.i32))
+	    {
+	      if (!is_ge && include_equal)
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		}
+	      else
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		}
+	    }
+	  else
+	    {
+	      bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+	    }
+	}
+      else
+	{
+	  /* linear interpolation */
+	  const double frac = numeric_domain_frac_i32_lt (histogram_reader.bucket_hi<std::int32_t> (bucket_index - 1),
+			      histogram_reader.bucket_hi<std::int32_t> (bucket_index), key.i32);
+	  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1) + histogram_reader.bucket_rows (
+				bucket_index) * frac;
+	}
+      break;
+
+    case histogram_key_kind::dbl:
+      bucket_index = histogram_reader.find_bucket<double> (key.dbl);
+
+      if (bucket_index < 0)
+	{
+	  *selectivity = 0.0;
+	  return;
+	}
+
+      if (histogram_reader.bucket_approx_ndv (bucket_index) == 1)
+	{
+	  if (histogram_reader.check_value_included<double> (bucket_index, key.dbl))
+	    {
+	      if (!is_ge && include_equal)
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		}
+	      else
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		}
+	    }
+	  else
+	    {
+	      bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+	    }
+	}
+      else
+	{
+	  /* linear interpolation */
+	  const double frac = numeric_domain_frac_dbl_lt (histogram_reader.bucket_hi<double> (bucket_index - 1),
+			      histogram_reader.bucket_hi<double> (bucket_index), key.dbl);
+	  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1) + histogram_reader.bucket_rows (
+				bucket_index) * frac;
+	}
+      break;
+
+    case histogram_key_kind::str:
+      bucket_index = histogram_reader.find_bucket<std::string> (key.str);
+      if (bucket_index < 0)
+	{
+	  *selectivity = 0.0;
+	  return;
+	}
+
+      if (histogram_reader.bucket_approx_ndv (bucket_index) == 1)
+	{
+	  if (histogram_reader.check_value_included<std::string> (bucket_index, key.str))
+	    {
+	      if (!is_ge && include_equal)
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		}
+	      else
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		}
+	    }
+	  else
+	    {
+	      bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+	    }
+	}
+      else
+	{
+	  /* linear interpolation */
+	  const double frac = string_domain_frac_lt (histogram_reader.bucket_hi<std::string> (bucket_index - 1),
+			      histogram_reader.bucket_hi<std::string> (bucket_index), key.str);
+	  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1) + histogram_reader.bucket_rows (
+				bucket_index) * frac;
+	}
+      break;
+
+    case histogram_key_kind::u64:
+      bucket_index = histogram_reader.find_bucket<std::uint64_t> (key.u64);
+
+      if (bucket_index < 0)
+	{
+	  *selectivity = 0.0;
+	  return;
+	}
+
+      if (histogram_reader.bucket_approx_ndv (bucket_index) == 1)
+	{
+	  if (histogram_reader.check_value_included<std::uint64_t> (bucket_index, key.u64))
+	    {
+	      if (!is_ge && include_equal)
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		}
+	      else
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		}
+	    }
+	  else
+	    {
+	      bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+	    }
+	}
+      else
+	{
+	  /* linear interpolation */
+	  const double frac = numeric_domain_frac_u64_lt (histogram_reader.bucket_hi<std::uint64_t> (bucket_index - 1),
+			      histogram_reader.bucket_hi<std::uint64_t> (bucket_index), key.u64);
+	  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1) + histogram_reader.bucket_rows (
+				bucket_index) * frac;
+	}
+      break;
+
+    case histogram_key_kind::invalid:
+    default:
+      assert (false);
+      break;
+    }
+
+  if (bucket_index < 0)
+    {
+      /* not found in histogram */
+      *selectivity = 0.0;
+      return;
+    }
+
+  /* selectivity = bucket_rows / total_rows */
+  *selectivity = bucket_rows / total_rows;
+
+  if (is_ge)
+    {
+      *selectivity = 1.0 - *selectivity;
+    }
   return;
 }
 

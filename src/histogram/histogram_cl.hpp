@@ -87,7 +87,7 @@ int set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *att
 
 /* histogram selectivity evaluation functions */
 void histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
-void histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
+void histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool include_equal, double *selectivity);
 void histogram_get_between_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
 void histogram_get_range_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
 void histogram_get_all_some_in_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
