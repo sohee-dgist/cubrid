@@ -29,6 +29,7 @@
 // Forward declaration for PT_NODE
 struct parser_node;
 typedef struct parser_node PT_NODE;
+typedef struct hist_stats HIST_STATS;
 
 static const char *HISTOGRAM_QUERY_TEMPLATE =
 	"WITH src AS (SELECT %s AS val FROM %s WHERE %s IS NOT NULL), "
@@ -64,5 +65,7 @@ int set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *att
 void histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
 int db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj);
 bool is_histogrammable_type (DB_TYPE type);
+int stats_get_histogram (MOP classop, HIST_STATS **histogram);
+int stats_free_histogram_and_init (HIST_STATS *histogram);
 int dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with_fullscan, int error, FILE *f);
 #endif // _HISTOGRAM_CL_HPP_

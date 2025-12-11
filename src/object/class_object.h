@@ -760,6 +760,7 @@ struct sm_class
   SM_QUERY_SPEC *query_spec;	/* virtual class query_spec information */
   SM_TEMPLATE *new_;		/* temporary structure */
   CLASS_STATS *stats;		/* server statistics, loaded on demand */
+  HIST_STATS *histogram;	/* column histogram, loaded on demand */
 
   MOP owner;			/* authorization object */
   int collation_id;		/* class collation */

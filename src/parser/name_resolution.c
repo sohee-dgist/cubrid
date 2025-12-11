@@ -6919,7 +6919,7 @@ pt_make_subclass_list (PARSER_CONTEXT * parser, DB_OBJECT * db, int line_num, in
       result->info.name.spec_id = id;
       result->info.name.meta_class = meta_class;
       result->info.name.partition = NULL;
-
+      result->info.name.histogram = NULL;
       if ((au_fetch_class_force (db, &smclass, AU_FETCH_READ) == NO_ERROR))
 	{
 	  if (smclass->partition != NULL && smclass->partition->pname == NULL)

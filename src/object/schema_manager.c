@@ -73,6 +73,7 @@
 #include "release_string.h"
 #include "execute_statement.h"
 #include "crypt_opfunc.h"
+#include "histogram_cl.hpp"
 
 #include "db.h"
 #include "object_accessor.h"
@@ -4128,6 +4129,7 @@ sm_get_class_with_statistics (MOP classop)
       return NULL;
     }
 
+  /* get the statistics of the class */
   if (class_->stats == NULL)
     {
       /* it's first time to get the statistics of this class */
@@ -4160,6 +4162,27 @@ sm_get_class_with_statistics (MOP classop)
 	  class_->stats = stats;
 	}
       else if (err != NO_ERROR)
+	{
+	  return NULL;
+	}
+    }
+
+  /* get the histogram of the class */
+  if (class_->histogram == NULL)
+    {
+      /* we don't need to flush the class here */
+      int err = stats_get_histogram (classop, &class_->histogram);
+      if (err != NO_ERROR)
+	{
+	  return NULL;
+	}
+    }
+  else
+    {
+      /* to do : implement timestamp check and update */
+      stats_free_histogram_and_init (class_->histogram);
+      int err = stats_get_histogram (classop, &class_->histogram);
+      if (err != NO_ERROR)
 	{
 	  return NULL;
 	}
@@ -12487,6 +12510,13 @@ install_new_representation (MOP classop, SM_CLASS * class_, SM_TEMPLATE * flat)
     {
       stats_free_statistics (class_->stats);
       class_->stats = NULL;
+    }
+
+  /* TODO: HISTOGRAM */
+  if (newrep && class_->histogram != NULL)
+    {
+      stats_free_histogram_and_init (class_->histogram);
+      class_->histogram = NULL;
     }
 
   /* formerly had classop->no_objects = 1 here, why ? */

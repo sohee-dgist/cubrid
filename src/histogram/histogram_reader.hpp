@@ -142,7 +142,7 @@ namespace hist
 	      }
 	    else
 	      {
-		assert (false); /* impossible */
+		return lo - 1;
 	      }
 
 	    if (lo < 0 || lo >= static_cast<int> (nb_))

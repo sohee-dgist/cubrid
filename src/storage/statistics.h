@@ -99,6 +99,13 @@ struct class_stats
   ATTR_STATS *attr_stats;	/* pointer to the array of attribute statistics */
 };
 
+typedef struct hist_stats HIST_STATS;
+struct hist_stats
+{
+  int n_attrs;			/* number of attributes; size of the histogram[] */
+  DB_VALUE **histogram;		/* column histogram , null if not exists */
+};
+
 /* Statistical Information about the attribute NDV */
 typedef struct attr_ndv ATTR_NDV;
 struct attr_ndv

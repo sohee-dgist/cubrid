@@ -34,6 +34,9 @@
 #include <stdbool.h>
 #include <string>
 #include "parser.h"
+#include "class_object.h"
+#include "object_accessor.h"
+#include "authenticate.h"
 
 /*
  * analyze_all_classes
@@ -298,38 +301,23 @@ end:
 void
 histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
 {
-  *selectivity = 0.0;
   int error = NO_ERROR;
   int bucket_index = 0;
-  /* get object from db histogram class */
-  assert (lhs->node_type == PT_NAME);
-  const char *tbl_name = lhs->info.name.resolved;
-  const char *attr_name = lhs->info.name.original;
-  MOP classop = db_find_class (tbl_name);
-  DB_VALUE histogram_value;
-
-  DB_OBJECT *histogram_obj = NULL;
   int histogram_total_length = 0;
-  error = db_get_histogram (classop, attr_name, &histogram_obj);
-  if (error != NO_ERROR)
-    {
-      return;
-    }
-
-  if (histogram_obj == NULL)
+  /* get object from db histogram class */
+  if (lhs->node_type != PT_NAME)
     {
       *selectivity = (double) 0.001;
       return;
     }
 
-  /* get histgoram */
-  error = db_get (histogram_obj, "histogram_values", &histogram_value);
-  if (error != NO_ERROR)
+  DB_VALUE *histogram_value = lhs->info.name.histogram;
+  if (histogram_value == NULL)
     {
       *selectivity = (double) 0.001;
       return;
     }
-  const char *histogram_blob_ptr = db_get_bit (&histogram_value, &histogram_total_length);
+  const char *histogram_blob_ptr = db_get_bit (histogram_value, &histogram_total_length);
   if (histogram_blob_ptr == NULL || histogram_total_length <= 0)
     {
       *selectivity = (double) 0.001;
@@ -493,6 +481,83 @@ db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj)
   db_value_clear (value_ptrs[0]);
   db_value_clear (value_ptrs[1]);
 
+  return NO_ERROR;
+}
+
+int
+stats_get_histogram (MOP classop, HIST_STATS **histogram)
+{
+  int error = NO_ERROR;
+  DB_OBJECT *histogram_obj = NULL;
+  SM_ATTRIBUTE *att;
+  SM_CLASS *class_ = NULL;
+  error = au_fetch_class (classop, &class_, AU_FETCH_READ, AU_SELECT);
+  if (error != NO_ERROR)
+    {
+      return error;
+    }
+
+  *histogram = (HIST_STATS *) db_ws_alloc (sizeof (HIST_STATS));
+  if (*histogram == NULL)
+    {
+      return ER_OUT_OF_VIRTUAL_MEMORY;
+    }
+  (*histogram)->n_attrs = class_->att_count;
+  (*histogram)->histogram = (DB_VALUE **) db_ws_alloc (sizeof (DB_VALUE *) * class_->att_count);
+  if ((*histogram)->histogram == NULL)
+    {
+      return ER_OUT_OF_VIRTUAL_MEMORY;
+    }
+
+  int i = 0;
+  for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
+    {
+      const char *attname = (char *) att->header.name;
+      DB_VALUE *histogram_value = NULL;
+      error = db_get_histogram (classop, attname, &histogram_obj);
+      if (error != NO_ERROR)
+	{
+	  return error;
+	}
+
+      if (histogram_obj == NULL)
+	{
+	  (*histogram)->histogram[i] = nullptr;
+	  i++;
+	  continue;
+	}
+
+      histogram_value = (DB_VALUE *) db_ws_alloc (sizeof (DB_VALUE));
+      error = db_get (histogram_obj, "histogram_values", histogram_value);
+      if (error != NO_ERROR)
+	{
+	  return error;
+	}
+
+      (*histogram)->histogram[i] = histogram_value; // should clear histogram_value
+      i++;
+    }
+  return NO_ERROR;
+}
+
+int stats_free_histogram_and_init (HIST_STATS *histogram)
+{
+  if (histogram == NULL)
+    {
+      return NO_ERROR;
+    }
+  for (int i = 0; i < histogram->n_attrs; i++)
+    {
+      if (histogram->histogram[i] == nullptr)
+	{
+	  continue;
+	}
+      db_value_clear (histogram->histogram[i]);
+      db_ws_free (histogram->histogram[i]);
+      histogram->histogram[i] = nullptr;
+    }
+  db_ws_free (histogram->histogram);
+  db_ws_free (histogram);
   return NO_ERROR;
 }
 

@@ -2903,6 +2903,7 @@ set_seg_node (PT_NODE * attr, QO_ENV * env, BITSET * bitset)
   QO_SEGMENT *seg;
   PT_NODE *entity;
 
+  assert (attr->node_type == PT_NAME);
   node = lookup_node (attr, env, &entity);
 
   /* node will be null if this attr resolves to an enclosing scope */
@@ -2913,6 +2914,7 @@ set_seg_node (PT_NODE * attr, QO_ENV * env, BITSET * bitset)
        * for shared variables, and it doesn't really hurt anyone just
        * to ignore failures here.
        */
+      attr->info.name.histogram = seg->pt_node->info.name.histogram;
       bitset_add (bitset, QO_SEG_IDX (seg));
     }
 
@@ -5179,6 +5181,7 @@ qo_get_attr_info (QO_ENV * env, QO_SEGMENT * seg)
   int attr_id;
   QO_ATTR_CUM_STATS *cum_statsp;
   ATTR_STATS *attr_statsp;
+  DB_VALUE *attr_hist_statsp;
   BTREE_STATS *bt_statsp;
   int n_attrs;
   const char *name;
@@ -5187,6 +5190,7 @@ qo_get_attr_info (QO_ENV * env, QO_SEGMENT * seg)
   int n_unavail_indexes;
   SM_CLASS_CONSTRAINT *consp;
   CLASS_STATS *stats;
+  HIST_STATS *hist_stats;
   bool is_reserved_name = false;
 
   if ((QO_SEG_PT_NODE (seg))->info.name.meta_class == PT_RESERVED)
@@ -5255,6 +5259,7 @@ qo_get_attr_info (QO_ENV * env, QO_SEGMENT * seg)
 
       /* pointer to ATTR_STATS of CLASS_STATS of QO_CLASS_INFO_ENTRY */
       stats = QO_GET_CLASS_STATS (class_info_entryp);
+      hist_stats = QO_GET_HIST_STATS (class_info_entryp);
       QO_ASSERT (env, stats != NULL);
       if (stats->attr_stats == NULL)
 	{
@@ -5276,8 +5281,9 @@ qo_get_attr_info (QO_ENV * env, QO_SEGMENT * seg)
 
       /* search the attribute from the class information */
       attr_statsp = stats->attr_stats;
+      attr_hist_statsp = hist_stats->histogram[0];
       n_attrs = stats->n_attrs;
-      for (j = 0; j < n_attrs; j++, attr_statsp++)
+      for (j = 0; j < n_attrs; j++, attr_statsp++, attr_hist_statsp++)
 	{
 	  if (attr_statsp->id == attr_id)
 	    {
@@ -5293,6 +5299,9 @@ qo_get_attr_info (QO_ENV * env, QO_SEGMENT * seg)
 
       /* set Number of Distinct Values */
       attr_infop->ndv += attr_statsp->ndv;
+
+      /* set histogram */
+      QO_SEG_PT_NODE (seg)->info.name.histogram = attr_hist_statsp;
 
       if (cum_statsp->valid_limits == false)
 	{
