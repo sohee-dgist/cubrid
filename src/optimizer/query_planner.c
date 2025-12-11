@@ -409,16 +409,6 @@ QO_PLAN_VTBL *all_vtbls[] = {
   &qo_worst_plan_vtbl
 };
 
-#define DEFAULT_NULL_SELECTIVITY (double) 0.01
-#define DEFAULT_EXISTS_SELECTIVITY (double) 0.1
-#define DEFAULT_SELECTIVITY (double) 0.1
-#define DEFAULT_EQUAL_SELECTIVITY (double) 0.001
-#define DEFAULT_EQUIJOIN_SELECTIVITY (double) 0.001
-#define DEFAULT_COMP_SELECTIVITY (double) 0.1
-#define DEFAULT_BETWEEN_SELECTIVITY (double) 0.01
-#define DEFAULT_IN_SELECTIVITY (double) 0.01
-#define DEFAULT_RANGE_SELECTIVITY (double) 0.1
-
 /* Structural equivalence classes for expressions */
 
 typedef enum PRED_CLASS
@@ -9577,11 +9567,17 @@ qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	      selectivity = DEFAULT_EQUIJOIN_SELECTIVITY;
 	    }
 
+	  /* TODO: add histogram selectivity */
 	  break;
 
 	case PC_CONST:
 	  histogram_get_equal_selectivity (lhs, rhs, &selectivity);
-	  break;
+	  if (selectivity != DEFAULT_EQUAL_SELECTIVITY)
+	    {
+	      break;
+	    }
+	  [[fallthrough]];
+
 	case PC_HOST_VAR:
 	case PC_SUBQUERY:
 	case PC_SET:
@@ -9610,6 +9606,21 @@ qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr)
       break;
 
     case PC_CONST:
+      switch (pc_rhs)
+	{
+	case PC_ATTR:
+	  histogram_get_equal_selectivity (rhs, lhs, &selectivity);
+	  break;
+
+	default:
+	  break;
+	}
+      if (selectivity != DEFAULT_EQUAL_SELECTIVITY)
+	{
+	  break;
+	}
+      [[fallthrough]];
+
     case PC_HOST_VAR:
     case PC_SUBQUERY:
     case PC_SET:
@@ -9800,7 +9811,70 @@ qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 static double
 qo_comp_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 {
-  return DEFAULT_COMP_SELECTIVITY;
+  PT_NODE *lhs, *rhs, *multi_attr;
+  PRED_CLASS pc_lhs, pc_rhs;
+  int lhs_icard, rhs_icard, icard;
+  double selectivity;
+
+  lhs = pt_expr->info.expr.arg1;
+  rhs = pt_expr->info.expr.arg2;
+
+  /* the class of lhs and rhs */
+  pc_lhs = qo_classify (lhs);
+  pc_rhs = qo_classify (rhs);
+
+  selectivity = DEFAULT_COMP_SELECTIVITY;
+
+  switch (pc_lhs)
+    {
+    case PC_ATTR:
+
+      switch (pc_rhs)
+	{
+	case PC_ATTR:
+	  /* TODO: add histogram selectivity */
+	  break;
+
+	case PC_CONST:
+	  histogram_get_comp_selectivity (lhs, rhs, &selectivity);
+	  break;
+
+	default:
+	  break;
+	}
+
+      break;
+
+    case PC_CONST:
+      switch (pc_rhs)
+	{
+	case PC_ATTR:
+	  histogram_get_comp_selectivity (rhs, lhs, &selectivity);
+	  break;
+
+	default:
+	  break;
+	}
+      break;
+
+    case PC_MULTI_ATTR:
+      switch (pc_rhs)
+	{
+	case PC_MULTI_ATTR:
+	  /* (attr,attr) = (attr,attr) */
+	  /* TODO: add histogram selectivity */
+	  break;
+
+	default:
+	  break;
+	}
+
+      break;
+    default:
+      break;
+    }
+
+  return selectivity;
 }
 
 /*

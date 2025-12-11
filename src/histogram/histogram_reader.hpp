@@ -126,34 +126,44 @@ namespace hist
 	      }
 	  }
 
-	/* mcv check */
-	while (lo >= 0 && lo < static_cast<int> (nb_) && bucket_approx_ndv (lo) == 1)
-	  {
-	    T mcv_val = bucket_hi<T> (lo);
-
-	    if (value == mcv_val)
-	      {
-		return lo;
-	      }
-
-	    if (value < mcv_val)
-	      {
-		--lo;
-	      }
-	    else
-	      {
-		return lo - 1;
-	      }
-
-	    if (lo < 0 || lo >= static_cast<int> (nb_))
-	      {
-		break;
-	      }
-	  }
-
 	return lo;
 
       }
+      template<typename T>
+      bool check_value_included (std::uint32_t i, const T &value) const
+      {
+	/* not mcv */
+	if (bucket_approx_ndv (i) != 1)
+	  {
+	    return true;
+	  }
+	/* mcv */
+	T mcv_val = bucket_hi<T> (i);
+	if (value == mcv_val)
+	  {
+	    return true;
+	  }
+	return false;
+      }
+      template <typename T>
+      bool
+      find_bucket_and_check (const T &value, int &bucket_index)
+      {
+	bucket_index = this->find_bucket<T> (value);
+	if (bucket_index == -1)
+	  {
+	    return false;
+	  }
+
+	if (!this->check_value_included (bucket_index, value))
+	  {
+	    bucket_index = -1;
+	    return false;
+	  }
+
+	return true;
+      }
+
     private:
       template<typename T>
       T get_value (const void *ptr) const;

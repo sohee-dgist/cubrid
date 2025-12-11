@@ -24,6 +24,8 @@
 #define _HISTOGRAM_CL_HPP_
 
 #include <cstdio>
+#include <cstdint>
+#include <string>
 #include "thread_compat.hpp"
 
 // Forward declaration for PT_NODE
@@ -56,16 +58,45 @@ static const char *HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE =
 	"SELECT bid, MAX(val) AS endpoint, SUM(c) AS rows_in_bucket, SUM(SUM(c)) OVER (ORDER BY MAX(val)) AS cumulative, "
 	"COUNT(*) AS approx_ndv, MAX(is_mcv) AS is_mcv FROM all_buckets GROUP BY bid ORDER BY MAX(val);";
 
+/* histogram key kind */
+enum class histogram_key_kind
+{
+  invalid,
+  i32,
+  dbl,
+  str,
+  u64
+};
+
+struct histogram_key
+{
+  histogram_key_kind kind = histogram_key_kind::invalid;
+  std::int32_t i32 = 0;
+  double dbl = 0.0;
+  std::string str;
+  std::uint64_t u64 = 0;
+};
+
+/* histogram analysis functions */
 int analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
 		     bool with_fullscan, MOP classop);
 int get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
 		   bool with_fullscan, char **histogram_blob, int *histogram_total_length);
 int set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, char *histogram_blob,
 		   int histogram_total_length, MOP classop);
+
+/* histogram selectivity evaluation functions */
 void histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
+void histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
+void histogram_get_between_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
+void histogram_get_range_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
+void histogram_get_all_some_in_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
+
+/* histogram utility functions */
 int db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj);
 bool is_histogrammable_type (DB_TYPE type);
 int stats_get_histogram (MOP classop, HIST_STATS **histogram);
 int stats_free_histogram_and_init (HIST_STATS *histogram);
 int dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with_fullscan, int error, FILE *f);
+
 #endif // _HISTOGRAM_CL_HPP_

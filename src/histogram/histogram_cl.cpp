@@ -37,6 +37,7 @@
 #include "class_object.h"
 #include "object_accessor.h"
 #include "authenticate.h"
+#include "query_planner.h"
 
 /*
  * analyze_all_classes
@@ -298,159 +299,245 @@ end:
   return error;
 }
 
-void
-histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
+static bool
+histogram_init_reader_from_lhs (PT_NODE *lhs, hist::HistogramReader &reader)
 {
-  int error = NO_ERROR;
-  int bucket_index = 0;
-  int histogram_total_length = 0;
-  /* get object from db histogram class */
-  if (lhs->node_type != PT_NAME)
+  if (lhs == NULL || lhs->node_type != PT_NAME)
     {
-      *selectivity = (double) 0.001;
-      return;
+      return false;
     }
 
   DB_VALUE *histogram_value = lhs->info.name.histogram;
   if (histogram_value == NULL)
     {
-      *selectivity = (double) 0.001;
-      return;
+      return false;
     }
+
+  int histogram_total_length = 0;
   const char *histogram_blob_ptr = db_get_bit (histogram_value, &histogram_total_length);
   if (histogram_blob_ptr == NULL || histogram_total_length <= 0)
     {
-      *selectivity = (double) 0.001;
-      return;
+      return false;
     }
 
-  /* need length of histogram_blob_ptr */
-  std::string_view histogram_blob (histogram_blob_ptr, static_cast<std::size_t> (histogram_total_length / 8));
+  std::string_view histogram_blob (histogram_blob_ptr,
+				   static_cast<std::size_t> (histogram_total_length / 8));
 
-  hist::HistogramReader histogram_reader;
-  error = histogram_reader.reset (histogram_blob);
+  int error = reader.reset (histogram_blob);
   if (error != NO_ERROR)
     {
-      *selectivity = (double) 0.001;
-      return;
+      return false;
     }
 
-  switch (rhs->info.value.db_value.domain.general_info.type)
+  return true;
+}
+
+static bool
+histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
+{
+  const DB_TYPE type = static_cast<DB_TYPE> (db_val->domain.general_info.type);
+
+  switch (type)
     {
     case DB_TYPE_INTEGER:
-    {
-      std::int32_t val = db_get_int (&rhs->info.value.db_value);
-      bucket_index = histogram_reader.find_bucket<std::int32_t> (val);
-      break;
-    }
+      key.kind = histogram_key_kind::i32;
+      key.i32 = db_get_int (db_val);
+      return true;
+
     case DB_TYPE_SHORT:
-    {
-      std::int32_t val = static_cast<std::int32_t> (db_get_short (&rhs->info.value.db_value));
-      bucket_index = histogram_reader.find_bucket<std::int32_t> (val);
-      break;
-    }
+      key.kind = histogram_key_kind::i32;
+      key.i32 = static_cast<std::int32_t> (db_get_short (db_val));
+      return true;
+
     case DB_TYPE_FLOAT:
-    {
-      double val = db_get_float (&rhs->info.value.db_value);
-      bucket_index = histogram_reader.find_bucket<double> (val);
-      break;
-    }
+      key.kind = histogram_key_kind::dbl;
+      key.dbl = static_cast<double> (db_get_float (db_val));
+      return true;
+
     case DB_TYPE_DOUBLE:
-    {
-      double val = db_get_double (&rhs->info.value.db_value);
-      bucket_index = histogram_reader.find_bucket<double> (val);
-      break;
-    }
+      key.kind = histogram_key_kind::dbl;
+      key.dbl = db_get_double (db_val);
+      return true;
+
     case DB_TYPE_NUMERIC:
-    {
-      double val;
-      numeric_coerce_num_to_double (db_get_numeric (&rhs->info.value.db_value), db_value_scale (&rhs->info.value.db_value),
-				    &val);
-      bucket_index = histogram_reader.find_bucket<double> (val);
-      break;
-    }
+      key.kind = histogram_key_kind::dbl;
+      numeric_coerce_num_to_double (db_get_numeric (db_val), db_value_scale (db_val), &key.dbl);
+      return true;
+
     case DB_TYPE_BIT:
     case DB_TYPE_VARBIT:
     {
       int length = 0;
-      const char *str = db_get_bit (&rhs->info.value.db_value, &length);
+      const char *str = db_get_bit (db_val, &length);
       if (str == NULL)
 	{
-	  *selectivity = (double) 0.001;
-	  return;
+	  return false;
 	}
-      std::string str_val (str, length);
-      bucket_index = histogram_reader.find_bucket<std::string> (str_val);
-      break;
+      key.kind = histogram_key_kind::str;
+      key.str.assign (str, length);
+      return true;
     }
-    case DB_TYPE_CHAR: /* later consider for null trailing exists */
+
+    case DB_TYPE_CHAR:   /* later consider for null trailing exists */
     case DB_TYPE_STRING:
     {
-      const char *str = db_get_string (&rhs->info.value.db_value);
+      const char *str = db_get_string (db_val);
       if (str == NULL)
 	{
-	  *selectivity = (double) 0.001;
-	  return;
+	  return false;
 	}
-      std::string str_val (str);
-      bucket_index = histogram_reader.find_bucket<std::string> (str_val);
-      break;
+      key.kind = histogram_key_kind::str;
+      key.str.assign (str);
+      return true;
     }
+
     case DB_TYPE_TIME:
     {
-
-      DB_TIME *time = db_get_time (&rhs->info.value.db_value);
-      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t> (*time));
-      break;
+      DB_TIME *timep = db_get_time (db_val);
+      key.kind = histogram_key_kind::u64;
+      key.u64 = static_cast<std::uint64_t> (*timep);
+      return true;
     }
+
     case DB_TYPE_TIMESTAMP:
     case DB_TYPE_TIMESTAMPLTZ:
     {
-
-      DB_TIMESTAMP *timestamp = db_get_timestamp (&rhs->info.value.db_value);
-      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t> (*timestamp));
-      break;
+      DB_TIMESTAMP *tsp = db_get_timestamp (db_val);
+      key.kind = histogram_key_kind::u64;
+      key.u64 = static_cast<std::uint64_t> (*tsp);
+      return true;
     }
+
     case DB_TYPE_DATE:
     {
-      DB_DATE *date = db_get_date (&rhs->info.value.db_value);
-      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t> (*date));
-      break;
+      DB_DATE *datep = db_get_date (db_val);
+      key.kind = histogram_key_kind::u64;
+      key.u64 = static_cast<std::uint64_t> (*datep);
+      return true;
     }
+
     case DB_TYPE_MONETARY:
     {
-      DB_MONETARY *monetary = db_get_monetary (&rhs->info.value.db_value);
-      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t> (monetary->amount));
-      break;
+      DB_MONETARY *monetary = db_get_monetary (db_val);
+      key.kind = histogram_key_kind::u64;
+      key.u64 = static_cast<std::uint64_t> (monetary->amount);
+      return true;
     }
+
     case DB_TYPE_TIMESTAMPTZ:
     {
-      DB_TIMESTAMPTZ *timestamptz = db_get_timestamptz (&rhs->info.value.db_value);
-      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t> (timestamptz->timestamp));
-      break;
+      DB_TIMESTAMPTZ *timestamptz = db_get_timestamptz (db_val);
+      key.kind = histogram_key_kind::u64;
+      key.u64 = static_cast<std::uint64_t> (timestamptz->timestamp);
+      return true;
     }
+
     case DB_TYPE_DATETIMETZ:
     case DB_TYPE_DATETIMELTZ:
     {
-      DB_DATETIMETZ *datetimetz = db_get_datetimetz (&rhs->info.value.db_value);
-      bucket_index = histogram_reader.find_bucket<std::uint64_t> (static_cast<std::uint64_t>
-		     (datetimetz->datetime.date) << 32 | datetimetz->datetime.time);
-      break;
+      DB_DATETIMETZ *datetimetz = db_get_datetimetz (db_val);
+      key.kind = histogram_key_kind::u64;
+      key.u64 = (static_cast<std::uint64_t> (datetimetz->datetime.date) << 32)
+		| static_cast<std::uint64_t> (datetimetz->datetime.time);
+      return true;
     }
+
     default:
       assert (false); /* impossible to reach here - blocked at parser layer first */
+      return false;
+    }
+}
+
+void
+histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
+{
+
+  assert (selectivity != NULL);
+
+  hist::HistogramReader histogram_reader;
+  if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
+    {
+      *selectivity = DEFAULT_EQUAL_SELECTIVITY;
+      return;
+    }
+
+  histogram_key key;
+  if (!histogram_extract_key (&rhs->info.value.db_value, key))
+    {
+      *selectivity = DEFAULT_EQUAL_SELECTIVITY;
+      return;
+    }
+
+  int bucket_index = -1;
+  bool found = false;
+
+  switch (key.kind)
+    {
+    case histogram_key_kind::i32:
+      found = histogram_reader.find_bucket_and_check<std::int32_t> (key.i32, bucket_index);
+      break;
+
+    case histogram_key_kind::dbl:
+      found = histogram_reader.find_bucket_and_check<double> (key.dbl, bucket_index);
+      break;
+
+    case histogram_key_kind::str:
+      found = histogram_reader.find_bucket_and_check<std::string> (key.str, bucket_index);
+      break;
+
+    case histogram_key_kind::u64:
+      found = histogram_reader.find_bucket_and_check<std::uint64_t> (key.u64, bucket_index);
+      break;
+
+    case histogram_key_kind::invalid:
+    default:
+      assert (false);
       break;
     }
-  if (bucket_index == -1) /* not found */
 
+  if (!found || bucket_index < 0)
     {
+      /* not found in histogram */
       *selectivity = 0.0;
       return;
     }
 
-  *selectivity = (static_cast<double> (histogram_reader.bucket_rows (bucket_index)) / static_cast<double>
-		  (histogram_reader.total_rows())) /
-		 static_cast<double> (histogram_reader.bucket_approx_ndv (bucket_index));
+  const double bucket_rows = static_cast<double> (histogram_reader.bucket_rows (bucket_index));
+  const double total_rows = static_cast<double> (histogram_reader.total_rows ());
+  const double approx_ndv = static_cast<double> (histogram_reader.bucket_approx_ndv (bucket_index));
+
+  if (total_rows <= 0.0 || approx_ndv <= 0.0)
+    {
+      /* safe default */
+      *selectivity = DEFAULT_EQUAL_SELECTIVITY;
+      return;
+    }
+
+  *selectivity = (bucket_rows / total_rows) / approx_ndv;
+  return;
+}
+
+void
+histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
+{
+  return;
+}
+
+void
+histogram_get_between_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
+{
+  return;
+}
+
+void
+histogram_get_range_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
+{
+  return;
+}
+
+void
+histogram_get_all_some_in_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
+{
   return;
 }
 
