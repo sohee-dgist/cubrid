@@ -61,7 +61,8 @@ static int rv;
 #define thread_sleep(a)
 #endif /* not SERVER_MODE */
 
-#define QFILE_CHECK_LIST_FILE_IS_CLOSED(list_id)
+#define QFILE_CHECK_LIST_FILE_IS_CLOSED(list_id) \
+  assert (list_id != NULL &&(!VPID_ISNULL(&list_id->last_vpid) ? (list_id->last_pgptr != NULL) : true))
 
 #define QFILE_DEFAULT_PAGES 4
 
@@ -3198,6 +3199,47 @@ error_exit:
 
   assert_release_error (er_errid () != NO_ERROR);
   return er_errid ();
+}
+
+int
+qfile_truncate_list (THREAD_ENTRY * thread_p, QFILE_LIST_ID * list_id)
+{
+  int error_code = NO_ERROR;
+  int i;
+  PAGE_PTR page_p;
+  QMGR_TEMP_FILE *tfile_vfid_p = list_id->tfile_vfid;
+  if (list_id->last_pgptr != NULL)
+    {
+      qfile_close_list (thread_p, list_id);
+    }
+
+  list_id->tuple_cnt = 0;
+  list_id->page_cnt = 0;
+  list_id->first_vpid.pageid = NULL_PAGEID;
+  list_id->first_vpid.volid = NULL_VOLID;
+  list_id->last_vpid.pageid = NULL_PAGEID;
+  list_id->last_vpid.volid = NULL_VOLID;
+  list_id->last_pgptr = NULL;
+  list_id->last_offset = QFILE_NULL_PAGE_OFFSET;
+  list_id->lasttpl_len = 0;
+
+  switch (tfile_vfid_p->membuf_type)
+    {
+    case TEMP_FILE_MEMBUF_NONE:
+      break;
+    case TEMP_FILE_MEMBUF_KEY_BUFFER:
+    case TEMP_FILE_MEMBUF_NORMAL:
+      {
+	tfile_vfid_p->membuf_last = -1;
+      }
+      break;
+    default:
+      assert (false);
+      break;
+    }
+
+  error_code = file_temp_truncate (thread_p, &tfile_vfid_p->temp_vfid);
+  return error_code;
 }
 
 /*
