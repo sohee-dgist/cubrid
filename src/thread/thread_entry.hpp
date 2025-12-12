@@ -55,6 +55,7 @@ struct vacuum_worker;
 struct xasl_unpack_info;
 // from page_buffer.h
 struct pgbuf_holder_anchor;
+struct pgbuf_thread_local_cache;
 
 // forward resource trackers
 namespace cubbase
@@ -312,6 +313,7 @@ namespace cubthread
 
       bool m_is_private_lru_enabled;
       struct pgbuf_holder_anchor *m_holder_anchor;
+      struct pgbuf_thread_local_cache *m_pgbuf_thread_local_cache;
 
       thread_id_t get_id ();
       pthread_t get_posix_id ();
