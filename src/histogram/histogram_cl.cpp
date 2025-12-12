@@ -459,7 +459,7 @@ numeric_domain_frac_i32_lt (std::int32_t lo, std::int32_t hi, std::int32_t v)
     {
       return 1.0;
     }
-  return (v - lo) / (hi - lo);
+  return (static_cast<double> (v) - static_cast<double> (lo)) / (static_cast<double> (hi) - static_cast<double> (lo));
 }
 
 double numeric_domain_frac_u64_lt (std::uint64_t lo, std::uint64_t hi, std::uint64_t v)
@@ -528,6 +528,11 @@ string_pos (const unsigned char *s, std::size_t len, std::size_t max_len = 16)
 static double
 string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::string &v)
 {
+  if (hi >= v)
+    {
+      return 1.0;
+    }
+
   auto to_bytes = [] (const std::string &s) -> const unsigned char *
   {
     return reinterpret_cast<const unsigned char *> (s.data ());
@@ -543,21 +548,27 @@ string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::
 }
 
 void
-histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
+histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity, bool *success)
 {
   assert (selectivity != NULL);
 
+  PRED_CLASS pc_rhs = qo_classify (rhs);
+  if (pc_rhs != PC_CONST)
+    {
+      *success = false;
+      return;
+    }
   hist::HistogramReader histogram_reader;
   if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
     {
-      *selectivity = DEFAULT_EQUAL_SELECTIVITY;
+      *success = false;
       return;
     }
 
   histogram_key key;
   if (!histogram_extract_key (&rhs->info.value.db_value, key))
     {
-      *selectivity = DEFAULT_EQUAL_SELECTIVITY;
+      *success = false;
       return;
     }
 
@@ -591,6 +602,7 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
   if (!found || bucket_index < 0)
     {
       /* not found in histogram */
+      *success = true;
       *selectivity = 0.0;
       return;
     }
@@ -602,23 +614,25 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
   if (total_rows <= 0.0 || approx_ndv <= 0.0)
     {
       /* safe default */
-      *selectivity = DEFAULT_EQUAL_SELECTIVITY;
+      *success = false;
       return;
     }
 
   *selectivity = (bucket_rows / total_rows) / approx_ndv;
+  *success = true;
   return;
 }
 
 void
-histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool include_equal, double *selectivity)
+histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool include_equal, double *selectivity,
+				bool *success)
 {
   assert (selectivity != NULL);
 
   PRED_CLASS pc_rhs = qo_classify (rhs);
   if (pc_rhs != PC_CONST)
     {
-      *selectivity = DEFAULT_COMP_SELECTIVITY;
+      *success = false;
       return;
     }
 
@@ -626,14 +640,14 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 
   if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
     {
-      *selectivity = DEFAULT_COMP_SELECTIVITY;
+      *success = false;
       return;
     }
 
   histogram_key key;
   if (!histogram_extract_key (&rhs->info.value.db_value, key))
     {
-      *selectivity = DEFAULT_COMP_SELECTIVITY;
+      *success = false;
       return;
     }
 
@@ -657,13 +671,13 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	{
 	  if (histogram_reader.check_value_included<std::int32_t> (bucket_index, key.i32))
 	    {
-	      if (!is_ge && include_equal)
+	      if (is_ge == include_equal)
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
 		}
 	      else
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
 	    }
 	  else
@@ -686,6 +700,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 
       if (bucket_index < 0)
 	{
+	  *success = true;
 	  *selectivity = 0.0;
 	  return;
 	}
@@ -722,6 +737,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
       bucket_index = histogram_reader.find_bucket<std::string> (key.str);
       if (bucket_index < 0)
 	{
+	  *success = true;
 	  *selectivity = 0.0;
 	  return;
 	}
@@ -759,6 +775,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 
       if (bucket_index < 0)
 	{
+	  *success = true;
 	  *selectivity = 0.0;
 	  return;
 	}
@@ -800,6 +817,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
   if (bucket_index < 0)
     {
       /* not found in histogram */
+      *success = true;
       *selectivity = 0.0;
       return;
     }
@@ -811,24 +829,8 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
     {
       *selectivity = 1.0 - *selectivity;
     }
-  return;
-}
 
-void
-histogram_get_between_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
-{
-  return;
-}
-
-void
-histogram_get_range_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
-{
-  return;
-}
-
-void
-histogram_get_all_some_in_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity)
-{
+  *success = true;
   return;
 }
 

@@ -9533,6 +9533,8 @@ qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 
   selectivity = DEFAULT_EQUAL_SELECTIVITY;
 
+  bool success = false;
+
   switch (pc_lhs)
     {
     case PC_ATTR:
@@ -9560,8 +9562,8 @@ qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	  break;
 
 	case PC_CONST:
-	  histogram_get_equal_selectivity (lhs, rhs, &selectivity);
-	  if (selectivity != DEFAULT_EQUAL_SELECTIVITY)
+	  histogram_get_equal_selectivity (lhs, rhs, &selectivity, &success);
+	  if (success)
 	    {
 	      break;
 	    }
@@ -9598,13 +9600,13 @@ qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr)
       switch (pc_rhs)
 	{
 	case PC_ATTR:
-	  histogram_get_equal_selectivity (rhs, lhs, &selectivity);
+	  histogram_get_equal_selectivity (rhs, lhs, &selectivity, &success);
 	  break;
 
 	default:
 	  break;
 	}
-      if (selectivity != DEFAULT_EQUAL_SELECTIVITY)
+      if (success)
 	{
 	  break;
 	}
@@ -9814,6 +9816,7 @@ qo_comp_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 
   selectivity = DEFAULT_COMP_SELECTIVITY;
 
+  bool success = false;
   switch (pc_lhs)
     {
     case PC_ATTR:
@@ -9827,19 +9830,19 @@ qo_comp_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	case PC_CONST:
 	  if (pt_expr->info.expr.op == PT_GE)
 	    {
-	      histogram_get_comp_selectivity (lhs, rhs, true, true, &selectivity);
+	      histogram_get_comp_selectivity (lhs, rhs, true, true, &selectivity, &success);
 	    }
 	  else if (pt_expr->info.expr.op == PT_GT)
 	    {
-	      histogram_get_comp_selectivity (lhs, rhs, true, false, &selectivity);
+	      histogram_get_comp_selectivity (lhs, rhs, true, false, &selectivity, &success);
 	    }
 	  else if (pt_expr->info.expr.op == PT_LE)
 	    {
-	      histogram_get_comp_selectivity (lhs, rhs, false, true, &selectivity);
+	      histogram_get_comp_selectivity (lhs, rhs, false, true, &selectivity, &success);
 	    }
 	  else if (pt_expr->info.expr.op == PT_LT)
 	    {
-	      histogram_get_comp_selectivity (lhs, rhs, false, false, &selectivity);
+	      histogram_get_comp_selectivity (lhs, rhs, false, false, &selectivity, &success);
 	    }
 	  break;
 
@@ -9855,19 +9858,19 @@ qo_comp_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	case PC_ATTR:
 	  if (pt_expr->info.expr.op == PT_GE)
 	    {
-	      histogram_get_comp_selectivity (rhs, lhs, false, false, &selectivity);
+	      histogram_get_comp_selectivity (rhs, lhs, false, false, &selectivity, &success);
 	    }
 	  else if (pt_expr->info.expr.op == PT_GT)
 	    {
-	      histogram_get_comp_selectivity (rhs, lhs, false, true, &selectivity);
+	      histogram_get_comp_selectivity (rhs, lhs, false, true, &selectivity, &success);
 	    }
 	  else if (pt_expr->info.expr.op == PT_LE)
 	    {
-	      histogram_get_comp_selectivity (rhs, lhs, true, false, &selectivity);
+	      histogram_get_comp_selectivity (rhs, lhs, true, false, &selectivity, &success);
 	    }
 	  else if (pt_expr->info.expr.op == PT_LT)
 	    {
-	      histogram_get_comp_selectivity (rhs, lhs, true, true, &selectivity);
+	      histogram_get_comp_selectivity (rhs, lhs, true, true, &selectivity, &success);
 	    }
 	  break;
 
@@ -9893,7 +9896,7 @@ qo_comp_selectivity (QO_ENV * env, PT_NODE * pt_expr)
       break;
     }
 
-  return selectivity;
+  return success ? selectivity : DEFAULT_COMP_SELECTIVITY;
 }
 
 /*
@@ -9994,35 +9997,74 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	  || op_type == PT_BETWEEN_GE_INF || op_type == PT_BETWEEN_GT_INF)
 	{
 	  double selectivity_a = 0.0, selectivity_b = 0.0;
-	  if (op_type == PT_BETWEEN_GE_LE)
+	  bool success1 = false;
+	  bool success2 = false;
+	  switch (op_type)
 	    {
-	      /* selectivity = sel_le(b) - sel_lt(a) */
-	      histogram_get_comp_selectivity (lhs, arg1, false, false, &selectivity_a);
-	      histogram_get_comp_selectivity (lhs, arg2, false, true, &selectivity_b);
-	      selectivity = selectivity_b - selectivity_a;
+	    case PT_BETWEEN_GE_LE:
+	      {
+		/* selectivity = sel_le(b) - sel_lt(a) */
+		histogram_get_comp_selectivity (lhs, arg1, false, false, &selectivity_a, &success1);
+		histogram_get_comp_selectivity (lhs, arg2, false, true, &selectivity_b, &success2);
+		selectivity = selectivity_b - selectivity_a;
+		break;
+	      }
+	    case PT_BETWEEN_GE_LT:
+	      {
+		/* selectivity = sel_lt(b) - sel_lt(a) */
+		histogram_get_comp_selectivity (lhs, arg1, false, false, &selectivity_a, &success1);
+		histogram_get_comp_selectivity (lhs, arg2, false, false, &selectivity_b, &success2);
+		selectivity = selectivity_b - selectivity_a;
+		break;
+	      }
+	    case PT_BETWEEN_GT_LE:
+	      {
+		/* selectivity = sel_le(b) - sel_lt(a) */
+		histogram_get_comp_selectivity (lhs, arg1, false, true, &selectivity_a, &success1);
+		histogram_get_comp_selectivity (lhs, arg2, false, true, &selectivity_b, &success2);
+		selectivity = selectivity_b - selectivity_a;
+		break;
+	      }
+	    case PT_BETWEEN_GT_LT:
+	      {
+		/* selectivity = sel_lt(b) - sel_lt(a) */
+		histogram_get_comp_selectivity (lhs, arg1, false, true, &selectivity_a, &success1);
+		histogram_get_comp_selectivity (lhs, arg2, false, false, &selectivity_b, &success2);
+		selectivity = selectivity_b - selectivity_a;
+		break;
+	      }
+	    case PT_BETWEEN_INF_LT:
+	      {
+		histogram_get_comp_selectivity (lhs, arg1, false, false, &selectivity_a, &success1);
+		success2 = true;
+		selectivity = selectivity_a;
+		break;
+	      }
+	    case PT_BETWEEN_INF_LE:
+	      {
+		histogram_get_comp_selectivity (lhs, arg1, false, true, &selectivity_a, &success1);
+		success2 = true;
+		selectivity = selectivity_a;
+		break;
+	      }
+	    case PT_BETWEEN_GT_INF:
+	      {
+		histogram_get_comp_selectivity (lhs, arg1, true, false, &selectivity_a, &success1);
+		success2 = true;
+		selectivity = selectivity_a;
+		break;
+	      }
+	    case PT_BETWEEN_GE_INF:
+	      {
+		histogram_get_comp_selectivity (lhs, arg1, true, true, &selectivity_a, &success1);
+		success2 = true;
+		selectivity = selectivity_a;
+		break;
+	      }
+	    default:
+	      break;
 	    }
-	  else if (op_type == PT_BETWEEN_GE_LT)
-	    {
-	      /* selectivity = sel_lt(b) - sel_lt(a) */
-	      histogram_get_comp_selectivity (lhs, arg1, false, false, &selectivity_a);
-	      histogram_get_comp_selectivity (lhs, arg2, false, false, &selectivity_b);
-	      selectivity = selectivity_b - selectivity_a;
-	    }
-	  else if (op_type == PT_BETWEEN_GT_LE)
-	    {
-	      /* selectivity = sel_le(b) - sel_lt(a) */
-	      histogram_get_comp_selectivity (lhs, arg1, false, true, &selectivity_a);
-	      histogram_get_comp_selectivity (lhs, arg2, false, true, &selectivity_b);
-	      selectivity = selectivity_b - selectivity_a;
-	    }
-	  else if (op_type == PT_BETWEEN_GT_LT)
-	    {
-	      /* selectivity = sel_lt(b) - sel_lt(a) */
-	      histogram_get_comp_selectivity (lhs, arg1, false, true, &selectivity_a);
-	      histogram_get_comp_selectivity (lhs, arg2, false, false, &selectivity_b);
-	      selectivity = selectivity_b - selectivity_a;
-	    }
-	  if (selectivity <= 0.0)
+	  if (!(success1 && success2))
 	    {
 	      selectivity = DEFAULT_RANGE_SELECTIVITY;
 	    }

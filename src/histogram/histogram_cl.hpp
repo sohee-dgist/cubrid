@@ -86,11 +86,9 @@ int set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *att
 		   int histogram_total_length, MOP classop);
 
 /* histogram selectivity evaluation functions */
-void histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
-void histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool include_equal, double *selectivity);
-void histogram_get_between_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
-void histogram_get_range_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
-void histogram_get_all_some_in_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity);
+void histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity, bool *success);
+void histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool include_equal, double *selectivity,
+				     bool *success);
 
 /* histogram utility functions */
 int db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj);
