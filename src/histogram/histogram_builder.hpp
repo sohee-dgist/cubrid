@@ -36,7 +36,7 @@ namespace hist
   using HistogramTypes = std::variant<std::int64_t, double, std::uint64_t, std::string_view, std::string>;
   struct Bucket
   {
-    HistogramTypes   data_hi;  // std::variant: int32_t, int64_t, double, string 중 하나
+    HistogramTypes   data_hi;  /* std::variant: int64_t, uint64_t, double, string_view, string */
     std::int64_t     cumulative;
     std::int64_t     approx_ndv;
   };

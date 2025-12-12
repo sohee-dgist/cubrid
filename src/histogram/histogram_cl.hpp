@@ -33,6 +33,7 @@ struct parser_node;
 typedef struct parser_node PT_NODE;
 typedef struct hist_stats HIST_STATS;
 
+/* histogram query template */
 static const char *HISTOGRAM_QUERY_TEMPLATE =
 	"WITH src AS (SELECT %s AS val FROM %s WHERE %s IS NOT NULL), "
 	"cnt AS (SELECT val, COUNT(*) AS c FROM src GROUP BY val), "
@@ -45,6 +46,7 @@ static const char *HISTOGRAM_QUERY_TEMPLATE =
 	"all_buckets AS (SELECT * FROM hist_buckets UNION ALL SELECT * FROM mcv_buckets) "
 	"SELECT bid, MAX(val) AS endpoint, SUM(c) AS rows_in_bucket, SUM(SUM(c)) OVER (ORDER BY MAX(val)) AS cumulative, "
 	"COUNT(*) AS approx_ndv, MAX(is_mcv) AS is_mcv FROM all_buckets GROUP BY bid ORDER BY MAX(val);";
+/* histogram with sampling scan query template */
 static const char *HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE =
 	"WITH src AS (SELECT /*+ SAMPLING_SCAN */ %s AS val FROM %s WHERE %s IS NOT NULL), "
 	"cnt AS (SELECT val, COUNT(*) AS c FROM src GROUP BY val), "
@@ -59,23 +61,28 @@ static const char *HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE =
 	"COUNT(*) AS approx_ndv, MAX(is_mcv) AS is_mcv FROM all_buckets GROUP BY bid ORDER BY MAX(val);";
 
 /* histogram key kind */
-enum class histogram_key_kind
+namespace hist
 {
-  invalid,
-  i32,
-  dbl,
-  str,
-  u64
-};
 
-struct histogram_key
-{
-  histogram_key_kind kind = histogram_key_kind::invalid;
-  std::int32_t i32 = 0;
-  double dbl = 0.0;
-  std::string str;
-  std::uint64_t u64 = 0;
-};
+  enum class histogram_key_kind
+  {
+    invalid,
+    i64,
+    dbl,
+    str,
+    u64
+  };
+
+  struct histogram_key
+  {
+    histogram_key_kind kind = histogram_key_kind::invalid;
+    std::int32_t i64 = 0;
+    double dbl = 0.0;
+    std::string str;
+    std::uint64_t u64 = 0;
+  };
+
+} // namespace hist
 
 /* histogram analysis functions */
 int analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,

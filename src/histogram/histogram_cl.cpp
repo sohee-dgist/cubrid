@@ -17,7 +17,7 @@
  */
 
 /*
- * histogram_cl.cpp - Histogram Client implementation
+ * histogram_cl.cpp - Histogram Client Library implementation
  */
 
 
@@ -39,13 +39,18 @@
 #include "authenticate.h"
 #include "query_planner.h"
 
+static bool histogram_extract_key (const DB_VALUE *db_val, hist::histogram_key &key);
+
 /*
- * analyze_all_classes
+ * analyze_classes ()
  *
- * return:
+ * return: NO_ERROR if successful, otherwise an error code
+ *   thread_p(in): thread pointer
+ *   tbl_name(in): table name
+ *   attr_name(in): attribute name
+ *   max_number_of_buckets(in): maximum number of buckets
  *   with_fullscan(in): true iff WITH FULLSCAN
- *
- * NOTE:
+ *   classop(in): class object pointer
  */
 int
 analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
@@ -54,6 +59,8 @@ analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_
   int error = NO_ERROR;
   char *histogram_blob = NULL;
   int histogram_total_length = 0;
+
+  // ---- get histogram ----
   error =
 	  get_histogram (thread_p, tbl_name, attr_name, max_number_of_buckets, with_fullscan, &histogram_blob,
 			 &histogram_total_length);
@@ -61,16 +68,32 @@ analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_
     {
       return error;
     }
+
+  // ---- set histogram ----
   error = set_histogram (thread_p, tbl_name, attr_name, histogram_blob, histogram_total_length, classop);
   if (error != NO_ERROR)
     {
       return error;
     }
+
+  // ---- free histogram blob ----
   db_private_free (thread_p, histogram_blob);
 
   return NO_ERROR;
 }
 
+/*
+ * get_histogram ()
+ *
+ * return: NO_ERROR if successful, otherwise an error code
+ *   thread_p(in): thread pointer
+ *   tbl_name(in): table name
+ *   attr_name(in): attribute name
+ *   max_number_of_buckets(in): maximum number of buckets
+ *   with_fullscan(in): true iff WITH FULLSCAN
+ *   histogram_blob(out): histogram blob
+ *   histogram_total_length(out): histogram total length
+ */
 int
 get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
 	       bool with_fullscan, char **histogram_blob, int *histogram_total_length)
@@ -80,9 +103,12 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
   DB_QUERY_ERROR query_error;
   hist::HistogramBuilder histogram_builder;
   DB_TYPE type = DB_TYPE_UNKNOWN;
-  int number_of_mcv = 3;	// TODO
+  // ---- number of MCV ----
+  int number_of_mcv = std::min (100, max_number_of_buckets / 2);
 
-  char query_buf[1024+222+254]; // TODO GET MAX TABLE NAME LENGTH FROM SQL.H
+  // ---- query buffer ---- (query_length + table_name_length + attr_name_length)
+  char query_buf[1024+222+254];
+
   if (!with_fullscan)
     {
       snprintf (query_buf, sizeof (query_buf), HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE, attr_name, tbl_name,
@@ -102,6 +128,7 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
     }
 
   error = db_query_first_tuple (query_result);
+
   if (error != DB_CURSOR_SUCCESS)
     {
       if (error == DB_CURSOR_END)
@@ -129,112 +156,43 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 	{
 	  return error;
 	}
-      switch (value[1].domain.general_info.type)
+
+      /* ---- extract key from DB_VALUE ---- */
+      hist::histogram_key key;
+      if (!histogram_extract_key (&value[1], key))
 	{
-	case DB_TYPE_INTEGER:
+	  return error;
+	}
+
+      switch (key.kind)
 	{
-	  hi = static_cast < std::int64_t > (db_get_int (&value[1]));
+	case hist::histogram_key_kind::i64:
+	{
+	  histogram_builder.add (static_cast<std::int64_t> (key.i64), db_get_bigint (&value[3]), db_get_bigint (&value[4]));
 	  break;
 	}
-	case DB_TYPE_SHORT:
+	case hist::histogram_key_kind::dbl:
 	{
-	  hi = static_cast < std::int64_t > (db_get_short (&value[1]));
+	  histogram_builder.add (static_cast<double> (key.dbl), db_get_bigint (&value[3]), db_get_bigint (&value[4]));
 	  break;
 	}
-	case DB_TYPE_FLOAT:
+	case hist::histogram_key_kind::str:
 	{
-	  double val = db_get_float (&value[1]);
-	  hi = val;
+	  histogram_builder.add (key.str, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
 	  break;
 	}
-	case DB_TYPE_DOUBLE:
+	case hist::histogram_key_kind::u64:
 	{
-	  double val = db_get_double (&value[1]);
-	  hi = val;
-	  break;
-	}
-	case DB_TYPE_NUMERIC:
-	{
-	  /* Actually, the numeric type is a 16-byte value with very high precision,
-	   * but for approximate statistical calculations it's probably better not to
-	   * rely on the full 16-byte precision. */
-	  double val;
-	  numeric_coerce_num_to_double (db_get_numeric (&value[1]), db_value_scale (&value[1]), &val);
-	  hi = val;
-	  break;
-	}
-	case DB_TYPE_BIT:
-	case DB_TYPE_VARBIT:
-	{
-	  /* deal as char type */
-	  int length = 0;
-	  const char *str = db_get_bit (&value[1], &length);
-	  if (str == NULL)
-	    {
-	      return ER_FAILED;
-	    }
-	  std::string str_val (str, length);
-	  hi = str_val;
-	  break;
-	}
-	case DB_TYPE_CHAR: /* later consider for null trailing exists */
-	case DB_TYPE_STRING:
-	{
-	  const char *str = db_get_string (&value[1]);
-	  if (str == NULL)
-	    {
-	      return ER_FAILED;
-	    }
-	  std::string str_val (str);
-	  hi = str_val;
-	  break;
-	}
-	case DB_TYPE_TIME:
-	{
-	  DB_TIME *time = db_get_time (&value[1]);
-	  hi = static_cast<std::uint64_t> (*time);
-	  break;
-	}
-	case DB_TYPE_TIMESTAMP:
-	case DB_TYPE_TIMESTAMPLTZ:
-	{
-	  DB_TIMESTAMP *timestamp = db_get_timestamp (&value[1]);
-	  hi = static_cast<std::uint64_t> (*timestamp);
-	  break;
-	}
-	case DB_TYPE_DATE:
-	{
-	  DB_DATE *date = db_get_date (&value[1]);
-	  hi = static_cast<std::uint64_t> (*date);
-	  break;
-	}
-	case DB_TYPE_MONETARY:
-	{
-	  /* Its use is deprecated, but it has been kept for backporting purposes. */
-	  DB_MONETARY *monetary = db_get_monetary (&value[1]);
-	  hi = static_cast<std::uint64_t> (monetary->amount);
-	  break;
-	}
-	case DB_TYPE_TIMESTAMPTZ:
-	{
-	  DB_TIMESTAMPTZ *timestamptz = db_get_timestamptz (&value[1]);
-	  hi = static_cast<std::uint64_t> (timestamptz->timestamp);
-	  break;
-	}
-	case DB_TYPE_DATETIMETZ:
-	case DB_TYPE_DATETIMELTZ:
-	{
-	  /* in comparison, the order is maintained by date and time */
-	  DB_DATETIMETZ *datetimetz = db_get_datetimetz (&value[1]);
-	  hi = static_cast<std::uint64_t> (datetimetz->datetime.date) << 32 | datetimetz->datetime.time;
+	  histogram_builder.add (key.u64, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
 	  break;
 	}
 	default:
-	  assert (false); /* impossible to reach here - blocked at parser layer first */
-	  break;
+	{
+	  /* never reach here */
+	  assert (false);
+	  return ER_FAILED;
 	}
-      histogram_builder.add (hi, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
-      type = static_cast<DB_TYPE> (value[1].domain.general_info.type);
+	}
     }
   while (db_query_next_tuple (query_result) == DB_CURSOR_SUCCESS);
 
@@ -333,34 +291,39 @@ histogram_init_reader_from_lhs (PT_NODE *lhs, hist::HistogramReader &reader)
 }
 
 static bool
-histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
+histogram_extract_key (const DB_VALUE *db_val, hist::histogram_key &key)
 {
   const DB_TYPE type = static_cast<DB_TYPE> (db_val->domain.general_info.type);
 
   switch (type)
     {
     case DB_TYPE_INTEGER:
-      key.kind = histogram_key_kind::i32;
-      key.i32 = db_get_int (db_val);
+      key.kind = hist::histogram_key_kind::i64;
+      key.i64 = db_get_int (db_val);
       return true;
 
     case DB_TYPE_SHORT:
-      key.kind = histogram_key_kind::i32;
-      key.i32 = static_cast<std::int32_t> (db_get_short (db_val));
+      key.kind = hist::histogram_key_kind::i64;
+      key.i64 = static_cast<std::int32_t> (db_get_short (db_val));
+      return true;
+
+    case DB_TYPE_BIGINT:
+      key.kind = hist::histogram_key_kind::i64;
+      key.i64 = db_get_bigint (db_val);
       return true;
 
     case DB_TYPE_FLOAT:
-      key.kind = histogram_key_kind::dbl;
+      key.kind = hist::histogram_key_kind::dbl;
       key.dbl = static_cast<double> (db_get_float (db_val));
       return true;
 
     case DB_TYPE_DOUBLE:
-      key.kind = histogram_key_kind::dbl;
+      key.kind = hist::histogram_key_kind::dbl;
       key.dbl = db_get_double (db_val);
       return true;
 
     case DB_TYPE_NUMERIC:
-      key.kind = histogram_key_kind::dbl;
+      key.kind = hist::histogram_key_kind::dbl;
       numeric_coerce_num_to_double (db_get_numeric (db_val), db_value_scale (db_val), &key.dbl);
       return true;
 
@@ -373,7 +336,7 @@ histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
 	{
 	  return false;
 	}
-      key.kind = histogram_key_kind::str;
+      key.kind = hist::histogram_key_kind::str;
       key.str.assign (str, length);
       return true;
     }
@@ -386,7 +349,7 @@ histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
 	{
 	  return false;
 	}
-      key.kind = histogram_key_kind::str;
+      key.kind = hist::histogram_key_kind::str;
       key.str.assign (str);
       return true;
     }
@@ -394,7 +357,7 @@ histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
     case DB_TYPE_TIME:
     {
       DB_TIME *timep = db_get_time (db_val);
-      key.kind = histogram_key_kind::u64;
+      key.kind = hist::histogram_key_kind::u64;
       key.u64 = static_cast<std::uint64_t> (*timep);
       return true;
     }
@@ -403,7 +366,7 @@ histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
     case DB_TYPE_TIMESTAMPLTZ:
     {
       DB_TIMESTAMP *tsp = db_get_timestamp (db_val);
-      key.kind = histogram_key_kind::u64;
+      key.kind = hist::histogram_key_kind::u64;
       key.u64 = static_cast<std::uint64_t> (*tsp);
       return true;
     }
@@ -411,7 +374,7 @@ histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
     case DB_TYPE_DATE:
     {
       DB_DATE *datep = db_get_date (db_val);
-      key.kind = histogram_key_kind::u64;
+      key.kind = hist::histogram_key_kind::u64;
       key.u64 = static_cast<std::uint64_t> (*datep);
       return true;
     }
@@ -419,7 +382,7 @@ histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
     case DB_TYPE_MONETARY:
     {
       DB_MONETARY *monetary = db_get_monetary (db_val);
-      key.kind = histogram_key_kind::u64;
+      key.kind = hist::histogram_key_kind::u64;
       key.u64 = static_cast<std::uint64_t> (monetary->amount);
       return true;
     }
@@ -427,7 +390,7 @@ histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
     case DB_TYPE_TIMESTAMPTZ:
     {
       DB_TIMESTAMPTZ *timestamptz = db_get_timestamptz (db_val);
-      key.kind = histogram_key_kind::u64;
+      key.kind = hist::histogram_key_kind::u64;
       key.u64 = static_cast<std::uint64_t> (timestamptz->timestamp);
       return true;
     }
@@ -436,7 +399,7 @@ histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
     case DB_TYPE_DATETIMELTZ:
     {
       DB_DATETIMETZ *datetimetz = db_get_datetimetz (db_val);
-      key.kind = histogram_key_kind::u64;
+      key.kind = hist::histogram_key_kind::u64;
       key.u64 = (static_cast<std::uint64_t> (datetimetz->datetime.date) << 32)
 		| static_cast<std::uint64_t> (datetimetz->datetime.time);
       return true;
@@ -448,8 +411,10 @@ histogram_extract_key (const DB_VALUE *db_val, histogram_key &key)
     }
 }
 
+/* numeric domain fraction less than function for int64_t and uint64_t and double and string */
+
 static double
-numeric_domain_frac_i32_lt (std::int32_t lo, std::int32_t hi, std::int32_t v)
+numeric_domain_frac_i64_lt (std::int64_t lo, std::int64_t hi, std::int64_t v)
 {
   if (v <= lo)
     {
@@ -525,6 +490,7 @@ string_pos (const unsigned char *s, std::size_t len, std::size_t max_len = 16)
 
   return static_cast<double> (acc);
 }
+
 static double
 string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::string &v)
 {
@@ -547,6 +513,8 @@ string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::
   return clamp01 (t);
 }
 
+/* histogram get selectivity functions */
+
 void
 histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity, bool *success)
 {
@@ -565,7 +533,7 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
       return;
     }
 
-  histogram_key key;
+  hist::histogram_key key;
   if (!histogram_extract_key (&rhs->info.value.db_value, key))
     {
       *success = false;
@@ -577,23 +545,23 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
 
   switch (key.kind)
     {
-    case histogram_key_kind::i32:
-      found = histogram_reader.find_bucket_and_check<std::int32_t> (key.i32, bucket_index);
+    case hist::histogram_key_kind::i64:
+      found = histogram_reader.find_bucket_and_check<std::int32_t> (key.i64, bucket_index);
       break;
 
-    case histogram_key_kind::dbl:
+    case hist::histogram_key_kind::dbl:
       found = histogram_reader.find_bucket_and_check<double> (key.dbl, bucket_index);
       break;
 
-    case histogram_key_kind::str:
+    case hist::histogram_key_kind::str:
       found = histogram_reader.find_bucket_and_check<std::string> (key.str, bucket_index);
       break;
 
-    case histogram_key_kind::u64:
+    case hist::histogram_key_kind::u64:
       found = histogram_reader.find_bucket_and_check<std::uint64_t> (key.u64, bucket_index);
       break;
 
-    case histogram_key_kind::invalid:
+    case hist::histogram_key_kind::invalid:
     default:
       assert (false);
       break;
@@ -644,7 +612,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
       return;
     }
 
-  histogram_key key;
+  hist::histogram_key key;
   if (!histogram_extract_key (&rhs->info.value.db_value, key))
     {
       *success = false;
@@ -658,8 +626,8 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
   /* caculate bucket_rows for column <= rhs or column < rhs */
   switch (key.kind)
     {
-    case histogram_key_kind::i32:
-      bucket_index = histogram_reader.find_bucket<std::int32_t> (key.i32);
+    case hist::histogram_key_kind::i64:
+      bucket_index = histogram_reader.find_bucket<std::int32_t> (key.i64);
 
       if (bucket_index < 0)
 	{
@@ -669,7 +637,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 
       if (histogram_reader.bucket_approx_ndv (bucket_index) == 1)
 	{
-	  if (histogram_reader.check_value_included<std::int32_t> (bucket_index, key.i32))
+	  if (histogram_reader.check_value_included<std::int32_t> (bucket_index, key.i64))
 	    {
 	      if (is_ge == include_equal)
 		{
@@ -688,14 +656,14 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
       else
 	{
 	  /* linear interpolation */
-	  const double frac = numeric_domain_frac_i32_lt (histogram_reader.bucket_hi<std::int32_t> (bucket_index - 1),
-			      histogram_reader.bucket_hi<std::int32_t> (bucket_index), key.i32);
+	  const double frac = numeric_domain_frac_i64_lt (histogram_reader.bucket_hi<std::int32_t> (bucket_index - 1),
+			      histogram_reader.bucket_hi<std::int64_t> (bucket_index), key.i64);
 	  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1) + histogram_reader.bucket_rows (
 				bucket_index) * frac;
 	}
       break;
 
-    case histogram_key_kind::dbl:
+    case hist::histogram_key_kind::dbl:
       bucket_index = histogram_reader.find_bucket<double> (key.dbl);
 
       if (bucket_index < 0)
@@ -733,7 +701,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	}
       break;
 
-    case histogram_key_kind::str:
+    case hist::histogram_key_kind::str:
       bucket_index = histogram_reader.find_bucket<std::string> (key.str);
       if (bucket_index < 0)
 	{
@@ -770,7 +738,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	}
       break;
 
-    case histogram_key_kind::u64:
+    case hist::histogram_key_kind::u64:
       bucket_index = histogram_reader.find_bucket<std::uint64_t> (key.u64);
 
       if (bucket_index < 0)
@@ -808,8 +776,9 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	}
       break;
 
-    case histogram_key_kind::invalid:
+    case hist::histogram_key_kind::invalid:
     default:
+      /* never reach here */
       assert (false);
       break;
     }
@@ -914,7 +883,7 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
 	  return error;
 	}
 
-      (*histogram)->histogram[i] = histogram_value; // should clear histogram_value
+      (*histogram)->histogram[i] = histogram_value; /* should clear histogram_value */
       i++;
     }
   return NO_ERROR;
@@ -953,6 +922,7 @@ is_histogrammable_type (DB_TYPE type)
     case DB_TYPE_DOUBLE:
     case DB_TYPE_NUMERIC:
     case DB_TYPE_MONETARY:
+    case DB_TYPE_BIGINT:
       return true;
 
     /* bit string */

@@ -2903,7 +2903,6 @@ set_seg_node (PT_NODE * attr, QO_ENV * env, BITSET * bitset)
   QO_SEGMENT *seg;
   PT_NODE *entity;
 
-  assert (attr->node_type == PT_NAME);
   node = lookup_node (attr, env, &entity);
 
   /* node will be null if this attr resolves to an enclosing scope */
@@ -2914,7 +2913,10 @@ set_seg_node (PT_NODE * attr, QO_ENV * env, BITSET * bitset)
        * for shared variables, and it doesn't really hurt anyone just
        * to ignore failures here.
        */
-      attr->info.name.histogram = seg->pt_node->info.name.histogram;
+      if (attr->node_type == PT_NAME)
+	{
+	  attr->info.name.histogram = seg->pt_node->info.name.histogram;
+	}
       bitset_add (bitset, QO_SEG_IDX (seg));
     }
 

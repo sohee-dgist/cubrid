@@ -38,7 +38,14 @@ namespace hist
   template<>
   void HistogramBuilder::write<std::int64_t> (char *&dest, std::int64_t v)
   {
-    OR_PUT_INT64 (dest, &v);  // 포인터 전달 필요
+    OR_PUT_INT64 (dest, &v);
+    dest += OR_INT64_SIZE;
+  }
+
+  template<>
+  void HistogramBuilder::write<std::uint64_t> (char *&dest, std::uint64_t v)
+  {
+    OR_PUT_INT64 (dest, reinterpret_cast<const std::int64_t *> (&v));
     dest += OR_INT64_SIZE;
   }
 
@@ -57,10 +64,12 @@ namespace hist
     dest += OR_INT_SIZE;
     if (v.length() <= 4)
       {
+	// inline data
 	memcpy (dest, v.data(), v.length());
       }
     else
       {
+	// str blob data (length + pointer)
 	OR_PUT_INT (dest, cur_str_off_);
 	cur_str_off_ += v.length();
       }
@@ -75,45 +84,49 @@ namespace hist
 
   char *HistogramBuilder::build (THREAD_ENTRY *thread_p, DB_TYPE type, int *histogram_total_length)
   {
-    // ---- precompute record sizes  ----
+    /* ---- precompute record sizes  ---- */
     const std::uint32_t bucket_area_size = hist::BUCKET_RECORD_SIZE * buckets_.size();
 
-    // ---- header ----
+    /* ---- header ---- */
     HeaderV1 H{};
     std::memcpy (H.magic, "HST1", 4);
     H.version  = htonl (1);
     H.nbuckets = htonl (static_cast<std::uint32_t> (buckets_.size()));
     H.type = htonl (static_cast<std::uint32_t> (type));
-    H.str_size = 0; // Fix Later
-    H.total_size = 0; // Fix Later
+    H.str_size = 0;
+    H.total_size = 0;
 
-    char *buffer = static_cast<char *> (db_private_alloc (thread_p, sizeof (HeaderV1) + bucket_area_size)); // records
+    /* ---- records ---- */
+    char *buffer = static_cast<char *> (db_private_alloc (thread_p, sizeof (HeaderV1) + bucket_area_size));
     if (buffer == NULL)
       {
 	return NULL;
       }
-    std::memset (buffer, 0, sizeof (HeaderV1) + bucket_area_size); // initialize to zero
+    std::memset (buffer, 0, sizeof (HeaderV1) + bucket_area_size); // must be initialized to zero
     char *end_buffer = buffer + sizeof (HeaderV1) + bucket_area_size;
     char *buffer_ptr = buffer + sizeof (HeaderV1);
     char *str_blob_ptr;
-    // buckets area
+
+    /* ---- buckets area ---- */
     if (buckets_.empty())
       {
 	return buffer; // return empty buffer if no buckets
       }
 
-    // Use index-based loop for safer access
+    /* ---- index-based loop for safer access ---- */
     for (size_t i = 0; i < buckets_.size(); ++i)
       {
 	const Bucket b = buckets_[i];
 	switch (type)
 	  {
+	  /* ---- int64_t value ---- */
 	  case DB_TYPE_INTEGER:
+	  case DB_TYPE_SHORT:
+	  case DB_TYPE_BIGINT:
 	  {
-	    // DB_TYPE_INTEGER는 std::int64_t로 저장됨 (HistogramTypes에 std::int32_t 없음)
 	    if (std::holds_alternative<std::int64_t> (b.data_hi))
 	      {
-		// int64_t 값을 int32_t로 변환하여 저장 (실제로는 32bit 값이므로)
+		// ---- int64_t value to int32_t value ----
 		std::int64_t val = std::get<std::int64_t> (b.data_hi);
 		write<std::int64_t> (buffer_ptr, static_cast<std::int64_t> (val));
 	      }
@@ -124,7 +137,10 @@ namespace hist
 	      }
 	  }
 	  break;
+	  /* ---- double value ---- */
 	  case DB_TYPE_DOUBLE:
+	  case DB_TYPE_FLOAT:
+	  case DB_TYPE_NUMERIC:
 	  {
 	    if (std::holds_alternative<double> (b.data_hi))
 	      {
@@ -137,20 +153,11 @@ namespace hist
 	      }
 	  }
 	  break;
-	  case DB_TYPE_BIGINT:
-	  {
-	    if (std::holds_alternative<std::int64_t> (b.data_hi))
-	      {
-		write<std::int64_t> (buffer_ptr, std::get<std::int64_t> (b.data_hi));
-	      }
-	    else
-	      {
-		assert (false);
-		return NULL;
-	      }
-	  }
-	  break;
+	  /* ---- string value ---- */
 	  case DB_TYPE_STRING:
+	  case DB_TYPE_BIT:
+	  case DB_TYPE_VARBIT:
+	  case DB_TYPE_CHAR:
 	  {
 	    if (std::holds_alternative<std::string> (b.data_hi))
 	      {
@@ -167,9 +174,27 @@ namespace hist
 		return NULL;
 	      }
 	  }
+	  /* ---- uint64_t value ---- */
+	  case DB_TYPE_TIME:
+	  case DB_TYPE_TIMESTAMP:
+	  case DB_TYPE_TIMESTAMPLTZ:
+	  case DB_TYPE_DATE:
+	  case DB_TYPE_MONETARY:
+	  case DB_TYPE_TIMESTAMPTZ:
+	  {
+	    if (std::holds_alternative<std::uint64_t> (b.data_hi))
+	      {
+		write<std::uint64_t> (buffer_ptr, std::get<std::uint64_t> (b.data_hi));
+	      }
+	    else
+	      {
+		assert (false);
+		return NULL;
+	      }
+	  }
 	  break;
 	  default:
-	    // not_implemented
+	    /* never reach here */
 	    assert (false);
 	    return NULL;
 	  }
@@ -179,7 +204,7 @@ namespace hist
 
     assert (buffer_ptr == end_buffer);
 
-    // build string blob
+    /* ---- build string blob ---- */
     if (cur_str_off_ > 0)
       {
 	assert (DB_TYPE_STRING == type);
@@ -189,7 +214,7 @@ namespace hist
 	    return NULL;
 	  }
 	char *cur_str_blob_ptr = str_blob_ptr;
-	std::memset (str_blob_ptr, 0, cur_str_off_); // initialize to zero
+	std::memset (str_blob_ptr, 0, cur_str_off_); // must be initialized to zero
 	char *str_blob_ptr_end = str_blob_ptr + cur_str_off_;
 	for (const auto &b : buckets_)
 	  {
@@ -217,7 +242,7 @@ namespace hist
 		  }
 	      }
 	  }
-	// write string
+	/* ---- write string ---- */
 	assert (cur_str_blob_ptr == str_blob_ptr_end);
 	buffer = static_cast<char *> (db_private_realloc (thread_p, buffer,
 				      sizeof (HeaderV1) + bucket_area_size + cur_str_off_));
@@ -230,12 +255,12 @@ namespace hist
 	db_private_free (thread_p, str_blob_ptr);
       }
 
+    /* ---- write header ---- */
     H.str_size = htonl (static_cast<std::uint32_t> (cur_str_off_));
     H.total_size = htonl (static_cast<std::uint32_t> (sizeof (HeaderV1) + bucket_area_size + cur_str_off_));
     memcpy (buffer, &H, sizeof (HeaderV1));
     *histogram_total_length = sizeof (HeaderV1) + bucket_area_size + cur_str_off_;
 
-    // write header
     return buffer;
   }
 } // namespace hist

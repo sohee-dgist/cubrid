@@ -44,6 +44,14 @@ namespace hist
   }
 
   template<>
+  std::uint64_t HistogramReader::get_value<std::uint64_t> (const void *ptr) const
+  {
+    std::uint64_t value;
+    OR_GET_INT64 (ptr, reinterpret_cast<std::int64_t *> (&value));
+    return value;
+  }
+
+  template<>
   double HistogramReader::get_value<double> (const void *ptr) const
   {
     double value;
@@ -229,9 +237,9 @@ namespace hist
   }
 
   template<>
-  unsigned long HistogramReader::bucket_hi<unsigned long> (std::int32_t i) const
+  std::uint64_t HistogramReader::bucket_hi<std::uint64_t> (std::int32_t i) const
   {
-    return static_cast<unsigned long> (get_value<std::int64_t> (bucket_hi_value_ptr (static_cast<std::uint32_t> (i))));
+    return static_cast<std::uint64_t> (get_value<std::int64_t> (bucket_hi_value_ptr (static_cast<std::uint32_t> (i))));
   }
 
   // ---------- bucket_hi dump template specialization ----------
@@ -251,6 +259,12 @@ namespace hist
   std::string HistogramReader::bucket_hi_dump<double> (std::uint32_t i) const
   {
     return std::to_string (get_value<double> (bucket_hi_value_ptr (i)));
+  }
+
+  template<>
+  std::string HistogramReader::bucket_hi_dump<std::uint64_t> (std::uint32_t i) const
+  {
+    return std::to_string (static_cast<std::uint64_t> (get_value<std::int64_t> (bucket_hi_value_ptr (i))));
   }
 
   template<>
@@ -281,12 +295,6 @@ namespace hist
       }
     assert (off32 + len32 <= str_size_);
     return std::string{str_blob_.data() + off32, static_cast<std::size_t> (std::min (len32, static_cast<std::uint32_t> (8)))};
-  }
-
-  template<>
-  std::string HistogramReader::bucket_hi_dump<unsigned long> (std::uint32_t i) const
-  {
-    return std::to_string (static_cast<unsigned long> (get_value<std::int64_t> (bucket_hi_value_ptr (i))));
   }
 
   std::string HistogramReader::bucket_hi_dump_with_type (std::uint32_t i, DB_TYPE attr_type) const
