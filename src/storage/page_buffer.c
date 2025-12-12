@@ -5348,9 +5348,12 @@ pgbuf_initialize_bcb_table (void)
 {
   PGBUF_BCB *bufptr;
   PGBUF_IOPAGE_BUFFER *ioptr;
+  PGBUF_ATOMIC_LATCH_IMPL impl;
   int i;
   long long unsigned alloc_size;
-
+  impl.impl.latch_mode = PGBUF_LATCH_INVALID;
+  impl.impl.waiter_exists = false;
+  impl.impl.fcnt = 0;
   /* allocate space for page buffer BCB table */
   alloc_size = (long long unsigned) pgbuf_Pool.num_buffers * PGBUF_BCB_SIZEOF;
   if (!MEM_SIZE_IS_VALID (alloc_size))
@@ -5397,13 +5400,14 @@ pgbuf_initialize_bcb_table (void)
 #endif /* SERVER_MODE */
       VPID_SET_NULL (&bufptr->vpid);
       placement_new (&bufptr->atomic_latch, 0);
+      bufptr->atomic_latch.store (impl.raw);
 
 #if defined(SERVER_MODE)
       bufptr->next_wait_thrd = NULL;
 #endif /* SERVER_MODE */
 #if defined(SERVER_MODE)
       bufptr->latch_last_thread = NULL;
-#endif /* SERVER_MODE && !NDEBUG */
+#endif /* SERVER_MODE */
 
       bufptr->hash_next = NULL;
       bufptr->prev_BCB = NULL;
@@ -6244,7 +6248,7 @@ pgbuf_latch_bcb_upon_fix (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, PGBUF_LAT
       holder->perf_stat.dirty_before_hold = buf_is_dirty;
 #if defined(SERVER_MODE)
       bufptr->latch_last_thread = thread_p;
-#endif /* SERVER_MODE && !NDEBUG */
+#endif /* SERVER_MODE */
 
       return NO_ERROR;
     }
@@ -6290,7 +6294,7 @@ pgbuf_latch_bcb_upon_fix (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, PGBUF_LAT
 #endif /* SERVER_MODE */
 #if defined(SERVER_MODE)
       bufptr->latch_last_thread = thread_p;
-#endif /* SERVER_MODE && !NDEBUG */
+#endif /* SERVER_MODE */
 
       return NO_ERROR;
     }
@@ -6386,7 +6390,7 @@ pgbuf_latch_bcb_upon_fix (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, PGBUF_LAT
       *is_latch_wait = true;
 #if defined(SERVER_MODE)
       bufptr->latch_last_thread = thread_p;
-#endif /* SERVER_MODE && !NDEBUG */
+#endif /* SERVER_MODE */
       return NO_ERROR;
     }
 }
@@ -6450,9 +6454,10 @@ pgbuf_unlatch_bcb_upon_unfix (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, int h
 	  assert (false);
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_PB_UNFIXED_PAGEPTR, 3, pgptr, bufptr->vpid.pageid,
 		  fileio_get_volume_label (bufptr->vpid.volid, PEEK));
-	  set_latch_and_fcnt (&bufptr->atomic_latch, get_latch (&bufptr->atomic_latch), 0);
-	  is_zero_fcnt = true;
 	  impl_new.impl.latch_mode = PGBUF_NO_LATCH;
+	  impl_new.impl.fcnt = 0;
+	  impl_new.impl.waiter_exists = false;
+	  is_zero_fcnt = true;
 	  break;
 	}
     }
@@ -6469,9 +6474,6 @@ pgbuf_unlatch_bcb_upon_unfix (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, int h
 
   if (is_zero_fcnt)
     {
-#if defined(SERVER_MODE)
-      bufptr->latch_last_thread = NULL;
-#endif /* SERVER_MODE && !NDEBUG */
       /* When oldest_unflush_lsa of a page is set, its dirty mark should also be set */
       assert (LSA_ISNULL (&bufptr->oldest_unflush_lsa) || pgbuf_bcb_is_dirty (bufptr));
 
@@ -6909,8 +6911,8 @@ pgbuf_block_bcb (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, PGBUF_LATCH_MODE r
       assert (0 < get_fcnt (&bufptr->atomic_latch));
 #endif
     }
+  bufptr->latch_last_thread = thread_p;
 #endif /* SERVER_MODE */
-
   return NO_ERROR;
 }
 
@@ -6964,6 +6966,8 @@ pgbuf_timed_sleep_error_handling (THREAD_ENTRY * thrd_entry, PGBUF_BCB * bufptr)
       do
 	{
 	  can_grant = false;
+	  impl = get_impl (&bufptr->atomic_latch);
+	  impl_new = impl;
 	  if (impl.impl.latch_mode == PGBUF_LATCH_READ && curr_thrd_entry->request_latch_mode == PGBUF_LATCH_READ)
 	    {
 	      can_grant = true;
