@@ -23296,10 +23296,13 @@ start_btree_traversal:
 	  goto start_btree_traversal;
 	}
 
-      if (!pgbuf_is_chn_valid (thread_p, crt_page))
+      if (crt_page && !pgbuf_is_chn_valid (thread_p, crt_page))
 	{
 	  pgbuf_unfix_and_init (thread_p, crt_page);
-	  pgbuf_unfix_and_init (thread_p, advance_page);
+	  if (advance_page != NULL)
+	    {
+	      pgbuf_unfix_and_init (thread_p, advance_page);
+	    }
 	  goto start_btree_traversal;
 	}
 

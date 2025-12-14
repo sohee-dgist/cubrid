@@ -29,7 +29,6 @@
 #include <string.h>
 #include <assert.h>
 #include <atomic>
-#include <cstdint>
 
 #include "page_buffer.h"
 
@@ -292,6 +291,8 @@ typedef enum
 
 #define HASH_SIZE_BITS 20
 #define PGBUF_HASH_SIZE (1 << HASH_SIZE_BITS)
+
+#define UINT16MAX 65534
 
 #define PGBUF_HASH_VALUE(vpid) pgbuf_hash_func_mirror(vpid)
 
@@ -2735,6 +2736,15 @@ pgbuf_promote_read_latch_release (THREAD_ENTRY * thread_p, PAGE_PTR * pgptr_p, P
 
   /* fetch BCB from page pointer */
   CAST_PGPTR_TO_BFPTR (bufptr, *pgptr_p);
+  if (bufptr->orig_bcb != NULL)
+    {
+      *pgptr_p = pgbuf_fix (thread_p, &bufptr->vpid, OLD_PAGE, PGBUF_LATCH_READ, PGBUF_UNCONDITIONAL_LATCH);
+      if (*pgptr_p == NULL)
+	{
+	  return ER_FAILED;
+	}
+      CAST_PGPTR_TO_BFPTR (bufptr, *pgptr_p);
+    }
   assert (!VPID_ISNULL (&bufptr->vpid));
 
 #if defined(SERVER_MODE)	/* SERVER_MODE */
@@ -2753,7 +2763,8 @@ pgbuf_promote_read_latch_release (THREAD_ENTRY * thread_p, PAGE_PTR * pgptr_p, P
       need_block = false;
       impl = get_impl (&bufptr->atomic_latch);
       impl_new = impl;
-      impl_new.impl.chn = impl.impl.chn + 1 % UINT16_MAX;
+      impl_new.impl.chn = (impl_new.impl.chn + 1) % UINT16MAX;
+
       if (holder->fix_count == impl.impl.fcnt)
 	{
 	  if (impl.impl.waiter_exists == true && bufptr->next_wait_thrd
@@ -5636,6 +5647,7 @@ pgbuf_initialize_bcb_table (void)
   impl.impl.latch_mode = PGBUF_LATCH_INVALID;
   impl.impl.waiter_exists = false;
   impl.impl.fcnt = 0;
+  impl.impl.chn = 0;
   /* allocate space for page buffer BCB table */
   alloc_size = (long long unsigned) pgbuf_Pool.num_buffers * PGBUF_BCB_SIZEOF;
   if (!MEM_SIZE_IS_VALID (alloc_size))
@@ -6493,7 +6505,7 @@ pgbuf_latch_bcb_upon_fix (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, PGBUF_LAT
 	}
 	if (request_mode == PGBUF_LATCH_WRITE)
 	{
-	  new_impl.impl.chn = new_impl.impl.chn + 1 % UINT16_MAX;
+	  new_impl.impl.chn = (new_impl.impl.chn + 1) % UINT16MAX;
 	}
     }
   while (!bufptr->atomic_latch.
@@ -7263,7 +7275,7 @@ pgbuf_timed_sleep_error_handling (THREAD_ENTRY * thrd_entry, PGBUF_BCB * bufptr)
 	  if (curr_thrd_entry->request_latch_mode == PGBUF_LATCH_WRITE
 	      || curr_thrd_entry->request_latch_mode == PGBUF_LATCH_FLUSH)
 	    {
-	      impl_new.impl.chn = impl.impl.chn + 1 % UINT16_MAX;
+	      impl_new.impl.chn = (impl_new.impl.chn + 1) % UINT16MAX;
 	    }
 	}
       while (!bufptr->atomic_latch.compare_exchange_weak (impl.raw, impl_new.raw, std::memory_order_acq_rel,
@@ -8502,6 +8514,7 @@ pgbuf_claim_bcb_for_fix (THREAD_ENTRY * thread_p, const VPID * vpid, PAGE_FETCH_
   impl.impl.latch_mode = PGBUF_NO_LATCH;
   impl.impl.waiter_exists = false;
   impl.impl.fcnt = 0;
+  impl.impl.chn = 0;
   bufptr->atomic_latch.store (impl.raw);
   pgbuf_bcb_update_flags (thread_p, bufptr, 0, PGBUF_BCB_ASYNC_FLUSH_REQ);	/* todo: why this?? */
   pgbuf_bcb_check_and_reset_fix_and_avoid_dealloc (bufptr, ARG_FILE_LINE);
@@ -8884,7 +8897,7 @@ pgbuf_bcb_safe_flush_internal (THREAD_ENTRY * thread_p, PGBUF_BCB * bufptr, bool
 	      impl_new.impl.waiter_exists = true;
 	    }
 	}
-      impl_new.impl.chn = impl.impl.chn + 1 % UINT16_MAX;
+      impl_new.impl.chn = (impl_new.impl.chn + 1) % UINT16MAX;
     }
   while (!bufptr->atomic_latch.compare_exchange_strong (impl.raw, impl_new.raw, std::memory_order_acq_rel,
 							std::memory_order_acquire));
