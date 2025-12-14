@@ -23327,6 +23327,16 @@ start_btree_traversal:
   assert (btree_get_node_header (thread_p, crt_page) != NULL
 	  && btree_get_node_header (thread_p, crt_page)->node_level == 1);
 
+  if (crt_page && !pgbuf_is_chn_valid (thread_p, crt_page))
+    {
+      pgbuf_unfix_and_init (thread_p, crt_page);
+      if (advance_page != NULL)
+	{
+	  pgbuf_unfix_and_init (thread_p, advance_page);
+	}
+      goto start_btree_traversal;
+    }
+
   if (key_function != NULL)
     {
       /* Call key_function. */
@@ -27006,7 +27016,7 @@ btree_insert_internal (THREAD_ENTRY * thread_p, BTID * btid, DB_VALUE * key, OID
   assert (oid != NULL);
   /* Assert class OID is valid or not required; not required for undo delete */
   assert (purpose == BTREE_OP_INSERT_UNDO_PHYSICAL_DELETE || (class_oid != NULL && !OID_ISNULL (class_oid)));
-
+  pgbuf_thread_local_cache_destroy (thread_p);
   PERF_UTIME_TRACKER_START (thread_p, &insert_helper.time_track);
 
   /* Save OID, class OID and MVCC info in insert helper. */
@@ -30556,7 +30566,7 @@ btree_delete_internal (THREAD_ENTRY * thread_p, BTID * btid, OID * oid, OID * cl
   assert (oid != NULL);
   assert (op_type == SINGLE_ROW_DELETE || op_type == MULTI_ROW_DELETE || op_type == SINGLE_ROW_UPDATE
 	  || op_type == MULTI_ROW_UPDATE || op_type == SINGLE_ROW_MODIFY);
-
+  pgbuf_thread_local_cache_destroy (thread_p);
   PERF_UTIME_TRACKER_START (thread_p, &delete_helper.time_track);
 
   /* Choose internal function based on purpose. */
@@ -34246,6 +34256,8 @@ btree_online_index_list_dispatcher (THREAD_ENTRY * thread_p, BTID * btid, OID * 
   assert (purpose == BTREE_OP_ONLINE_INDEX_IB_INSERT || purpose == BTREE_OP_ONLINE_INDEX_TRAN_INSERT
 	  || purpose == BTREE_OP_ONLINE_INDEX_TRAN_DELETE || purpose == BTREE_OP_ONLINE_INDEX_UNDO_TRAN_DELETE
 	  || purpose == BTREE_OP_ONLINE_INDEX_UNDO_TRAN_INSERT);
+
+  pgbuf_thread_local_cache_destroy (thread_p);
 
   /* Check for null keys. */
   if (DB_IS_NULL (key) || btree_multicol_key_is_null (key))
