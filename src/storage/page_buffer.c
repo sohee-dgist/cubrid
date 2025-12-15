@@ -2747,6 +2747,9 @@ pgbuf_promote_read_latch_release (THREAD_ENTRY * thread_p, PAGE_PTR * pgptr_p, P
     }
   assert (!VPID_ISNULL (&bufptr->vpid));
 
+  vpid.pageid = bufptr->vpid.pageid;
+  vpid.volid = bufptr->vpid.volid;
+
 #if defined(SERVER_MODE)	/* SERVER_MODE */
   /* performance tracking - get start counter */
   is_perf_tracking = perfmon_is_perf_tracking ();
@@ -3319,6 +3322,23 @@ pgbuf_cached_fix (THREAD_ENTRY * thread_p, const VPID * vpid,
       return NULL;
     }
   CAST_PGPTR_TO_BFPTR (orig_bcb, orig_pgptr);
+
+  if (orig_bcb->iopage_buffer->iopage.prv.ptype == PAGE_BTREE)
+    {
+      BTREE_NODE_HEADER *node_header;
+      node_header = btree_get_node_header (thread_p, orig_pgptr);
+      if (node_header == NULL)
+	{
+	  pgbuf_unfix (thread_p, orig_pgptr);
+	  return NULL;
+	}
+      if (node_header->node_level <= 1)
+	{
+	  /* leaf page, not caching and return real page */
+	  return orig_pgptr;
+	}
+    }
+
   ioptr = PGBUF_FIND_IOPAGE_PTR_FROM_EXTERNAL_ALLOCATE (thread_p->m_pgbuf_thread_local_cache->memory, cache_index);
   memcpy (ioptr, orig_bcb->iopage_buffer, PGBUF_IOPAGE_BUFFER_SIZE);
 

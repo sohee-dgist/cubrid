@@ -23322,11 +23322,6 @@ start_btree_traversal:
 
   /* Leaf page is reached. */
 
-  assert (is_leaf && !stop && !restart);
-  assert (crt_page != NULL);
-  assert (btree_get_node_header (thread_p, crt_page) != NULL
-	  && btree_get_node_header (thread_p, crt_page)->node_level == 1);
-
   if (crt_page && !pgbuf_is_chn_valid (thread_p, crt_page))
     {
       pgbuf_unfix_and_init (thread_p, crt_page);
@@ -23336,6 +23331,11 @@ start_btree_traversal:
 	}
       goto start_btree_traversal;
     }
+
+  assert (is_leaf && !stop && !restart);
+  assert (crt_page != NULL);
+  assert (btree_get_node_header (thread_p, crt_page) != NULL
+	  && btree_get_node_header (thread_p, crt_page)->node_level == 1);
 
   if (key_function != NULL)
     {
