@@ -2747,10 +2747,9 @@ pgbuf_promote_read_latch_release (THREAD_ENTRY * thread_p, PAGE_PTR * pgptr_p, P
     }
   assert (!VPID_ISNULL (&bufptr->vpid));
 
+#if defined(SERVER_MODE)	/* SERVER_MODE */
   vpid.pageid = bufptr->vpid.pageid;
   vpid.volid = bufptr->vpid.volid;
-
-#if defined(SERVER_MODE)	/* SERVER_MODE */
   /* performance tracking - get start counter */
   is_perf_tracking = perfmon_is_perf_tracking ();
   if (is_perf_tracking)
