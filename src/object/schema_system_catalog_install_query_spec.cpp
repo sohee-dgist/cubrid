@@ -1648,7 +1648,7 @@ sm_define_view_db_histogram_spec (void)
 	  "[h].[class_of] AS [class_of], "
 	  "[h].[key_attr] AS [key_attr], "
 	  "[h].[with_fullscan] AS [with_fullscan], " // TODO : integer -> varchar(32)
-	  "[h].[bucket_count] AS [bucket_count], "
+	  "[h].[null_frequency] AS [null_frequency], "
 	  "[h].[histogram_values] AS [histogram_values] "
 	"FROM "
 	  /* CT_DB_HISTOGRAM_NAME */

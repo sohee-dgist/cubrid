@@ -12493,7 +12493,6 @@ install_new_representation (MOP classop, SM_CLASS * class_, SM_TEMPLATE * flat)
       class_->stats = NULL;
     }
 
-  /* TODO: HISTOGRAM */
   if (newrep && class_->histogram != NULL)
     {
       stats_free_histogram_and_init (class_->histogram);

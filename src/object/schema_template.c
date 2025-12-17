@@ -2068,6 +2068,7 @@ smt_add_histogram (MOP classop, const char *attr_name, int bucket_count, bool wi
   DB_OBJECT *ret_obj = NULL, *histogram_class = NULL;
   DB_VALUE value;
   DB_OTMPL *obj_tmpl = NULL;
+  double null_frequency = 0;
   db_make_null (&value);
 
   /* temporarily disable authorization to access db_serial class */
@@ -2108,14 +2109,24 @@ smt_add_histogram (MOP classop, const char *attr_name, int bucket_count, bool wi
       goto end;
     }
 
-  /* bucket_count */
-  db_make_int (&value, bucket_count);
-  error = dbt_put_internal (obj_tmpl, "bucket_count", &value);
+  /* with_fullscan */
+  db_make_int (&value, with_fullscan);
+  error = dbt_put_internal (obj_tmpl, "with_fullscan", &value);
   pr_clear_value (&value);
   if (error != NO_ERROR)
     {
       goto end;
     }
+
+
+  db_make_double (&value, null_frequency);
+  error = dbt_put_internal (obj_tmpl, "null_frequency", &value);
+  pr_clear_value (&value);
+  if (error != NO_ERROR)
+    {
+      goto end;
+    }
+
   /* histogram_values */
   db_make_null (&value);
   error = dbt_put_internal (obj_tmpl, "histogram_values", &value);

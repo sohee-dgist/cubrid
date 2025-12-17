@@ -60,6 +60,13 @@ analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_
   char *histogram_blob = NULL;
   int histogram_total_length = 0;
 
+  // ---- get null frequency ----
+  error = get_null_frequency (thread_p, tbl_name, attr_name, with_fullscan, classop);
+  if (error != NO_ERROR)
+    {
+      return error;
+    }
+
   // ---- get histogram ----
   error =
 	  get_histogram (thread_p, tbl_name, attr_name, max_number_of_buckets, with_fullscan, &histogram_blob,
@@ -80,6 +87,103 @@ analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_
   db_private_free (thread_p, histogram_blob);
 
   return NO_ERROR;
+}
+
+/*
+ * get_null_frequency ()
+ *
+ * return: NO_ERROR if successful, otherwise an error code
+ *   classop(in): class object pointer
+ *   attr_name(in): attribute name
+ *   null_frequency(out): null frequency
+ */
+int
+get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, bool with_fullscan,
+		    MOP classop)
+{
+  int error = NO_ERROR;
+  DB_OBJECT *histogram_obj, *edit_histogram_object = NULL;
+  DB_OTMPL *obj_tmpl = NULL;
+  DB_VALUE null_frequency_value;
+  DB_QUERY_RESULT *query_result;
+  DB_QUERY_ERROR query_error;
+
+  char query_buf[512+222+254]; // (query_length + table_name_length + attr_name_length)
+
+  if (!with_fullscan)
+    {
+      snprintf (query_buf, sizeof (query_buf), NULL_FREQUENCY_WITH_SAMPLING_SCAN_QUERY_TEMPLATE, attr_name, tbl_name);
+    }
+  else
+    {
+      snprintf (query_buf, sizeof (query_buf), NULL_FREQUENCY_QUERY_TEMPLATE, attr_name, tbl_name);
+    }
+
+  error = db_compile_and_execute_local (query_buf, &query_result, &query_error);
+
+  if (error < 1)
+    {
+      return error;
+    }
+
+  error = db_query_first_tuple (query_result);
+
+  if (error != DB_CURSOR_SUCCESS)
+    {
+      if (error == DB_CURSOR_END)
+	{
+	  error = NO_ERROR;
+	}
+      else
+	{
+	  ASSERT_ERROR ();
+	}
+      return error;
+    }
+
+  error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("null_frequency"), &null_frequency_value);
+
+  error = db_get_histogram (classop, attr_name, &histogram_obj);
+  if (error != NO_ERROR)
+    {
+      return error;
+    }
+
+  obj_tmpl = dbt_edit_object (histogram_obj);
+  if (obj_tmpl == NULL)
+    {
+      assert (er_errid () != NO_ERROR);
+      error = er_errid ();
+      goto end;
+    }
+
+  error = dbt_put (obj_tmpl, "null_frequency", &null_frequency_value);
+  if (error != NO_ERROR)
+    {
+      goto end;
+    }
+
+  edit_histogram_object = dbt_finish_object (obj_tmpl);
+  if (edit_histogram_object == NULL)
+    {
+      assert (er_errid () != NO_ERROR);
+      error = er_errid ();
+      goto end;
+    }
+
+  assert (edit_histogram_object == histogram_obj);
+  obj_tmpl = NULL;
+
+  error = locator_flush_instance (edit_histogram_object);
+  if (error != NO_ERROR)
+    {
+      goto end;
+    }
+
+end:
+  db_value_clear (&null_frequency_value);
+  assert (error == NO_ERROR);	// for debug
+  return error;
 }
 
 /*
@@ -200,6 +304,11 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 	  return ER_FAILED;
 	}
 	}
+      db_value_clear (&value[0]);
+      db_value_clear (&value[1]);
+      db_value_clear (&value[2]);
+      db_value_clear (&value[3]);
+      db_value_clear (&value[4]);
     }
   while (db_query_next_tuple (query_result) == DB_CURSOR_SUCCESS);
 
@@ -849,6 +958,7 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
   DB_OBJECT *histogram_obj = NULL;
   SM_ATTRIBUTE *att;
   SM_CLASS *class_ = NULL;
+
   error = au_fetch_class (classop, &class_, AU_FETCH_READ, AU_SELECT);
   if (error != NO_ERROR)
     {
@@ -867,11 +977,18 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       return ER_OUT_OF_VIRTUAL_MEMORY;
     }
 
+  (*histogram)->null_frequency = (double *) db_ws_alloc (sizeof (double));
+  if ((*histogram)->null_frequency == NULL)
+    {
+      return ER_OUT_OF_VIRTUAL_MEMORY;
+    }
+
+
   int i = 0;
   for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
     {
       const char *attname = (char *) att->header.name;
-      DB_VALUE *histogram_value = NULL;
+      DB_VALUE *histogram_value = NULL, *null_frequency_value = NULL;
       error = db_get_histogram (classop, attname, &histogram_obj);
       if (error != NO_ERROR)
 	{
@@ -881,6 +998,7 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       if (histogram_obj == NULL)
 	{
 	  (*histogram)->histogram[i] = nullptr;
+	  (*histogram)->null_frequency[i] = 0.0;
 	  i++;
 	  continue;
 	}
@@ -891,8 +1009,21 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
 	{
 	  return error;
 	}
+      error = db_get (histogram_obj, "null_frequency", null_frequency_value);
+      if (error != NO_ERROR)
+	{
+	  return error;
+	}
 
       (*histogram)->histogram[i] = histogram_value; /* should clear histogram_value */
+      if (db_value_is_null (null_frequency_value))
+	{
+	  (*histogram)->null_frequency[i] = 0.0;
+	}
+      else
+	{
+	  (*histogram)->null_frequency[i] = db_get_double (null_frequency_value);
+	}
       i++;
     }
   return NO_ERROR;
@@ -914,6 +1045,7 @@ int stats_free_histogram_and_init (HIST_STATS *histogram)
       db_ws_free (histogram->histogram[i]);
       histogram->histogram[i] = nullptr;
     }
+  db_ws_free (histogram->null_frequency);
   db_ws_free (histogram->histogram);
   db_ws_free (histogram);
   return NO_ERROR;
@@ -985,7 +1117,7 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   const char *type_name = db_get_type_name (attr_type);
   int rows_scanned = 0;
   int bucket_count = 0;
-  DB_VALUE histogram_value;
+  DB_VALUE histogram_value, null_frequency_value;
   DB_OBJECT *histogram_obj = NULL;
   int histogram_total_length = 0;
 
@@ -1020,6 +1152,22 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   if (error != NO_ERROR)
     {
       return ER_FAILED;
+    }
+
+  /* get histgoram */
+  error = db_get (histogram_obj, "null_frequency", &null_frequency_value);
+  if (error != NO_ERROR)
+    {
+      return ER_FAILED;
+    }
+
+  if (db_value_is_null (&null_frequency_value))
+    {
+      null_frequency = 0.0;
+    }
+  else
+    {
+      null_frequency = db_get_double (&null_frequency_value);
     }
 
   const char *histogram_blob_ptr = db_get_bit (&histogram_value, &histogram_total_length);
@@ -1069,7 +1217,9 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
     }
   fprintf (f, "| %-47s|\n", line);
 
-  /* buckets + null frec line : TODO add null frequency */
+  snprintf (line, sizeof (line), " null frequency : %.3f", null_frequency);
+  fprintf (f, "| %-47s|\n", line);
+
   snprintf (line, sizeof (line),
 	    " buckets + mcv: %d",
 	    static_cast<int> (histogram_reader.bucket_count()));

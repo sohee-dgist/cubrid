@@ -1270,7 +1270,7 @@ namespace cubschema
       {"class_of", "object"},
       {"key_attr", format_varchar (255)},
       {"with_fullscan","integer"},
-      {"bucket_count", "integer"},
+      {"null_frequency", "double"},
       {"histogram_values", format_varbit (1073741823) }
     },
 // constraint

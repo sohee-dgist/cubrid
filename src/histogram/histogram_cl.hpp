@@ -33,6 +33,12 @@ struct parser_node;
 typedef struct parser_node PT_NODE;
 typedef struct hist_stats HIST_STATS;
 
+/* null frequency query template */
+static const char *NULL_FREQUENCY_QUERY_TEMPLATE =
+	"SELECT SUM(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) AS null_frequency FROM %s;";
+static const char *NULL_FREQUENCY_WITH_SAMPLING_SCAN_QUERY_TEMPLATE =
+	"SELECT /*+ SAMPLING_SCAN */ SUM(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) AS null_frequency FROM %s;";
+
 /* histogram query template */
 static const char *HISTOGRAM_QUERY_TEMPLATE =
 	"WITH src AS (SELECT %s AS val FROM %s WHERE %s IS NOT NULL), "
@@ -87,6 +93,8 @@ namespace hist
 /* histogram analysis functions */
 int analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
 		     bool with_fullscan, MOP classop);
+int get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, bool with_fullscan,
+			MOP classop);
 int get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
 		   bool with_fullscan, char **histogram_blob, int *histogram_total_length);
 int set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, char *histogram_blob,
