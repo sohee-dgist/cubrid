@@ -2898,8 +2898,14 @@ scan_open_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
 	  return ER_FAILED;
 	}
 
-      /* sampling_weight = total_page / sampling_page */
-      hsidp->sampling.weight = MAX ((total_pages / NUMBER_OF_SAMPLING_PAGES), 1);
+      /* sampling_weight: default 30% sampling, minimum 100 pages, maximum 5000 pages */
+      /* 30% sampling = weight approximately 3.33 (1/0.3) */
+      int base_weight = 3;	/* base weight for 33% sampling */
+      int min_weight = (total_pages + 99) / 100;	/* ensure minimum 100 pages (rounded up) */
+      int max_weight = total_pages / 5000;	/* limit maximum 5000 pages */
+
+      /* select the smaller value between base_weight and min_weight, and greater than max_weight */
+      hsidp->sampling.weight = MAX (MIN (base_weight, min_weight), MAX (max_weight, 1));
     }
 
   return NO_ERROR;
