@@ -977,7 +977,7 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       return ER_OUT_OF_VIRTUAL_MEMORY;
     }
 
-  (*histogram)->null_frequency = (double *) db_ws_alloc (sizeof (double));
+  (*histogram)->null_frequency = (double *) db_ws_alloc (sizeof (double) * class_->att_count);
   if ((*histogram)->null_frequency == NULL)
     {
       return ER_OUT_OF_VIRTUAL_MEMORY;
