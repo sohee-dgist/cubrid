@@ -107,12 +107,6 @@ namespace hist
     char *buffer_ptr = buffer + sizeof (HeaderV1);
     char *str_blob_ptr;
 
-    /* ---- buckets area ---- */
-    if (buckets_.empty())
-      {
-	return buffer; // return empty buffer if no buckets
-      }
-
     /* ---- index-based loop for safer access ---- */
     for (size_t i = 0; i < buckets_.size(); ++i)
       {
@@ -174,6 +168,7 @@ namespace hist
 		return NULL;
 	      }
 	  }
+	  break;
 	  /* ---- uint64_t value ---- */
 	  case DB_TYPE_TIME:
 	  case DB_TYPE_TIMESTAMP:

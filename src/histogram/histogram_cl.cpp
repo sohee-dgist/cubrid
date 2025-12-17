@@ -127,6 +127,11 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
       return error;
     }
 
+  if (error == 0) /* empty histogram */
+    {
+      goto build_histogram;
+    }
+
   error = db_query_first_tuple (query_result);
 
   if (error != DB_CURSOR_SUCCESS)
@@ -164,6 +169,8 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 	  return error;
 	}
 
+      type = static_cast<DB_TYPE> (value[1].domain.general_info.type);
+
       switch (key.kind)
 	{
 	case hist::histogram_key_kind::i64:
@@ -195,6 +202,8 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 	}
     }
   while (db_query_next_tuple (query_result) == DB_CURSOR_SUCCESS);
+
+build_histogram:
 
   *histogram_blob = histogram_builder.build (thread_p, type, histogram_total_length);
   if (*histogram_blob == NULL)

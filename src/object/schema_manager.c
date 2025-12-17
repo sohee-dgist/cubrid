@@ -15582,6 +15582,10 @@ sm_add_histogram (MOP classop, const char *attr_name, int bucket_count, bool wit
   error = smt_check_histogram_exist (classop, attr_name);
   if (error != NO_ERROR)
     {
+      if (error == ER_LC_CLASSNAME_EXIST)
+	{
+	  return error;
+	}
       goto error_exit;
     }
 
