@@ -23529,10 +23529,19 @@ btree_advance_and_find_key (THREAD_ENTRY * thread_p, BTID_INT * btid_int, DB_VAL
 	  return error_code;
 	}
 
+      if (node_header->node_level > 2)
+	{
+	  *advance_to_page =
+	    pgbuf_cached_fix (thread_p, &child_vpid, OLD_PAGE, PGBUF_LATCH_READ, PGBUF_UNCONDITIONAL_LATCH);
+	}
+      else
+	{
+	  *advance_to_page = pgbuf_fix (thread_p, &child_vpid, OLD_PAGE, PGBUF_LATCH_READ, PGBUF_UNCONDITIONAL_LATCH);
+	}
+
       /* Advance to child. */
       assert (!VPID_ISNULL (&child_vpid));
-      *advance_to_page =
-	pgbuf_cached_fix (thread_p, &child_vpid, OLD_PAGE, PGBUF_LATCH_READ, PGBUF_UNCONDITIONAL_LATCH);
+
       if (*advance_to_page == NULL)
 	{
 	  /* Error fixing child. */

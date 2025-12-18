@@ -3250,7 +3250,7 @@ pgbuf_cached_fix (THREAD_ENTRY * thread_p, const VPID * vpid,
   PGBUF_THREAD_LOCAL_CACHE *cache = thread_p->m_pgbuf_thread_local_cache;
   uint32_t cache_index = 0;
   /* find cached page */
-  for (int i = 0; i < PGBUF_THREAD_LOCAL_CACHE_MAX_PAGES; i++)
+  for (uint32_t i = 0; i < cache->num_pages_used; i++)
     {
       bufptr = &cache->bcb_array[i];
       if (bufptr->vpid.volid == vpid->volid && bufptr->vpid.pageid == vpid->pageid)
