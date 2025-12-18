@@ -715,7 +715,7 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
   switch (key.kind)
     {
     case hist::histogram_key_kind::i64:
-      found = histogram_reader.find_bucket_and_check<std::int32_t> (key.i64, bucket_index);
+      found = histogram_reader.find_bucket_and_check<std::int64_t> (key.i64, bucket_index);
       break;
 
     case hist::histogram_key_kind::dbl:
