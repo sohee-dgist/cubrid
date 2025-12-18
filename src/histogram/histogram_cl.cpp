@@ -135,6 +135,7 @@ get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *at
 
   if (error < 1)
     {
+      db_query_end (query_result);
       return error;
     }
 
@@ -150,6 +151,7 @@ get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *at
 	{
 	  ASSERT_ERROR ();
 	}
+      db_query_end (query_result);
       return error;
     }
 
@@ -248,6 +250,7 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 
   if (error < 0)
     {
+      db_query_end (query_result);
       return error;
     }
 
@@ -581,11 +584,11 @@ histogram_extract_key (const DB_VALUE *db_val, hist::histogram_key &key)
 static double
 numeric_domain_frac_i64_lt (std::int64_t lo, std::int64_t hi, std::int64_t v)
 {
-  if (v <= lo)
+  if (lo >= v)
     {
       return 0.0;
     }
-  if (v >= hi)
+  if (hi <= v)
     {
       return 1.0;
     }
@@ -594,7 +597,7 @@ numeric_domain_frac_i64_lt (std::int64_t lo, std::int64_t hi, std::int64_t v)
 
 double numeric_domain_frac_u64_lt (std::uint64_t lo, std::uint64_t hi, std::uint64_t v)
 {
-  if (v >= hi)
+  if (hi <= v)
     {
       return 1.0;
     }
@@ -609,7 +612,7 @@ double numeric_domain_frac_u64_lt (std::uint64_t lo, std::uint64_t hi, std::uint
 
 double numeric_domain_frac_dbl_lt (double lo, double hi, double v)
 {
-  if (v >= hi)
+  if (hi <= v)
     {
       return 1.0;
     }
@@ -659,7 +662,7 @@ string_pos (const unsigned char *s, std::size_t len, std::size_t max_len = 16)
 static double
 string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::string &v)
 {
-  if (hi >= v)
+  if (hi <= v)
     {
       return 1.0;
     }
