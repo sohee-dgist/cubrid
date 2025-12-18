@@ -215,7 +215,7 @@ namespace hist
 
     if (len32 <= 4) // inline data
       {
-	return std::string_view{ p+4, static_cast<std::size_t> (len32-4) };
+	return std::string_view{ p+4, static_cast<std::size_t> (len32) };
       }
     assert (off32 + len32 <= str_size_);
     return std::string_view{str_blob_.data() + off32, static_cast<std::size_t> (len32)};
@@ -276,7 +276,7 @@ namespace hist
 
     if (len32 <= 4) // inline data
       {
-	return std::string{ p+4, static_cast<std::size_t> (len32-4) };
+	return std::string{ p+4, static_cast<std::size_t> (len32) };
       }
     assert (off32 + len32 <= str_size_);
     return std::string{str_blob_.data() + off32, static_cast<std::size_t> (std::min (len32, static_cast<std::uint32_t> (8)))};
@@ -314,6 +314,7 @@ namespace hist
       case DB_TYPE_STRING:
 	return bucket_hi_dump<std::string> (i);
       case DB_TYPE_TIME:
+      case DB_TYPE_BIGINT:
 	return bucket_hi_dump<std::int64_t> (i);
       case DB_TYPE_TIMESTAMP:
       case DB_TYPE_TIMESTAMPLTZ:

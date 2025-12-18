@@ -12405,7 +12405,7 @@ pt_check_with_info (PARSER_CONTEXT * parser, PT_NODE * node, SEMANTIC_CHK_INFO *
 	{
 	  sc_info_ptr->system_class = false;
 	  node = pt_resolve_names (parser, node, sc_info_ptr);
-	  if (!pt_has_error (parser) && node->node_type == PT_UPDATE_HISTOGRAM)
+	  if (!pt_has_error (parser) && node->node_type == PT_DROP_HISTOGRAM)
 	    {
 	      pt_check_update_histogram (parser, node);
 	    }

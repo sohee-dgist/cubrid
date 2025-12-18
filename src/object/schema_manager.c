@@ -13582,10 +13582,7 @@ sm_delete_class_mop (MOP op, bool is_cascade_constraints)
   char *fk_name = NULL;
   const char *table_name;
   MOP save_user, owner;
-  DB_OBJECT *histogram_class, *histogram_obj = NULL;
-  DB_VALUE value[2];
-  DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
-  const char *search_attrs[2] = { "class_of", "key_attr" };
+  DB_OBJECT *histogram_obj = NULL;
   int au_save;
   int save;
   bool is_au_disabled = false;
@@ -13689,27 +13686,16 @@ sm_delete_class_mop (MOP op, bool is_cascade_constraints)
 	}
     }
 
-  histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
-  if (histogram_class == NULL)
-    {
-      error = ER_BO_MISSING_OR_INVALID_CATALOG;
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 0);
-      goto end;
-    }
   AU_DISABLE (au_save);
   for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
     {
 
       /* class_of, key_attr */
-      db_make_object (&value[0], op);
-      db_make_string (&value[1], att->header.name);
-      histogram_obj = db_find_multi_unique (histogram_class, 2, (char **) search_attrs, value_ptrs, DB_FETCH_WRITE);
+      db_get_histogram (op, att->header.name, &histogram_obj);
 
       if (histogram_obj != NULL)
 	{
 	  error = db_drop (histogram_obj);
-	  db_value_clear (&value[0]);
-	  db_value_clear (&value[1]);
 	  if (error != NO_ERROR)
 	    {
 	      AU_ENABLE (au_save);
@@ -13717,8 +13703,6 @@ sm_delete_class_mop (MOP op, bool is_cascade_constraints)
 	    }
 
 	}
-      db_value_clear (&value[0]);
-      db_value_clear (&value[1]);
     }
   AU_ENABLE (au_save);
 

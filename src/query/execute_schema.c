@@ -1634,7 +1634,8 @@ do_alter (PARSER_CONTEXT * parser, PT_NODE * alter)
   PT_NODE *crt_clause = NULL;
   bool do_semantic_checks = false;
   bool do_rollback = false;
-
+  int au_save = 0;
+  DB_OBJECT *histogram_obj = NULL;
   CHECK_MODIFICATION_ERROR ();
 
   /* Multiple alter operations in a single statement need to be atomic. */
@@ -1666,7 +1667,43 @@ do_alter (PARSER_CONTEXT * parser, PT_NODE * alter)
 	    }
 	  assert (crt_result == crt_clause);
 	}
-
+      AU_DISABLE (au_save);
+      /* HANDLE HISTOGRAM DROP WHILE COLUMN MODIFY, CHANGE, RENAME, DROP */
+      switch (alter_code)
+	{
+	case PT_DROP_ATTR_MTHD:
+	case PT_MODIFY_ATTR_MTHD:
+	case PT_CHANGE_ATTR:
+	  {
+	    const char *attr_name = crt_clause->info.alter.alter_clause.attr_mthd.attr_old_name->info.name.original;
+	    if (attr_name != NULL)
+	      {
+		db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_name, &histogram_obj);
+		if (histogram_obj != NULL)
+		  {
+		    db_drop (histogram_obj);
+		  }
+	      }
+	    break;
+	  }
+	case PT_RENAME_ATTR_MTHD:
+	case PT_RENAME_ENTITY:
+	  {
+	    const char *attr_name = crt_clause->info.alter.alter_clause.rename.old_name->info.name.original;
+	    if (attr_name != NULL)
+	      {
+		db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_name, &histogram_obj);
+		if (histogram_obj != NULL)
+		  {
+		    db_drop (histogram_obj);
+		  }
+	      }
+	    break;
+	  }
+	default:
+	  break;
+	}
+      AU_ENABLE (au_save);
       switch (alter_code)
 	{
 	case PT_RENAME_ENTITY:
