@@ -7894,15 +7894,19 @@ static int
 random_poisson_weight (int weight)
 {
 // *INDENT-OFF*
+
   static thread_local std::mt19937 rng { std::random_device{} () };
 // *INDENT-ON*
-  if (weight <= 0)
+  if (weight < 1)
     {
-      return 0;
+      assert (false);
+      return 1;
     }
 
-  std::poisson_distribution < int >dist (weight);
-  return dist (rng);
+/* shifted version of random_poisson_weight */
+  const int lambda = weight - 1;	// E[1 + Poisson(lambda)] = weight
+  std::poisson_distribution < int >dist (lambda);
+  return dist (rng) + 1;	// always >= 1
 }
 
 
