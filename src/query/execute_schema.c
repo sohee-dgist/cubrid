@@ -4114,6 +4114,7 @@ do_update_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
   if (obj == NULL)
     {
       assert (er_errid () != NO_ERROR);
+      AU_ENABLE (save);
       return er_errid ();
     }
 
@@ -4123,6 +4124,7 @@ do_update_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
     {
       assert (er_errid () != NO_ERROR);
       error = er_errid ();
+      AU_ENABLE (save);
       return error;
     }
 
@@ -4155,6 +4157,7 @@ do_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
   if (obj == NULL)
     {
       assert (er_errid () != NO_ERROR);
+      AU_ENABLE (save);
       return er_errid ();
     }
 
@@ -4164,6 +4167,7 @@ do_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
     {
       assert (er_errid () != NO_ERROR);
       error = er_errid ();
+      AU_ENABLE (save);
       return error;
     }
 
