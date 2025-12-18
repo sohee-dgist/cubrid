@@ -2916,6 +2916,7 @@ set_seg_node (PT_NODE * attr, QO_ENV * env, BITSET * bitset)
       if (attr->node_type == PT_NAME)
 	{
 	  attr->info.name.histogram = seg->pt_node->info.name.histogram;
+	  attr->info.name.null_frequency = seg->pt_node->info.name.null_frequency;
 	}
       bitset_add (bitset, QO_SEG_IDX (seg));
     }
@@ -5304,6 +5305,7 @@ qo_get_attr_info (QO_ENV * env, QO_SEGMENT * seg)
 
       /* set histogram */
       QO_SEG_PT_NODE (seg)->info.name.histogram = hist_stats->histogram[attr_hist_statsp_index];
+      QO_SEG_PT_NODE (seg)->info.name.null_frequency = hist_stats->null_frequency[attr_hist_statsp_index];
 
       if (cum_statsp->valid_limits == false)
 	{

@@ -202,7 +202,6 @@ namespace hist
     /* ---- build string blob ---- */
     if (cur_str_off_ > 0)
       {
-	assert (DB_TYPE_STRING == type);
 	str_blob_ptr = static_cast<char *> (db_private_alloc (thread_p, cur_str_off_));
 	if (str_blob_ptr == NULL)
 	  {
@@ -213,28 +212,25 @@ namespace hist
 	char *str_blob_ptr_end = str_blob_ptr + cur_str_off_;
 	for (const auto &b : buckets_)
 	  {
-	    if (DB_TYPE_STRING == type)
+	    std::string str_val;
+	    if (std::holds_alternative<std::string> (b.data_hi))
 	      {
-		std::string str_val;
-		if (std::holds_alternative<std::string> (b.data_hi))
-		  {
-		    str_val = std::get<std::string> (b.data_hi);
-		  }
-		else if (std::holds_alternative<std::string_view> (b.data_hi))
-		  {
-		    str_val = std::string (std::get<std::string_view> (b.data_hi));
-		  }
-		else
-		  {
-		    assert (false);
-		    return NULL;
-		  }
+		str_val = std::get<std::string> (b.data_hi);
+	      }
+	    else if (std::holds_alternative<std::string_view> (b.data_hi))
+	      {
+		str_val = std::string (std::get<std::string_view> (b.data_hi));
+	      }
+	    else
+	      {
+		assert (false);
+		return NULL;
+	      }
 
-		if (str_val.length() > 4)
-		  {
-		    memcpy (cur_str_blob_ptr, str_val.data(), str_val.length());
-		    cur_str_blob_ptr += str_val.length();
-		  }
+	    if (str_val.length() > 4)
+	      {
+		memcpy (cur_str_blob_ptr, str_val.data(), str_val.length());
+		cur_str_blob_ptr += str_val.length();
 	      }
 	  }
 	/* ---- write string ---- */

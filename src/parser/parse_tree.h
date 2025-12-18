@@ -2677,6 +2677,7 @@ struct pt_name_info
   PT_RESERVED_NAME_ID reserved_id;	/* used to identify reserved name */
   size_t json_table_column_index;	/* will be used only for json_table to gather attributes in the correct order */
   DB_VALUE *histogram;		/* histogram value */
+  double null_frequency;	/* null frequency value */
 };
 
 /*

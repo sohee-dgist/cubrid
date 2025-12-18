@@ -696,6 +696,7 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
   const double bucket_rows = static_cast<double> (histogram_reader.bucket_rows (bucket_index));
   const double total_rows = static_cast<double> (histogram_reader.total_rows ());
   const double approx_ndv = static_cast<double> (histogram_reader.bucket_approx_ndv (bucket_index));
+  const double null_frequency = lhs->info.name.null_frequency;
 
   if (total_rows <= 0.0 || approx_ndv <= 0.0)
     {
@@ -705,6 +706,7 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
     }
 
   *selectivity = (bucket_rows / total_rows) / approx_ndv;
+  *selectivity *= (1.0 - null_frequency);
   *success = true;
   return;
 }
@@ -917,6 +919,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
       *selectivity = 1.0 - *selectivity;
     }
 
+  *selectivity *= (1.0 - lhs->info.name.null_frequency);
   *success = true;
   return;
 }
@@ -994,7 +997,8 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
   for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
     {
       const char *attname = (char *) att->header.name;
-      DB_VALUE *histogram_value = NULL, *null_frequency_value = NULL;
+      DB_VALUE *histogram_value = NULL;
+      DB_VALUE null_frequency_value;
       error = db_get_histogram (classop, attname, &histogram_obj);
       if (error != NO_ERROR)
 	{
@@ -1015,20 +1019,20 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
 	{
 	  return error;
 	}
-      error = db_get (histogram_obj, "null_frequency", null_frequency_value);
+      error = db_get (histogram_obj, "null_frequency", &null_frequency_value);
       if (error != NO_ERROR)
 	{
 	  return error;
 	}
 
       (*histogram)->histogram[i] = histogram_value; /* should clear histogram_value */
-      if (db_value_is_null (null_frequency_value))
+      if (db_value_is_null (&null_frequency_value))
 	{
 	  (*histogram)->null_frequency[i] = 0.0;
 	}
       else
 	{
-	  (*histogram)->null_frequency[i] = db_get_double (null_frequency_value);
+	  (*histogram)->null_frequency[i] = db_get_double (&null_frequency_value);
 	}
       i++;
     }
