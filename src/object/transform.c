@@ -431,13 +431,6 @@ static CT_ATTR ct_partition_atts[] = {
   {"comment", NULL_ATTRID, DB_TYPE_VARCHAR}
 };
 
-static CT_ATTR ct_histogram_atts[] = {
-  {"class_of", NULL_ATTRID, DB_TYPE_OBJECT},
-  {"key_attr", NULL_ATTRID, DB_TYPE_VARCHAR},
-  {"with_fullscan", NULL_ATTRID, DB_TYPE_INTEGER},
-  {"bucket_count", NULL_ATTRID, DB_TYPE_INTEGER}
-};
-
 CT_CLASS ct_Class = {
   CT_CLASS_NAME,
   OID_INITIALIZER,
@@ -529,12 +522,6 @@ CT_CLASS ct_Indexkey = {
   ct_indexkey_atts
 };
 
-CT_CLASS ct_Histogram = {
-  CT_DB_HISTOGRAM_NAME,
-  OID_INITIALIZER,
-  (sizeof (ct_histogram_atts) / sizeof (ct_histogram_atts[0])),
-  ct_histogram_atts
-};
 
 CT_CLASS *ct_Classes[] = {
   &ct_Class,
@@ -548,7 +535,6 @@ CT_CLASS *ct_Classes[] = {
   &ct_Index,
   &ct_Indexkey,
   &ct_Partition,
-  &ct_Histogram,
   NULL
 };
 

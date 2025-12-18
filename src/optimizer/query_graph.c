@@ -5183,7 +5183,7 @@ qo_get_attr_info (QO_ENV * env, QO_SEGMENT * seg)
   int attr_id;
   QO_ATTR_CUM_STATS *cum_statsp;
   ATTR_STATS *attr_statsp;
-  DB_VALUE *attr_hist_statsp;
+  int attr_hist_statsp_index = 0;
   BTREE_STATS *bt_statsp;
   int n_attrs;
   const char *name;
@@ -5283,9 +5283,9 @@ qo_get_attr_info (QO_ENV * env, QO_SEGMENT * seg)
 
       /* search the attribute from the class information */
       attr_statsp = stats->attr_stats;
-      attr_hist_statsp = hist_stats->histogram[0];
+      attr_hist_statsp_index = 0;
       n_attrs = stats->n_attrs;
-      for (j = 0; j < n_attrs; j++, attr_statsp++, attr_hist_statsp++)
+      for (j = 0; j < n_attrs; j++, attr_statsp++, attr_hist_statsp_index++)
 	{
 	  if (attr_statsp->id == attr_id)
 	    {
@@ -5303,7 +5303,7 @@ qo_get_attr_info (QO_ENV * env, QO_SEGMENT * seg)
       attr_infop->ndv += attr_statsp->ndv;
 
       /* set histogram */
-      QO_SEG_PT_NODE (seg)->info.name.histogram = attr_hist_statsp;
+      QO_SEG_PT_NODE (seg)->info.name.histogram = hist_stats->histogram[attr_hist_statsp_index];
 
       if (cum_statsp->valid_limits == false)
 	{
