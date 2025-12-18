@@ -3973,6 +3973,10 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
       SM_ATTRIBUTE *att;
       SM_CLASS *class_ = NULL;
       error = au_fetch_class (obj, &class_, AU_FETCH_READ, AU_SELECT);
+      if (error != NO_ERROR)
+	{
+	  return error;
+	}
       for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
 	{
 	  attname = (char *) att->header.name;
