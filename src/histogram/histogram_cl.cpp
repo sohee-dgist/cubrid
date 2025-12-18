@@ -395,6 +395,7 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
       goto end;
     }
 
+  /*  SM_MAX_STRING_LENGTH = 1073741823 */
   db_make_varbit (&histogram_value, 1073741823, histogram_blob, histogram_total_length * 8);
   error = dbt_put (obj_tmpl, "histogram_values", &histogram_value);
   if (error != NO_ERROR)
