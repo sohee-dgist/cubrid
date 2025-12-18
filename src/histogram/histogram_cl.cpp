@@ -119,7 +119,8 @@ get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *at
   DB_QUERY_RESULT *query_result;
   DB_QUERY_ERROR query_error;
 
-  char query_buf[512+222+254]; // (query_length + table_name_length + attr_name_length)
+  /* (query_length + table_name_length + attr_name_length) */
+  char query_buf[512+222+254];
 
   if (!with_fullscan)
     {
@@ -153,24 +154,30 @@ get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *at
     }
 
   error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("null_frequency"), &null_frequency_value);
+  if (error != NO_ERROR)
+    {
+      error = ER_FAILED;
+      goto end;
+    }
 
   error = db_get_histogram (classop, attr_name, &histogram_obj);
   if (error != NO_ERROR)
     {
-      return error;
+      error = ER_FAILED;
+      goto end;
     }
 
   obj_tmpl = dbt_edit_object (histogram_obj);
   if (obj_tmpl == NULL)
     {
-      assert (er_errid () != NO_ERROR);
-      error = er_errid ();
+      error = ER_FAILED;
       goto end;
     }
 
   error = dbt_put (obj_tmpl, "null_frequency", &null_frequency_value);
   if (error != NO_ERROR)
     {
+      error = ER_FAILED;
       goto end;
     }
 
@@ -188,10 +195,12 @@ get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *at
   error = locator_flush_instance (edit_histogram_object);
   if (error != NO_ERROR)
     {
+      error = ER_FAILED;
       goto end;
     }
 
 end:
+  db_query_end (query_result);
   db_value_clear (&null_frequency_value);
   assert (error == NO_ERROR);	// for debug
   return error;
@@ -259,7 +268,8 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 	{
 	  ASSERT_ERROR ();
 	}
-      return error;
+      error = ER_FAILED;
+      goto error_end;
     }
 
 
@@ -274,7 +284,8 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
       error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("approx_ndv"), &value[4]);
       if (error != NO_ERROR)
 	{
-	  return error;
+	  error = ER_FAILED;
+	  goto error_end;
 	}
 
       /* ---- extract key from DB_VALUE ---- */
@@ -282,7 +293,8 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
       if (!histogram_extract_key (&value[1], key))
 	{
 	  assert (false);
-	  return ER_FAILED;
+	  error = ER_FAILED;
+	  goto error_end;
 	}
 
       type = static_cast<DB_TYPE> (value[1].domain.general_info.type);
@@ -313,7 +325,8 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 	{
 	  /* never reach here */
 	  assert (false);
-	  return ER_FAILED;
+	  error = ER_FAILED;
+	  goto error_end;
 	}
 	}
       db_value_clear (&value[0]);
@@ -326,6 +339,7 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 
 build_histogram:
 
+  db_query_end (query_result);
   *histogram_blob = histogram_builder.build (thread_p, type, histogram_total_length);
   if (*histogram_blob == NULL)
     {
@@ -333,6 +347,10 @@ build_histogram:
     }
 
   return NO_ERROR;
+
+error_end:
+  db_query_end (query_result);
+  return error;
 }
 
 int
@@ -753,6 +771,13 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 
   int bucket_index = -1;
   const double total_rows = histogram_reader.total_rows ();
+  if (total_rows <= 0.0)
+    {
+      *success = true;
+      *selectivity = 0.0;
+      return;
+    }
+
   double bucket_rows = 0.0;
 
   /* caculate bucket_rows for column <= rhs or column < rhs */
@@ -1050,6 +1075,9 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       i++;
     }
   return NO_ERROR;
+
+error_end:
+  return error;
 }
 
 int stats_free_histogram_and_init (HIST_STATS *histogram)
@@ -1058,20 +1086,27 @@ int stats_free_histogram_and_init (HIST_STATS *histogram)
     {
       return NO_ERROR;
     }
-  for (int i = 0; i < histogram->n_attrs; i++)
+  if (histogram->histogram != NULL)
     {
-      if (histogram->histogram[i] == nullptr)
+      for (int i = 0; i < histogram->n_attrs; i++)
 	{
-	  continue;
+	  if (histogram->histogram[i] == nullptr)
+	    {
+	      continue;
+	    }
+	  db_value_clear (histogram->histogram[i]);
+	  db_ws_free (histogram->histogram[i]);
+	  histogram->histogram[i] = nullptr;
 	}
-      db_value_clear (histogram->histogram[i]);
-      db_ws_free (histogram->histogram[i]);
-      histogram->histogram[i] = nullptr;
     }
+
   if (histogram->n_attrs != 0)
     {
-      db_ws_free (histogram->null_frequency);
-      db_ws_free (histogram->histogram);
+      if (histogram->null_frequency != NULL)
+	{
+	  db_ws_free (histogram->null_frequency);
+	  histogram->null_frequency = nullptr;
+	}
     }
   db_ws_free (histogram);
   return NO_ERROR;

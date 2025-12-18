@@ -4149,6 +4149,7 @@ sm_get_class_with_statistics (MOP classop)
       int err = stats_get_histogram (classop, &class_->histogram);
       if (err != NO_ERROR)
 	{
+	  stats_free_histogram_and_init (class_->histogram);
 	  return NULL;
 	}
     }
@@ -4159,6 +4160,7 @@ sm_get_class_with_statistics (MOP classop)
       int err = stats_get_histogram (classop, &class_->histogram);
       if (err != NO_ERROR)
 	{
+	  stats_free_histogram_and_init (class_->histogram);
 	  return NULL;
 	}
     }
