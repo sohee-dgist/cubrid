@@ -3151,13 +3151,13 @@ pgbuf_thread_local_cache_init (THREAD_ENTRY * thread_p)
   impl.impl.fcnt = 0;
 
   alloc_sz = sizeof (PGBUF_THREAD_LOCAL_CACHE);
-  cache = (PGBUF_THREAD_LOCAL_CACHE *) malloc (alloc_sz);
+  cache = (PGBUF_THREAD_LOCAL_CACHE *) db_private_alloc (thread_p, alloc_sz);
 
   alloc_sz = sizeof (PGBUF_BCB) * PGBUF_THREAD_LOCAL_CACHE_MAX_PAGES;
-  cache->bcb_array = (PGBUF_BCB *) malloc (alloc_sz);
+  cache->bcb_array = (PGBUF_BCB *) db_private_alloc (thread_p, alloc_sz);
 
   alloc_sz = PGBUF_IOPAGE_BUFFER_SIZE * PGBUF_THREAD_LOCAL_CACHE_MAX_PAGES;
-  cache->memory = (PGBUF_IOPAGE_BUFFER *) malloc (alloc_sz);
+  cache->memory = (PGBUF_IOPAGE_BUFFER *) db_private_alloc (thread_p, alloc_sz);
 
   cache->num_pages_used = 0;
   cache->max_pages = PGBUF_THREAD_LOCAL_CACHE_MAX_PAGES;
@@ -3227,9 +3227,9 @@ pgbuf_thread_local_cache_destroy (THREAD_ENTRY * thread_p)
 {
   if (thread_p->m_pgbuf_thread_local_cache)
     {
-      free (thread_p->m_pgbuf_thread_local_cache->bcb_array);
-      free (thread_p->m_pgbuf_thread_local_cache->memory);
-      free (thread_p->m_pgbuf_thread_local_cache);
+      db_private_free (thread_p, thread_p->m_pgbuf_thread_local_cache->bcb_array);
+      db_private_free (thread_p, thread_p->m_pgbuf_thread_local_cache->memory);
+      db_private_free (thread_p, thread_p->m_pgbuf_thread_local_cache);
       thread_p->m_pgbuf_thread_local_cache = NULL;
     }
 }
