@@ -275,13 +275,27 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 
   do
     {
-      DB_VALUE value[5];
+      DB_VALUE value[4];
       hist::HistogramTypes hi{};
-      error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("bid"), &value[0]);
-      error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("endpoint"), &value[1]);
-      error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("rows_in_bucket"), &value[2]);
-      error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("cumulative"), &value[3]);
-      error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("approx_ndv"), &value[4]);
+      error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("endpoint"), &value[0]);
+      if (error != NO_ERROR)
+	{
+	  error = ER_FAILED;
+	  goto error_end;
+	}
+      error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("rows_in_bucket"), &value[1]);
+      if (error != NO_ERROR)
+	{
+	  error = ER_FAILED;
+	  goto error_end;
+	}
+      error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("cumulative"), &value[2]);
+      if (error != NO_ERROR)
+	{
+	  error = ER_FAILED;
+	  goto error_end;
+	}
+      error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("approx_ndv"), &value[3]);
       if (error != NO_ERROR)
 	{
 	  error = ER_FAILED;
@@ -290,7 +304,7 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 
       /* ---- extract key from DB_VALUE ---- */
       hist::histogram_key key;
-      if (!histogram_extract_key (&value[1], key))
+      if (!histogram_extract_key (&value[0], key))
 	{
 	  assert (false);
 	  error = ER_FAILED;
@@ -303,28 +317,32 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 	{
 	case hist::histogram_key_kind::i64:
 	{
-	  histogram_builder.add (static_cast<std::int64_t> (key.i64), db_get_bigint (&value[3]), db_get_bigint (&value[4]));
+	  histogram_builder.add (static_cast<std::int64_t> (key.i64), db_get_bigint (&value[2]), db_get_bigint (&value[3]));
 	  break;
 	}
 	case hist::histogram_key_kind::dbl:
 	{
-	  histogram_builder.add (static_cast<double> (key.dbl), db_get_bigint (&value[3]), db_get_bigint (&value[4]));
+	  histogram_builder.add (static_cast<double> (key.dbl), db_get_bigint (&value[2]), db_get_bigint (&value[3]));
 	  break;
 	}
 	case hist::histogram_key_kind::str:
 	{
-	  histogram_builder.add (key.str, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
+	  histogram_builder.add (key.str, db_get_bigint (&value[2]), db_get_bigint (&value[3]));
 	  break;
 	}
 	case hist::histogram_key_kind::u64:
 	{
-	  histogram_builder.add (key.u64, db_get_bigint (&value[3]), db_get_bigint (&value[4]));
+	  histogram_builder.add (key.u64, db_get_bigint (&value[2]), db_get_bigint (&value[3]));
 	  break;
 	}
 	default:
 	{
 	  /* never reach here */
 	  assert (false);
+	  db_value_clear (&value[0]);
+	  db_value_clear (&value[1]);
+	  db_value_clear (&value[2]);
+	  db_value_clear (&value[3]);
 	  error = ER_FAILED;
 	  goto error_end;
 	}
@@ -333,7 +351,6 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
       db_value_clear (&value[1]);
       db_value_clear (&value[2]);
       db_value_clear (&value[3]);
-      db_value_clear (&value[4]);
     }
   while (db_query_next_tuple (query_result) == DB_CURSOR_SUCCESS);
 

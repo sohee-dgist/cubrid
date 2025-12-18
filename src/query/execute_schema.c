@@ -4045,7 +4045,20 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	  DB_DOMAIN *attr_domain;
 
 	  attribute = db_get_attribute (obj, attname);
+	  if (attribute == NULL)
+	    {
+	      error = ER_OBJ_INVALID_ARGUMENTS;
+	      assert (false);
+	      return error;
+	    }
 	  attr_domain = db_attribute_domain (attribute);
+	  if (attr_domain == NULL)
+	    {
+	      error = ER_OBJ_INVALID_ARGUMENTS;
+	      assert (false);
+	      return error;
+	    }
+
 	  attr_type = TP_DOMAIN_TYPE (attr_domain);
 
 	  if (!is_histogrammable_type (attr_type))
