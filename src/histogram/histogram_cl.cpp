@@ -971,6 +971,12 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       return ER_OUT_OF_VIRTUAL_MEMORY;
     }
   (*histogram)->n_attrs = class_->att_count;
+  if (class_->att_count == 0)
+    {
+      (*histogram)->histogram = nullptr;
+      (*histogram)->null_frequency = nullptr;
+      return NO_ERROR;
+    }
   (*histogram)->histogram = (DB_VALUE **) db_ws_alloc (sizeof (DB_VALUE *) * class_->att_count);
   if ((*histogram)->histogram == NULL)
     {
@@ -1045,8 +1051,11 @@ int stats_free_histogram_and_init (HIST_STATS *histogram)
       db_ws_free (histogram->histogram[i]);
       histogram->histogram[i] = nullptr;
     }
-  db_ws_free (histogram->null_frequency);
-  db_ws_free (histogram->histogram);
+  if (histogram->n_attrs != 0)
+    {
+      db_ws_free (histogram->null_frequency);
+      db_ws_free (histogram->histogram);
+    }
   db_ws_free (histogram);
   return NO_ERROR;
 }
