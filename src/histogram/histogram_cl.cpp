@@ -314,7 +314,7 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 	  goto error_end;
 	}
 
-      type = static_cast<DB_TYPE> (value[1].domain.general_info.type);
+      type = static_cast<DB_TYPE> (value[0].domain.general_info.type);
 
       switch (key.kind)
 	{
