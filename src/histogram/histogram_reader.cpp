@@ -224,6 +224,11 @@ namespace hist
   template<>
   std::string HistogramReader::bucket_hi<std::string> (std::int32_t i) const
   {
+    if (i < 0)
+      {
+	return std::string{""};
+      }
+
     const char *p = bucket_hi_value_ptr (static_cast<std::uint32_t> (i));
     std::uint32_t len32 = get_value<std::uint32_t> (p);
     std::uint32_t off32 = get_value<std::uint32_t> (p + 4);
@@ -239,6 +244,11 @@ namespace hist
   template<>
   std::uint64_t HistogramReader::bucket_hi<std::uint64_t> (std::int32_t i) const
   {
+    if (i < 0)
+      {
+	return std::numeric_limits<std::uint64_t>::min();
+      }
+
     return static_cast<std::uint64_t> (get_value<std::int64_t> (bucket_hi_value_ptr (static_cast<std::uint32_t> (i))));
   }
 

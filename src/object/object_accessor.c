@@ -3687,8 +3687,8 @@ obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE 
   DB_VALUE *unique_key = NULL;
   BTREE_SEARCH result;
   SCAN_OPERATION_TYPE op_type = S_SELECT;
-  OID *oids;
-  int oid_count;
+  OID *oids = NULL;
+  int oid_count = 0;
 
   DB_OTMPL *obj_tmpl = dbt_create_object_internal (op);
   if (obj_tmpl == NULL)

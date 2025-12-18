@@ -73,6 +73,10 @@ analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_
 			 &histogram_total_length);
   if (error != NO_ERROR)
     {
+      if (histogram_blob != NULL)
+	{
+	  db_private_free (thread_p, histogram_blob);
+	}
       return error;
     }
 
@@ -80,11 +84,18 @@ analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_
   error = set_histogram (thread_p, tbl_name, attr_name, histogram_blob, histogram_total_length, classop);
   if (error != NO_ERROR)
     {
+      if (histogram_blob != NULL)
+	{
+	  db_private_free (thread_p, histogram_blob);
+	}
       return error;
     }
 
   // ---- free histogram blob ----
-  db_private_free (thread_p, histogram_blob);
+  if (histogram_blob != NULL)
+    {
+      db_private_free (thread_p, histogram_blob);
+    }
 
   return NO_ERROR;
 }
@@ -270,7 +281,8 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
       hist::histogram_key key;
       if (!histogram_extract_key (&value[1], key))
 	{
-	  return error;
+	  assert (false);
+	  return ER_FAILED;
 	}
 
       type = static_cast<DB_TYPE> (value[1].domain.general_info.type);
@@ -371,7 +383,7 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 
 end:
   db_value_clear (&histogram_value);
-  assert (error == NO_ERROR);	// for debug
+  assert (error == NO_ERROR);
   return error;
 }
 
@@ -751,6 +763,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 
       if (bucket_index < 0)
 	{
+	  *success = true;
 	  *selectivity = 0.0;
 	  return;
 	}

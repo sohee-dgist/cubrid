@@ -126,6 +126,7 @@ namespace hist
 	      }
 	    else
 	      {
+		db_private_free (thread_p, buffer);
 		assert (false);
 		return NULL;
 	      }
@@ -142,6 +143,7 @@ namespace hist
 	      }
 	    else
 	      {
+		db_private_free (thread_p, buffer);
 		assert (false);
 		return NULL;
 	      }
@@ -164,6 +166,7 @@ namespace hist
 	      }
 	    else
 	      {
+		db_private_free (thread_p, buffer);
 		assert (false);
 		return NULL;
 	      }
@@ -183,6 +186,7 @@ namespace hist
 	      }
 	    else
 	      {
+		db_private_free (thread_p, buffer);
 		assert (false);
 		return NULL;
 	      }
@@ -190,6 +194,7 @@ namespace hist
 	  break;
 	  default:
 	    /* never reach here */
+	    db_private_free (thread_p, buffer);
 	    assert (false);
 	    return NULL;
 	  }
@@ -205,6 +210,7 @@ namespace hist
 	str_blob_ptr = static_cast<char *> (db_private_alloc (thread_p, cur_str_off_));
 	if (str_blob_ptr == NULL)
 	  {
+	    db_private_free (thread_p, buffer);
 	    return NULL;
 	  }
 	char *cur_str_blob_ptr = str_blob_ptr;
@@ -223,6 +229,8 @@ namespace hist
 	      }
 	    else
 	      {
+		db_private_free (thread_p, buffer);
+		db_private_free (thread_p, str_blob_ptr);
 		assert (false);
 		return NULL;
 	      }

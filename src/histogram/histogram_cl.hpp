@@ -82,7 +82,7 @@ namespace hist
   struct histogram_key
   {
     histogram_key_kind kind = histogram_key_kind::invalid;
-    std::int32_t i64 = 0;
+    std::int64_t i64 = 0;
     double dbl = 0.0;
     std::string str;
     std::uint64_t u64 = 0;
