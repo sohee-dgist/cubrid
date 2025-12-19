@@ -3275,19 +3275,21 @@ pgbuf_cached_fix (THREAD_ENTRY * thread_p, const VPID * vpid,
       /* page validation check */
       if (orig_bcb->vpid.volid == vpid->volid && orig_bcb->vpid.pageid == vpid->pageid)
 	{
-	  impl.raw = orig_bcb->atomic_latch.load ();
-	  if (impl.impl.latch_mode == PGBUF_LATCH_READ || impl.impl.latch_mode == PGBUF_NO_LATCH)
+	  if (LSA_EQ (&bufptr->orig_bcb->iopage_buffer->iopage.prv.lsa, &bufptr->iopage_buffer->iopage.prv.lsa))
 	    {
-	      orig_bcb_chn = impl.impl.chn;
-	      /* chn check */
-	      impl.raw = bufptr->atomic_latch.load ();
-	      cached_chn = impl.impl.chn;
-
-	      if (cached_chn == orig_bcb_chn)
+	      impl.raw = orig_bcb->atomic_latch.load ();
+	      if (impl.impl.latch_mode == PGBUF_LATCH_READ || impl.impl.latch_mode == PGBUF_NO_LATCH)
 		{
-		  /* page is valid */
-		  CAST_BFPTR_TO_PGPTR (pgptr, bufptr);
-		  return pgptr;
+		  orig_bcb_chn = impl.impl.chn;
+		  /* chn check */
+		  impl.raw = bufptr->atomic_latch.load ();
+		  cached_chn = impl.impl.chn;
+		  if (cached_chn == orig_bcb_chn)
+		    {
+		      /* page is valid */
+		      CAST_BFPTR_TO_PGPTR (pgptr, bufptr);
+		      return pgptr;
+		    }
 		}
 	    }
 	}
@@ -3371,6 +3373,10 @@ pgbuf_is_chn_valid (THREAD_ENTRY * thread_p, PAGE_PTR pgptr)
       return true;		/* always valid page */
     }
   if (bufptr->orig_bcb->vpid.volid != bufptr->vpid.volid || bufptr->orig_bcb->vpid.pageid != bufptr->vpid.pageid)
+    {
+      return false;
+    }
+  if (!LSA_EQ (&bufptr->orig_bcb->iopage_buffer->iopage.prv.lsa, &bufptr->iopage_buffer->iopage.prv.lsa))
     {
       return false;
     }
