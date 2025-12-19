@@ -2203,7 +2203,8 @@ try_again:
   /* Normal process */
   /* latch_mode = PGBUF_LATCH_READ/PGBUF_LATCH_WRITE */
 
-  if (request_mode == PGBUF_LATCH_READ && (fetch_mode == OLD_PAGE || fetch_mode == OLD_PAGE_PREVENT_DEALLOC)
+  if (request_mode == PGBUF_LATCH_READ
+      && (fetch_mode == OLD_PAGE || fetch_mode == OLD_PAGE_PREVENT_DEALLOC || fetch_mode == OLD_PAGE_MAYBE_DEALLOCATED)
       && condition == PGBUF_UNCONDITIONAL_LATCH)
     {
       pgptr = pgbuf_lockfree_fix_ro (thread_p, vpid, fetch_mode);
@@ -3238,7 +3239,8 @@ PAGE_PTR
 pgbuf_cached_fix (THREAD_ENTRY * thread_p, const VPID * vpid,
 		  PAGE_FETCH_MODE fetch_mode, PGBUF_LATCH_MODE requestmode, PGBUF_LATCH_CONDITION condition)
 {
-  if (thread_p->m_pgbuf_thread_local_cache == NULL || (fetch_mode != OLD_PAGE_PREVENT_DEALLOC && fetch_mode != OLD_PAGE)
+  if (thread_p->m_pgbuf_thread_local_cache == NULL
+      || (fetch_mode != OLD_PAGE_PREVENT_DEALLOC && fetch_mode != OLD_PAGE && fetch_mode != OLD_PAGE_MAYBE_DEALLOCATED)
       || requestmode != PGBUF_LATCH_READ || condition != PGBUF_UNCONDITIONAL_LATCH)
     {
       return pgbuf_fix (thread_p, vpid, fetch_mode, requestmode, condition);
@@ -3367,6 +3369,10 @@ pgbuf_is_chn_valid (THREAD_ENTRY * thread_p, PAGE_PTR pgptr)
   if (bufptr->orig_bcb == NULL)
     {
       return true;		/* always valid page */
+    }
+  if (bufptr->orig_bcb->vpid.volid != bufptr->vpid.volid || bufptr->orig_bcb->vpid.pageid != bufptr->vpid.pageid)
+    {
+      return false;
     }
   impl_real.raw = bufptr->orig_bcb->atomic_latch.load ();
   impl_cached.raw = bufptr->atomic_latch.load ();

@@ -23532,11 +23532,13 @@ btree_advance_and_find_key (THREAD_ENTRY * thread_p, BTID_INT * btid_int, DB_VAL
       if (node_header->node_level > 2)
 	{
 	  *advance_to_page =
-	    pgbuf_cached_fix (thread_p, &child_vpid, OLD_PAGE, PGBUF_LATCH_READ, PGBUF_UNCONDITIONAL_LATCH);
+	    pgbuf_cached_fix (thread_p, &child_vpid, OLD_PAGE_MAYBE_DEALLOCATED, PGBUF_LATCH_READ,
+			      PGBUF_UNCONDITIONAL_LATCH);
 	}
       else
 	{
-	  *advance_to_page = pgbuf_fix (thread_p, &child_vpid, OLD_PAGE, PGBUF_LATCH_READ, PGBUF_UNCONDITIONAL_LATCH);
+	  *advance_to_page =
+	    pgbuf_fix (thread_p, &child_vpid, OLD_PAGE_MAYBE_DEALLOCATED, PGBUF_LATCH_READ, PGBUF_UNCONDITIONAL_LATCH);
 	}
 
       /* Advance to child. */
@@ -23544,9 +23546,9 @@ btree_advance_and_find_key (THREAD_ENTRY * thread_p, BTID_INT * btid_int, DB_VAL
 
       if (*advance_to_page == NULL)
 	{
-	  /* Error fixing child. */
-	  ASSERT_ERROR_AND_SET (error_code);
-	  return error_code;
+	  /* child page not present - cached page deprecated */
+	  *restart = true;
+	  return NO_ERROR;
 	}
     }
 
