@@ -506,7 +506,7 @@ histogram_extract_key (const DB_VALUE *db_val, hist::histogram_key &key)
 	  return false;
 	}
       key.kind = hist::histogram_key_kind::str;
-      key.str.assign (str, length);
+      key.str.assign (str, static_cast<std::size_t> ((length + 7) / 8));
       return true;
     }
 

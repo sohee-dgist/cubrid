@@ -12002,13 +12002,13 @@ do_create_midxkey_for_constraint (DB_OTMPL * tmpl, SM_CLASS_CONSTRAINT * constra
 	}
 
       attr_dom = tp_domain_copy ((*attr)->domain, false);
-      assert (attr_dom->type->id <= DB_TYPE_LAST);
       if (attr_dom == NULL)
 	{
 	  error = ER_FAILED;
 	  goto error_return;
 	}
 
+      assert (attr_dom->type->id <= DB_TYPE_LAST);
       if (asc_desc != NULL && asc_desc[attr_count] == 1)
 	{
 	  attr_dom->is_desc = 1;
