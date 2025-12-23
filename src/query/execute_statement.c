@@ -12078,7 +12078,7 @@ do_create_midxkey_for_constraint (DB_OTMPL * tmpl, SM_CLASS_CONSTRAINT * constra
       error = ER_FAILED;
       goto error_return;
     }
-  //midxkey.domain = tp_domain_cache (midxkey.domain);
+  midxkey.domain = tp_domain_cache (midxkey.domain);
   assert (midxkey.domain->type->id <= DB_TYPE_LAST);
   midxkey.min_max_val.position = -1;
   midxkey.min_max_val.type = MIN_COLUMN;
