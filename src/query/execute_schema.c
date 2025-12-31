@@ -1693,13 +1693,17 @@ do_alter (PARSER_CONTEXT * parser, PT_NODE * alter)
 	case PT_RENAME_ATTR_MTHD:
 	case PT_RENAME_ENTITY:
 	  {
-	    const char *attr_name = crt_clause->info.alter.alter_clause.rename.old_name->info.name.original;
-	    if (attr_name != NULL)
+	    if (alter->info.alter.alter_clause.rename.old_name != NULL)
 	      {
-		db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_name, &histogram_obj);
-		if (histogram_obj != NULL)
+		const char *attr_name = crt_clause->info.alter.alter_clause.rename.old_name->info.name.original;
+		if (attr_name != NULL)
 		  {
-		    db_drop (histogram_obj);
+		    db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_name,
+				      &histogram_obj);
+		    if (histogram_obj != NULL)
+		      {
+			db_drop (histogram_obj);
+		      }
 		  }
 	      }
 	    break;
