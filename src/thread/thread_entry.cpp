@@ -140,6 +140,9 @@ namespace cubthread
     , m_px_orig_thread_entry (NULL)
     , m_uses_px_stats (false)
     , m_skip_end_resource_tracks_in_recycle (false)
+    , m_is_private_lru_enabled (false)
+    , m_holder_anchor (NULL)
+    , m_pgbuf_thread_local_cache (NULL)
       // private:
     , m_id ()
     , m_error ()

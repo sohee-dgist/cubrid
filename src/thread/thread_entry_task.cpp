@@ -28,7 +28,7 @@
 #include "porting.h"
 #include "thread_entry.hpp"
 #include "thread_manager.hpp"
-
+#include "page_buffer.h"
 #include <cstring>
 // XXX: SHOULD BE THE LAST INCLUDE HEADER
 #include "memory_wrapper.hpp"
@@ -73,6 +73,7 @@ namespace cubthread
     context.tran_index = NULL_TRAN_INDEX;
     context.check_interrupt = true;
     context.private_lru_index = -1;
+    context.m_is_private_lru_enabled = false;
 #if defined (SERVER_MODE)
     context.m_status = entry::status::TS_FREE;
     context.resume_status = THREAD_RESUME_NONE;
@@ -88,6 +89,7 @@ namespace cubthread
   entry_manager::recycle_context (entry &context)
   {
     er_clear ();    // clear errors
+    pgbuf_thread_local_cache_destroy (&context);
     if (!context.m_skip_end_resource_tracks_in_recycle)
       {
 	context.end_resource_tracks ();
