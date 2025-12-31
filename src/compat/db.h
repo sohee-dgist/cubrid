@@ -253,6 +253,7 @@ extern DB_OBJECT *db_create_internal (DB_OBJECT * obj);
 extern DB_OBJECT *db_create_by_name_internal (const char *name);
 extern int db_put_internal (DB_OBJECT * obj, const char *name, DB_VALUE * value);
 extern DB_OTMPL *dbt_create_object_internal (DB_OBJECT * classobj);
+extern DB_OTMPL *dbt_create_object_internal_for_read_only (DB_OBJECT * classobj);
 extern int dbt_put_internal (DB_OTMPL * def, const char *name, DB_VALUE * value);
 extern int db_dput_internal (DB_OBJECT * obj, DB_ATTDESC * attribute, DB_VALUE * value);
 extern int dbt_dput_internal (DB_OTMPL * def, DB_ATTDESC * attribute, DB_VALUE * value);

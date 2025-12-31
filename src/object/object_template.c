@@ -923,6 +923,184 @@ make_template (MOP object, MOP classobj)
   return template_ptr;
 }
 
+
+/*
+ * make_template - This initializes a new object template.
+ *    return: new object template
+ *    object(in): the object that the template is being created for
+ *    classobj(in): the class of the object
+ *
+ */
+
+static OBJ_TEMPLATE *
+make_template_for_read_only (MOP object, MOP classobj)
+{
+  OBJ_TEMPLATE *template_ptr;
+  AU_FETCHMODE mode;
+  AU_TYPE auth;
+  SM_CLASS *class_, *base_class;
+  MOP base_classobj, base_object;
+  MOBJ obj;
+  OBJ_TEMPASSIGN **vec;
+
+  base_classobj = NULL;
+  base_class = NULL;
+  base_object = NULL;
+
+  /* fetch & lock the class with the appropriate options */
+  mode = AU_FETCH_READ;
+  auth = AU_SELECT;
+
+  if (au_fetch_class (classobj, &class_, mode, auth))
+    {
+      return NULL;
+    }
+
+  /*
+   * we only need to keep track of the base class if this is a
+   * virtual class, for proxies, the instances look like usual
+   */
+
+  if (class_->class_type == SM_VCLASS_CT	/* a view, and... */
+      && object != classobj /* we are not doing a meta class update */ )
+    {
+      /*
+       * could use vid_is_updatable() if
+       * the instance was supplied but since this can be NULL for
+       * insert templates, use mq_is_updatable on the class object instead.
+       * NOTE: Don't call this yet, try to use mq_fetch_one_real_class()
+       * to perform the updatability test.
+       */
+      if (!mq_is_updatable (classobj))
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_IT_NOT_UPDATABLE_STMT, 0);
+	  return NULL;
+	}
+
+
+      base_classobj = mq_fetch_one_real_class (classobj);
+      if (base_classobj == NULL)
+	{
+	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_IT_NOT_UPDATABLE_STMT, 0);
+	  return NULL;
+	}
+
+      if (au_fetch_class (base_classobj, &base_class, AU_FETCH_READ, auth))
+	{
+	  return NULL;
+	}
+
+      /* get the associated base object (if this isn't a proxy) */
+      if (object != NULL && !vid_is_base_instance (object))
+	{
+	  base_object = vid_get_referenced_mop (object);
+	}
+    }
+
+  /*
+   * If this is an instance update, fetch & lock the instance.
+   * NOTE: It might be good to use AU_FETCH_WRITE and use locator_update_instance
+   * to set the dirty bit after the template has been successfully applied.
+   *
+   * If this is a virtual instance on a non-proxy, could be locking
+   * the associated instance as well. Is this already being done ?
+   */
+  if (object != NULL && object != classobj)
+    {
+      if (au_fetch_instance (object, &obj, AU_FETCH_UPDATE, LC_FETCH_MVCC_VERSION, AU_UPDATE))
+	{
+	  return NULL;
+	}
+
+      /*
+       * Could cache the object memory pointer this in the template as
+       * well but that would require that it be pinned for a long
+       * duration through code that we don't control.  Dangerous.
+       */
+    }
+
+  template_ptr = (OBJ_TEMPLATE *) area_alloc (Template_area);
+  if (template_ptr != NULL)
+    {
+      template_ptr->object = object;
+      template_ptr->classobj = classobj;
+
+      /*
+       * cache the class info directly in the template, will need
+       * to remember the transaction id and chn for validation
+       */
+      template_ptr->class_ = class_;
+
+      /* cache the base class if this is a virtual class template */
+      template_ptr->base_classobj = base_classobj;
+      template_ptr->base_class = base_class;
+      template_ptr->base_object = base_object;
+
+      template_ptr->tran_id = tm_Tran_index;
+      template_ptr->schema_id = sm_local_schema_version ();
+      template_ptr->assignments = NULL;
+      template_ptr->label = NULL;
+      template_ptr->traversal = 0;
+      template_ptr->write_lock = mode != AU_FETCH_READ;
+      template_ptr->traversed = 0;
+      template_ptr->is_old_template = 0;
+      template_ptr->is_class_update = (object == classobj);
+      template_ptr->check_uniques = obt_Check_uniques;
+      if (TM_TRAN_ISOLATION () >= TRAN_REPEATABLE_READ)
+	{
+	  template_ptr->check_serializable_conflict = 1;
+	}
+      else
+	{
+	  template_ptr->check_serializable_conflict = 0;
+	}
+      template_ptr->uniques_were_modified = 0;
+      template_ptr->function_key_modified = 0;
+
+      template_ptr->shared_was_modified = 0;
+      template_ptr->discard_on_finish = 1;
+      template_ptr->fkeys_were_modified = 0;
+      template_ptr->force_check_not_null = 0;
+      template_ptr->force_flush = 0;
+      template_ptr->is_autoincrement_set = 0;
+      template_ptr->pruning_type = DB_NOT_PARTITIONED_CLASS;
+      /*
+       * Don't do this until we've initialized the other stuff;
+       * OTMPL_NASSIGNS relies on the "class" attribute of the template.
+       */
+
+      if (template_ptr->is_class_update)
+	{
+	  template_ptr->nassigns = template_ptr->class_->class_attribute_count;
+	}
+      else
+	{
+	  template_ptr->nassigns = (template_ptr->class_->att_count + template_ptr->class_->shared_count);
+	}
+
+      vec = NULL;
+      if (template_ptr->nassigns)
+	{
+	  int i;
+
+	  vec = (OBJ_TEMPASSIGN **) malloc (template_ptr->nassigns * sizeof (OBJ_TEMPASSIGN *));
+	  if (!vec)
+	    {
+	      return NULL;
+	    }
+	  for (i = 0; i < template_ptr->nassigns; i++)
+	    {
+	      vec[i] = NULL;
+	    }
+	}
+
+      template_ptr->assignments = vec;
+    }
+
+  return template_ptr;
+}
+
+
 /*
  * validate_template - This is used to validate a template before each operation
  *      return: error code
@@ -1419,6 +1597,28 @@ obt_def_object (MOP class_mop)
   else
     {
       template_ptr = make_template (NULL, class_mop);
+    }
+
+  return template_ptr;
+}
+
+OBJ_TEMPLATE *
+obt_def_object_for_read_only (MOP class_mop)
+{
+  OBJ_TEMPLATE *template_ptr = NULL;
+  int is_class = locator_is_class (class_mop, DB_FETCH_CLREAD_INSTWRITE);
+
+  if (is_class < 0)
+    {
+      return NULL;
+    }
+  if (!is_class)
+    {
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_NOT_A_CLASS, 0);
+    }
+  else
+    {
+      template_ptr = make_template_for_read_only (NULL, class_mop);
     }
 
   return template_ptr;

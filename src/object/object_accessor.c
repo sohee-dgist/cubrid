@@ -3690,7 +3690,7 @@ obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE 
   OID *oids = NULL;
   int oid_count = 0;
 
-  DB_OTMPL *obj_tmpl = dbt_create_object_internal (op);
+  DB_OTMPL *obj_tmpl = dbt_create_object_internal_for_read_only (op);
   if (obj_tmpl == NULL)
     {
       error = ER_FAILED;

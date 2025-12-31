@@ -512,6 +512,20 @@ dbt_create_object_internal (MOP classobj)
   return def;
 }
 
+DB_OTMPL *
+dbt_create_object_internal_for_read_only (MOP classobj)
+{
+  DB_OTMPL *def = NULL;
+
+  CHECK_CONNECT_NULL ();
+  CHECK_1ARG_NULL (classobj);
+  CHECK_MODIFICATION_NULL ();
+
+  def = obt_def_object_for_read_only (classobj);
+
+  return def;
+}
+
 /*
  * dbt_edit_object() - This function creates an object template for an existing
  *    object.  The template is initially empty. The template is populated with
@@ -1184,6 +1198,7 @@ db_find_multi_unique (MOP classmop, int size, char *attr_names[], DB_VALUE * val
     obj_find_multi_attr (classmop, size, (const char **) attr_names, (const DB_VALUE **) values,
 			 purpose == DB_FETCH_WRITE ? AU_FETCH_UPDATE : AU_FETCH_READ);
 
+  er_clear ();
   return retval;
 }
 
