@@ -9996,7 +9996,7 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	  || op_type == PT_BETWEEN_GT_LT || op_type == PT_BETWEEN_INF_LT || op_type == PT_BETWEEN_INF_LE
 	  || op_type == PT_BETWEEN_GE_INF || op_type == PT_BETWEEN_GT_INF)
 	{
-	  double selectivity_a = 0.0, selectivity_b = 0.0;
+	  double selectivity_a = 0.0, selectivity_b = 0.0, selectivity_backup = selectivity;
 	  bool success1 = false;
 	  bool success2 = false;
 	  switch (op_type)
@@ -10066,7 +10066,7 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	    }
 	  if (!(success1 && success2))
 	    {
-	      selectivity = DEFAULT_RANGE_SELECTIVITY;
+	      selectivity = selectivity_backup;
 	    }
 	}
       else if (op_type == PT_BETWEEN_EQ_NA)
