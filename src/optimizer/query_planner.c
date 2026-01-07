@@ -10067,7 +10067,15 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	    }
 	  if (!(success1 && success2))
 	    {
-	      selectivity = selectivity_backup;
+	      if (op_type == PT_BETWEEN_INF_LT || op_type == PT_BETWEEN_INF_LE || op_type == PT_BETWEEN_GE_INF
+		  || op_type == PT_BETWEEN_GT_INF)
+		{
+		  selectivity = DEFAULT_COMP_SELECTIVITY;
+		}
+	      else
+		{
+		  selectivity = selectivity_backup;
+		}
 	    }
 	}
       else if (op_type == PT_BETWEEN_EQ_NA)
@@ -10104,12 +10112,7 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 		}
 	    }
 	}
-      else
-	{
-	  /* PT_BETWEEN_INF_LE, PT_BETWEEN_INF_LT, PT_BETWEEN_GE_INF, and PT_BETWEEN_GT_INF have only one argument */
 
-	  selectivity = DEFAULT_COMP_SELECTIVITY;
-	}
 
       selectivity = MAX (selectivity, 0.0);
       selectivity = MIN (selectivity, 1.0);
