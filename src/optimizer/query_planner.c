@@ -9931,8 +9931,8 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 {
   PT_NODE *lhs, *arg1, *arg2;
   PRED_CLASS pc1, pc2;
-  double total_selectivity = DEFAULT_RANGE_SELECTIVITY;
-  double selectivity = DEFAULT_RANGE_SELECTIVITY;
+  double total_selectivity;
+  double selectivity = DEFAULT_BETWEEN_SELECTIVITY;
   int lhs_icard = 0, rhs_icard = 0, icard = 0;
   PT_NODE *range_node;
   PT_OP_TYPE op_type;
