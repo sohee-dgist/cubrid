@@ -1042,12 +1042,22 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
   (*histogram)->histogram = (DB_VALUE **) db_ws_alloc (sizeof (DB_VALUE *) * class_->att_count);
   if ((*histogram)->histogram == NULL)
     {
+      db_ws_free (*histogram);
+      *histogram = NULL;
       return ER_OUT_OF_VIRTUAL_MEMORY;
+    }
+  /* Initialize array to NULL */
+  for (int j = 0; j < class_->att_count; j++)
+    {
+      (*histogram)->histogram[j] = NULL;
     }
 
   (*histogram)->null_frequency = (double *) db_ws_alloc (sizeof (double) * class_->att_count);
   if ((*histogram)->null_frequency == NULL)
     {
+      db_ws_free ((*histogram)->histogram);
+      db_ws_free (*histogram);
+      *histogram = NULL;
       return ER_OUT_OF_VIRTUAL_MEMORY;
     }
 
@@ -1061,27 +1071,35 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       error = db_get_histogram (classop, attname, &histogram_obj);
       if (error != NO_ERROR)
 	{
-	  return error;
+	  goto error_end;
 	}
 
       if (histogram_obj == NULL)
 	{
-	  (*histogram)->histogram[i] = nullptr;
+	  (*histogram)->histogram[i] = NULL;
 	  (*histogram)->null_frequency[i] = 0.0;
 	  i++;
 	  continue;
 	}
 
       histogram_value = (DB_VALUE *) db_ws_alloc (sizeof (DB_VALUE));
+      if (histogram_value == NULL)
+	{
+	  error = ER_OUT_OF_VIRTUAL_MEMORY;
+	  goto error_end;
+	}
       error = db_get (histogram_obj, "histogram_values", histogram_value);
       if (error != NO_ERROR)
 	{
-	  return error;
+	  db_ws_free (histogram_value);
+	  goto error_end;
 	}
       error = db_get (histogram_obj, "null_frequency", &null_frequency_value);
       if (error != NO_ERROR)
 	{
-	  return error;
+	  db_value_clear (histogram_value);
+	  db_ws_free (histogram_value);
+	  goto error_end;
 	}
 
       (*histogram)->histogram[i] = histogram_value; /* should clear histogram_value */
@@ -1098,6 +1116,31 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
   return NO_ERROR;
 
 error_end:
+  /* Free all allocated memory */
+  if (*histogram != NULL)
+    {
+      if ((*histogram)->histogram != NULL)
+	{
+	  for (int j = 0; j < (*histogram)->n_attrs; j++)
+	    {
+	      if ((*histogram)->histogram[j] != NULL)
+		{
+		  db_value_clear ((*histogram)->histogram[j]);
+		  db_ws_free ((*histogram)->histogram[j]);
+		  (*histogram)->histogram[j] = NULL;
+		}
+	    }
+	  db_ws_free ((*histogram)->histogram);
+	  (*histogram)->histogram = NULL;
+	}
+      if ((*histogram)->null_frequency != NULL)
+	{
+	  db_ws_free ((*histogram)->null_frequency);
+	  (*histogram)->null_frequency = NULL;
+	}
+      db_ws_free (*histogram);
+      *histogram = NULL;
+    }
   return error;
 }
 
@@ -1107,27 +1150,26 @@ int stats_free_histogram_and_init (HIST_STATS *histogram)
     {
       return NO_ERROR;
     }
-  if (histogram->histogram != NULL)
+  if (histogram->histogram != NULL && histogram->n_attrs > 0)
     {
       for (int i = 0; i < histogram->n_attrs; i++)
 	{
-	  if (histogram->histogram[i] == nullptr)
+	  if (histogram->histogram[i] == NULL)
 	    {
 	      continue;
 	    }
 	  db_value_clear (histogram->histogram[i]);
 	  db_ws_free (histogram->histogram[i]);
-	  histogram->histogram[i] = nullptr;
+	  histogram->histogram[i] = NULL;
 	}
+      db_ws_free (histogram->histogram);
+      histogram->histogram = NULL;
     }
 
-  if (histogram->n_attrs != 0)
+  if (histogram->null_frequency != NULL)
     {
-      if (histogram->null_frequency != NULL)
-	{
-	  db_ws_free (histogram->null_frequency);
-	  histogram->null_frequency = nullptr;
-	}
+      db_ws_free (histogram->null_frequency);
+      histogram->null_frequency = NULL;
     }
   db_ws_free (histogram);
   return NO_ERROR;
