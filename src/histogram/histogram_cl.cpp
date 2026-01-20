@@ -1069,10 +1069,6 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       DB_VALUE *histogram_value = NULL;
       DB_VALUE null_frequency_value;
       error = db_get_histogram (classop, attname, &histogram_obj);
-      if (error != NO_ERROR)
-	{
-	  goto error_end;
-	}
 
       if (histogram_obj == NULL)
 	{
