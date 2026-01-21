@@ -528,7 +528,7 @@ namespace cubschema
 	STATEMENT_ID stmt_id;
 	DB_VALUE value;
 	char select_query[DB_MAX_IDENTIFIER_LENGTH + 256] = { 0 };
-	constexpr int CNT_CATCLS_OBJECTS = 6;
+	constexpr int CNT_CATCLS_OBJECTS = 8;
 	DB_BIGINT cnt_refers = CNT_CATCLS_OBJECTS + 1;
 	int au_save;
 
