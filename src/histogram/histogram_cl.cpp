@@ -1158,17 +1158,15 @@ int stats_free_histogram_and_init (HIST_STATS *histogram)
 	    }
 	  db_value_clear (histogram->histogram[i]);
 	  db_ws_free (histogram->histogram[i]);
-	  histogram->histogram[i] = NULL;
 	}
       db_ws_free (histogram->histogram);
-      histogram->histogram = NULL;
     }
 
   if (histogram->null_frequency != NULL)
     {
       db_ws_free (histogram->null_frequency);
-      histogram->null_frequency = NULL;
     }
+
   db_ws_free (histogram);
   return NO_ERROR;
 }
