@@ -1028,6 +1028,7 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
     }
 
   *histogram = (HIST_STATS *) db_ws_alloc (sizeof (HIST_STATS));
+  memset (*histogram, 0, sizeof (HIST_STATS));
   if (*histogram == NULL)
     {
       return ER_OUT_OF_VIRTUAL_MEMORY;
@@ -1035,21 +1036,17 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
   (*histogram)->n_attrs = class_->att_count;
   if (class_->att_count == 0)
     {
-      (*histogram)->histogram = nullptr;
-      (*histogram)->null_frequency = nullptr;
+      (*histogram)->histogram = NULL;
+      (*histogram)->null_frequency = NULL;
       return NO_ERROR;
     }
+
   (*histogram)->histogram = (DB_VALUE **) db_ws_alloc (sizeof (DB_VALUE *) * class_->att_count);
   if ((*histogram)->histogram == NULL)
     {
       db_ws_free (*histogram);
       *histogram = NULL;
       return ER_OUT_OF_VIRTUAL_MEMORY;
-    }
-  /* Initialize array to NULL */
-  for (int j = 0; j < class_->att_count; j++)
-    {
-      (*histogram)->histogram[j] = NULL;
     }
 
   (*histogram)->null_frequency = (double *) db_ws_alloc (sizeof (double) * class_->att_count);
@@ -1061,7 +1058,6 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       return ER_OUT_OF_VIRTUAL_MEMORY;
     }
 
-
   int i = 0;
   for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
     {
@@ -1070,10 +1066,16 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       DB_VALUE null_frequency_value;
       error = db_get_histogram (classop, attname, &histogram_obj);
 
+      (*histogram)->histogram[i] = NULL;
+      (*histogram)->null_frequency[i] = 0.0;
+
+      if (error != NO_ERROR)
+	{
+	  goto error_end;
+	}
+
       if (histogram_obj == NULL)
 	{
-	  (*histogram)->histogram[i] = NULL;
-	  (*histogram)->null_frequency[i] = 0.0;
 	  i++;
 	  continue;
 	}
@@ -1117,7 +1119,7 @@ error_end:
     {
       if ((*histogram)->histogram != NULL)
 	{
-	  for (int j = 0; j < (*histogram)->n_attrs; j++)
+	  for (int j = 0; j < i; j++)
 	    {
 	      if ((*histogram)->histogram[j] != NULL)
 		{
