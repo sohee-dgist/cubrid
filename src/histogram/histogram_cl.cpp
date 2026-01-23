@@ -1028,7 +1028,6 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
     }
 
   *histogram = (HIST_STATS *) db_ws_alloc (sizeof (HIST_STATS));
-  memset (*histogram, 0, sizeof (HIST_STATS));
   if (*histogram == NULL)
     {
       return ER_OUT_OF_VIRTUAL_MEMORY;
@@ -1040,6 +1039,7 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       (*histogram)->null_frequency = NULL;
       return NO_ERROR;
     }
+  memset (*histogram, 0, sizeof (HIST_STATS));
 
   (*histogram)->histogram = (DB_VALUE **) db_ws_alloc (sizeof (DB_VALUE *) * class_->att_count);
   if ((*histogram)->histogram == NULL)
@@ -1048,6 +1048,7 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       *histogram = NULL;
       return ER_OUT_OF_VIRTUAL_MEMORY;
     }
+  memset ((*histogram)->histogram, 0, sizeof (DB_VALUE *) * class_->att_count);
 
   (*histogram)->null_frequency = (double *) db_ws_alloc (sizeof (double) * class_->att_count);
   if ((*histogram)->null_frequency == NULL)
@@ -1057,6 +1058,7 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       *histogram = NULL;
       return ER_OUT_OF_VIRTUAL_MEMORY;
     }
+  memset ((*histogram)->null_frequency, 0, sizeof (double) * class_->att_count);
 
   int i = 0;
   for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
