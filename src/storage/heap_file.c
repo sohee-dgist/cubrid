@@ -7894,8 +7894,7 @@ static int
 random_poisson_weight (int weight)
 {
 // *INDENT-OFF*
-
-  static thread_local std::mt19937 rng { std::random_device{} () };
+  static thread_local std::mt19937 rng { 123456789u };  // fixed seed
 // *INDENT-ON*
   if (weight < 1)
     {

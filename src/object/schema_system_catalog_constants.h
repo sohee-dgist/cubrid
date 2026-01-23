@@ -97,4 +97,37 @@
 
 #define SP_ATTR_TARGET_METHOD_LEN       (4096)
 
+/*
+ * !! CAUTION !!
+ *
+ * If [data_type] is DB_TYPE_OBJECT and [class_of] is NULL, this represents a
+ * general object domain. However, for correctness we must consider only
+ * general object domains that belong to user-defined classes.
+ *
+ * This distinction is especially important for TRUNCATE processing, where
+ * domain validation must ignore system-class object domains and detect only
+ * user-class dependencies.
+ *
+ * Since there is no direct way to distinguish system-class object domains
+ * from user-class ones at this point, we use a workaround: we count the
+ * number of general object domains that are known to exist in system catalogs,
+ * and if the SELECT result exceeds this number, we assume that at least one
+ * general object domain exists in a user class.
+ *
+ * The number of general object domains in system classes is currently 6 and
+ * is hard-coded. Therefore, when a general object domain is added to or
+ * removed from any system class, this value MUST be reviewed.
+ *
+ * If the number changes, CNT_CATCLS_OBJECTS MUST be updated accordingly.
+ *
+ * A QA test case has been added to verify that system classes contain exactly
+ * 6 general object domains. This test is intended to catch violations of this
+ * assumption early. If CNT_CATCLS_OBJECTS is modified, the corresponding QA
+ * test MUST also be updated.
+ *
+ * See CBRD-23983 and CBRD-25697 for details.
+ */
+
+#define CNT_CATCLS_OBJECTS              (8)	/* number of general object domains in system classes */
+
 #endif /* _SCHEMA_SYSTEM_CATALOG_CONSTANTS_H_ */
