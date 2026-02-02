@@ -581,14 +581,6 @@ struct sm_class_constraint
 #define GET_OPTION_DEDUPLICATE(opt) \
   (((opt) >> OPTION_DEDUPLICATE_SHIFT) & OPTION_DEDUPLICATE_MASK)
 
-/* histogram */
-typedef struct sm_class_histogram SM_CLASS_HISTOGRAM;
-
-struct sm_class_histogram
-{
-  struct sm_class_histogram *next;
-  DB_OBJECT *histogram_object;
-};
 
 /*
  *    Holds information about a method argument.  This will be used
@@ -996,8 +988,6 @@ extern int classobj_put_index (DB_SEQ ** properties, SM_CLASS_CONSTRAINT * con, 
 			       SM_FOREIGN_KEY_INFO * fk_info, char *shared_cons_name, bool attr_name_instead_of_id);
 extern int classobj_find_prop_constraint (DB_SEQ * properties, const char *prop_name, const char *cnstr_name,
 					  DB_VALUE * cnstr_val);
-
-extern int classobj_put_histogram (DB_OBJLIST * histograms, SM_CLASS_HISTOGRAM * histogram);
 
 #if defined (ENABLE_RENAME_CONSTRAINT)
 extern int classobj_rename_constraint (DB_SEQ * properties, const char *prop_name, const char *old_name,

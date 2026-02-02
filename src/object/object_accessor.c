@@ -3794,6 +3794,7 @@ obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE 
   else if (result == BTREE_KEY_FOUND)
     {
       obj = ws_mop (oids, NULL);
+      free (oids);
     }
 
 end_find:

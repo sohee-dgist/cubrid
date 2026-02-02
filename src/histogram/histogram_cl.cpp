@@ -805,7 +805,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
   switch (key.kind)
     {
     case hist::histogram_key_kind::i64:
-      bucket_index = histogram_reader.find_bucket<std::int32_t> (key.i64);
+      bucket_index = histogram_reader.find_bucket<std::int64_t> (key.i64);
 
       if (bucket_index < 0)
 	{
@@ -816,7 +816,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 
       if (histogram_reader.bucket_approx_ndv (bucket_index) == 1)
 	{
-	  if (histogram_reader.check_value_included<std::int32_t> (bucket_index, key.i64))
+	  if (histogram_reader.check_value_included<std::int64_t> (bucket_index, key.i64))
 	    {
 	      if (is_ge == include_equal)
 		{
@@ -835,7 +835,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
       else
 	{
 	  /* linear interpolation */
-	  const double frac = numeric_domain_frac_i64_lt (histogram_reader.bucket_hi<std::int32_t> (bucket_index - 1),
+	  const double frac = numeric_domain_frac_i64_lt (histogram_reader.bucket_hi<std::int64_t> (bucket_index - 1),
 			      histogram_reader.bucket_hi<std::int64_t> (bucket_index), key.i64);
 	  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1) + histogram_reader.bucket_rows (
 				bucket_index) * frac;
