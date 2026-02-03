@@ -1032,6 +1032,7 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
     {
       return ER_OUT_OF_VIRTUAL_MEMORY;
     }
+  memset (*histogram, 0, sizeof (HIST_STATS));
   (*histogram)->n_attrs = class_->att_count;
   if (class_->att_count == 0)
     {
@@ -1039,7 +1040,6 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       (*histogram)->null_frequency = NULL;
       return NO_ERROR;
     }
-  memset (*histogram, 0, sizeof (HIST_STATS));
 
   (*histogram)->histogram = (DB_VALUE **) db_ws_alloc (sizeof (DB_VALUE *) * class_->att_count);
   if ((*histogram)->histogram == NULL)
