@@ -1064,7 +1064,7 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
   memset ((*histogram)->null_frequency, 0, sizeof (double) * attr_count);
 
   int i = 0;
-  for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
+  for (att = class_->attributes; att != NULL && class_->attributes != NULL; att = (SM_ATTRIBUTE *) att->header.next)
     {
       const char *attname = (char *) att->header.name;
       DB_VALUE *histogram_value = NULL;
