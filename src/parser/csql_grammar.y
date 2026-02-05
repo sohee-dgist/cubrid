@@ -1918,14 +1918,11 @@ stmt_
 	| rename_stmt
 		{ $$ = $1; }
 	| update_statistics_stmt
-		{ DBG_TRACE_GRAMMAR(stmt_, | update_statstics_stmt);
-                  $$ = $1; }
+		{ $$ = $1; }
 	| update_histogram_stmt
-		{ DBG_TRACE_GRAMMAR(stmt_, | update_histogram_stmt);
-                  $$ = $1; }
+		{ $$ = $1; }
 	| drop_histogram_stmt
-		{ DBG_TRACE_GRAMMAR(stmt_, | drop_histogram_stmt);
-                  $$ = $1; }
+		{ $$ = $1; }
 	| drop_stmt
 		{ $$ = $1; }
 	| do_stmt
@@ -4694,28 +4691,20 @@ index_column_name_list
 
 histogram_column_list
         : /* empty */
-        {{ DBG_TRACE_GRAMMAR(histogram_column_list, : );
-                $$ = NULL;
-        DBG_PRINT}}
+        {{ $$ = NULL; }}
 
         | histogram_column_list ',' histogram_column
-        {{ DBG_TRACE_GRAMMAR(histogram_column_list, | histogram_column_list ',' histogram_column);
-                $$ = parser_make_link ($1, $3);
-                PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-        DBG_PRINT}}
+        {{ $$ = parser_make_link ($1, $3);
+                PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)}}
         | histogram_column
-        {{ DBG_TRACE_GRAMMAR(histogram_column_list, | histogram_column);
-                $$ = $1;
-        PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-        DBG_PRINT}}
+        {{ $$ = $1;
+                PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos) }}
         ;
 
 histogram_column
         : identifier
-        {{ DBG_TRACE_GRAMMAR(histogram_column, | name);
-                $$ = $1;
-                PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-        DBG_PRINT}}
+        {{ $$ = $1;
+                PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos) }}
         ;
 
 update_statistics_stmt
@@ -4759,7 +4748,7 @@ update_statistics_stmt
 
 update_histogram_stmt
         : ANALYZE TABLE only_class_name UPDATE HISTOGRAM ON_ histogram_column_list WITH unsigned_integer BUCKETS opt_with_fullscan
-                {{ DBG_TRACE_GRAMMAR(update_histogram_stmt, | ANALYZE TABLE only_class_name UPDATE HISTOGRAM ON histogram_column_list WITH unsigned_integer BUCKETS opt_with_fullscan );
+                {{
                         PT_NODE *uhs = parser_new_node (this_parser, PT_UPDATE_HISTOGRAM);
                         PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
                         if (uhs && target_t)
@@ -4776,9 +4765,9 @@ update_histogram_stmt
 
                         $$ = uhs;
                         PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-                DBG_PRINT }}
+                }}
         | ANALYZE TABLE only_class_name UPDATE HISTOGRAM WITH unsigned_integer BUCKETS opt_with_fullscan
-                {{ DBG_TRACE_GRAMMAR(update_histogram_stmt, | ANALYZE TABLE only_class_name UPDATE HISTOGRAM WITH unsigned_integer BUCKETS opt_with_fullscan );
+                {{
                         PT_NODE *uhs = parser_new_node (this_parser, PT_UPDATE_HISTOGRAM);
                         PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
                         if (uhs && target_t)
@@ -4794,11 +4783,11 @@ update_histogram_stmt
 
                         $$ = uhs;
                         PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-                DBG_PRINT }}
+                }}
         ;
 drop_histogram_stmt
         : ANALYZE TABLE only_class_name DROP HISTOGRAM ON_ histogram_column_list
-                {{ DBG_TRACE_GRAMMAR(drop_histogram_stmt, | ANALYZE TABLE only_class_name DROP HISTOGRAM ON histogram_column_list);
+                {{
                         PT_NODE *dhs = parser_new_node (this_parser, PT_DROP_HISTOGRAM);
                         PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
                         if (dhs && target_t)
@@ -4811,9 +4800,9 @@ drop_histogram_stmt
                         }
                         $$ = dhs;
                         PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-                DBG_PRINT }}
+                }}
         | ANALYZE TABLE only_class_name DROP HISTOGRAM
-                {{ DBG_TRACE_GRAMMAR(drop_histogram_stmt, | ANALYZE TABLE only_class_name DROP HISTOGRAM ON histogram_column_list);
+                {{
                         PT_NODE *dhs = parser_new_node (this_parser, PT_DROP_HISTOGRAM);
                         PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
                         if (dhs && target_t)
@@ -4825,7 +4814,7 @@ drop_histogram_stmt
                         }
                         $$ = dhs;
                         PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-                DBG_PRINT }}
+                }}
         ;
 
 only_class_name_list
