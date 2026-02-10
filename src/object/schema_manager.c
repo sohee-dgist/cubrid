@@ -13704,6 +13704,12 @@ sm_delete_class_mop (MOP op, bool is_cascade_constraints)
     {
 
       /* class_of, key_attr */
+      if (class_->attributes == NULL)
+	{
+	  AU_ENABLE (au_save);
+	  goto end;
+	}
+
       db_get_histogram (op, att->header.name, &histogram_obj);
 
       if (histogram_obj != NULL)

@@ -1063,13 +1063,27 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
     }
   memset ((*histogram)->null_frequency, 0, sizeof (double) * attr_count);
 
+
   int i = 0;
+
+  if (*histogram == NULL || (*histogram)->histogram == NULL || (*histogram)->null_frequency == NULL
+      || class_->attributes == NULL)
+    {
+      goto error_end;
+    }
+
   for (att = class_->attributes; att != NULL && class_->attributes != NULL; att = (SM_ATTRIBUTE *) att->header.next)
     {
       const char *attname = (char *) att->header.name;
       DB_VALUE *histogram_value = NULL;
       DB_VALUE null_frequency_value;
       error = db_get_histogram (classop, attname, &histogram_obj);
+
+
+      if (*histogram == NULL || (*histogram)->histogram == NULL || (*histogram)->null_frequency == NULL)
+	{
+	  goto error_end;
+	}
 
       (*histogram)->histogram[i] = NULL;
       (*histogram)->null_frequency[i] = 0.0;
