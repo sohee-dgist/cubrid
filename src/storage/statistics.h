@@ -56,6 +56,14 @@
     } \
   while (0)
 
+#define stats_free_histogram_and_init_and_set_null(histogram) \
+  do \
+    { \
+      stats_free_histogram_and_init (histogram); \
+      (histogram) = NULL; \
+    } \
+  while (0)
+
 /* B+tree statistical information */
 typedef struct btree_stats BTREE_STATS;
 struct btree_stats

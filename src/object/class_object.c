@@ -6967,7 +6967,7 @@ classobj_free_class (SM_CLASS * class_)
 
   if (class_->histogram != NULL)
     {
-      stats_free_histogram_and_init (class_->histogram);
+      stats_free_histogram_and_init_and_set_null (class_->histogram);
     }
 
   if (class_->properties != NULL)

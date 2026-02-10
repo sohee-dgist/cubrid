@@ -4145,12 +4145,21 @@ sm_get_class_with_statistics (MOP classop)
   /* get the histogram of the class */
   if (class_->histogram == NULL)
     {
-      /* we don't need to flush the class here */
-      int err = stats_get_histogram (classop, &class_->histogram);
-      if (err != NO_ERROR)
+      if (!OID_ISTEMP (WS_OID (classop)))
 	{
-	  stats_free_histogram_and_init (class_->histogram);
-	  return NULL;
+	  /* make sure the class is flushed before asking for statistics, this handles the case where an index
+	   * has been added to the class but the catalog & statistics do not reflect this fact until the class
+	   * is flushed.  We might want to flush instances as well but that shouldn't affect the statistics ? */
+	  if (locator_flush_class (classop) != NO_ERROR)
+	    {
+	      return NULL;
+	    }
+	  int err = stats_get_histogram (classop, &class_->histogram);
+	  if (err != NO_ERROR)
+	    {
+	      stats_free_histogram_and_init (class_->histogram);
+	      return NULL;
+	    }
 	}
     }
   else
