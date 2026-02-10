@@ -1255,7 +1255,6 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   const char *col_name = attr_name;
   const char *type_name = db_get_type_name (attr_type);
   int rows_scanned = 0;
-  int bucket_count = 0;
   DB_VALUE histogram_value, null_frequency_value;
   DB_OBJECT *histogram_obj = NULL;
   int histogram_total_length = 0;
