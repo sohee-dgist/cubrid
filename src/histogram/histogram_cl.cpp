@@ -829,7 +829,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	    }
 	  else
 	    {
-	      if (bucket_index == histogram_reader.bucket_count() - 1)
+	      if (bucket_index == static_cast<int> (histogram_reader.bucket_count()) - 1)
 		{
 		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
@@ -874,7 +874,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	    }
 	  else
 	    {
-	      if (bucket_index == histogram_reader.bucket_count() - 1)
+	      if (bucket_index == static_cast<int> (histogram_reader.bucket_count()) - 1)
 		{
 		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
@@ -918,7 +918,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	    }
 	  else
 	    {
-	      if (bucket_index == histogram_reader.bucket_count() - 1)
+	      if (bucket_index == static_cast<int> (histogram_reader.bucket_count()) - 1)
 		{
 		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
@@ -963,7 +963,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	    }
 	  else
 	    {
-	      if (bucket_index == histogram_reader.bucket_count() - 1)
+	      if (bucket_index == static_cast<int> (histogram_reader.bucket_count()) - 1)
 		{
 		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
