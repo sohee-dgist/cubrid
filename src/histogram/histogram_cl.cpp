@@ -829,7 +829,14 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	    }
 	  else
 	    {
-	      bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+	      if (bucket_index == histogram_reader.bucket_count() - 1)
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		}
+	      else
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		}
 	    }
 	}
       else
@@ -867,7 +874,14 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	    }
 	  else
 	    {
-	      bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+	      if (bucket_index == histogram_reader.bucket_count() - 1)
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		}
+	      else
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		}
 	    }
 	}
       else
@@ -904,7 +918,14 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	    }
 	  else
 	    {
-	      bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+	      if (bucket_index == histogram_reader.bucket_count() - 1)
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		}
+	      else
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		}
 	    }
 	}
       else
@@ -942,7 +963,14 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	    }
 	  else
 	    {
-	      bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+	      if (bucket_index == histogram_reader.bucket_count() - 1)
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		}
+	      else
+		{
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		}
 	    }
 	}
       else
@@ -1078,7 +1106,6 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       DB_VALUE *histogram_value = NULL;
       DB_VALUE null_frequency_value;
       error = db_get_histogram (classop, attname, &histogram_obj);
-
 
       if (*histogram == NULL || (*histogram)->histogram == NULL || (*histogram)->null_frequency == NULL)
 	{
