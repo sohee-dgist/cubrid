@@ -35,13 +35,13 @@ typedef struct hist_stats HIST_STATS;
 
 /* null frequency query template */
 static const char *NULL_FREQUENCY_QUERY_TEMPLATE =
-	"SELECT SUM(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) AS null_frequency FROM %s;";
+	"SELECT SUM(CASE WHEN [%s] IS NULL THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) AS null_frequency FROM [%s];";
 static const char *NULL_FREQUENCY_WITH_SAMPLING_SCAN_QUERY_TEMPLATE =
-	"SELECT /*+ SAMPLING_SCAN */ SUM(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) AS null_frequency FROM %s;";
+	"SELECT /*+ SAMPLING_SCAN */ SUM(CASE WHEN [%s] IS NULL THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) AS null_frequency FROM [%s];";
 
 /* histogram query template */
 static const char *HISTOGRAM_QUERY_TEMPLATE =
-	"WITH src AS (SELECT %s AS val FROM %s WHERE %s IS NOT NULL), "
+	"WITH src AS (SELECT [%s] AS val FROM [%s] WHERE [%s] IS NOT NULL), "
 	"cnt AS (SELECT val, COUNT(*) AS c FROM src GROUP BY val), "
 	"mcv_ranked AS (SELECT val, c, ROW_NUMBER() OVER (ORDER BY c DESC, val) AS rn FROM cnt ORDER BY c DESC LIMIT %d), "
 	"non_mcv_flagged AS (SELECT val, c FROM cnt WHERE val NOT IN (SELECT val FROM mcv_ranked)), "
@@ -54,7 +54,7 @@ static const char *HISTOGRAM_QUERY_TEMPLATE =
 	"COUNT(*) AS approx_ndv, MAX(is_mcv) AS is_mcv FROM all_buckets GROUP BY bid ORDER BY MAX(val);";
 /* histogram with sampling scan query template */
 static const char *HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE =
-	"WITH src AS (SELECT /*+ SAMPLING_SCAN */ %s AS val FROM %s WHERE %s IS NOT NULL), "
+	"WITH src AS (SELECT /*+ SAMPLING_SCAN */ [%s] AS val FROM [%s] WHERE [%s] IS NOT NULL), "
 	"cnt AS (SELECT val, COUNT(*) AS c FROM src GROUP BY val), "
 	"mcv_ranked AS (SELECT val, c, ROW_NUMBER() OVER (ORDER BY c DESC, val) AS rn FROM cnt ORDER BY c DESC LIMIT %d), "
 	"non_mcv_flagged AS (SELECT val, c FROM cnt WHERE val NOT IN (SELECT val FROM mcv_ranked)), "
