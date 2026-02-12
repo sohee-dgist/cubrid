@@ -582,6 +582,7 @@ BEGIN_SUPPRESS_WARNING_BISON_FLEX
 %type <boolean> opt_invisible
 %type <number> opt_paren_plus
 %type <number> opt_with_fullscan
+%type <number> with_n_buckets
 %type <number> online_parallel
 %type <number> comp_op
 %type <number> opt_of_all_some_any
@@ -4747,7 +4748,7 @@ update_statistics_stmt
 	;
 
 update_histogram_stmt
-        : ANALYZE TABLE only_class_name UPDATE HISTOGRAM ON_ histogram_column_list WITH unsigned_integer BUCKETS opt_with_fullscan
+        : ANALYZE TABLE only_class_name UPDATE HISTOGRAM ON_ histogram_column_list with_n_buckets opt_with_fullscan
                 {{
                         PT_NODE *uhs = parser_new_node (this_parser, PT_UPDATE_HISTOGRAM);
                         PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
@@ -4759,14 +4760,14 @@ update_histogram_stmt
                             uhs->info.histogram.target_table_spec = target_t;
 
                             uhs->info.histogram.target_columns = $7;
-                            uhs->info.histogram.bucket_count = $9->info.value.data_value.i;
-                            uhs->info.histogram.with_fullscan = $11;             
+                            uhs->info.histogram.bucket_count = $8;
+                            uhs->info.histogram.with_fullscan = $9;             
                         }
 
                         $$ = uhs;
                         PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
                 }}
-        | ANALYZE TABLE only_class_name UPDATE HISTOGRAM WITH unsigned_integer BUCKETS opt_with_fullscan
+        | ANALYZE TABLE only_class_name UPDATE HISTOGRAM with_n_buckets opt_with_fullscan
                 {{
                         PT_NODE *uhs = parser_new_node (this_parser, PT_UPDATE_HISTOGRAM);
                         PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
@@ -4777,8 +4778,8 @@ update_histogram_stmt
                             target_t->info.spec.meta_class = PT_CLASS;
                             uhs->info.histogram.target_table_spec = target_t;
                             uhs->info.histogram.target_columns = NULL;
-                            uhs->info.histogram.bucket_count = $7->info.value.data_value.i;
-                            uhs->info.histogram.with_fullscan = $9;
+                            uhs->info.histogram.bucket_count = $6;
+                            uhs->info.histogram.with_fullscan = $7;
                         }
 
                         $$ = uhs;
@@ -4850,6 +4851,18 @@ opt_with_fullscan
         | WITH FULLSCAN
                 {{
                         $$ = 1;
+                }}
+        ;
+
+
+with_n_buckets
+        : /* empty */
+                {{
+                        $$ = 10;
+                }}
+        | WITH unsigned_integer BUCKETS
+                {{
+                        $$ = $2->info.value.data_value.i;
                 }}
         ;
 
