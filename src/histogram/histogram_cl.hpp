@@ -36,8 +36,10 @@ typedef struct hist_stats HIST_STATS;
 /* null frequency query template */
 static const char *NULL_FREQUENCY_QUERY_TEMPLATE =
 	"SELECT SUM(CASE WHEN [%s] IS NULL THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) AS null_frequency FROM [%s];";
+/* Use AVG instead of SUM/COUNT(*) because sampling scales only COUNT(*), not SUM.
+ * AVG computes ratio over the same sampled set without mixing scaled/unscaled values. */
 static const char *NULL_FREQUENCY_WITH_SAMPLING_SCAN_QUERY_TEMPLATE =
-	"SELECT /*+ SAMPLING_SCAN */ SUM(CASE WHEN [%s] IS NULL THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) AS null_frequency FROM [%s];";
+	"SELECT /*+ SAMPLING_SCAN */ AVG(CASE WHEN [%s] IS NULL THEN 1.0 ELSE 0.0 END) AS null_frequency FROM [%s];";
 
 /* histogram query template */
 static const char *HISTOGRAM_QUERY_TEMPLATE =
