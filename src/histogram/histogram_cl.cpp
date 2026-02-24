@@ -173,6 +173,7 @@ get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *at
   if (obj_tmpl == NULL)
     {
       error = ER_FAILED;
+      dbt_abort_object (obj_tmpl);
       goto end;
     }
 
@@ -180,6 +181,7 @@ get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *at
   if (error != NO_ERROR)
     {
       error = ER_FAILED;
+      dbt_abort_object (obj_tmpl);
       goto end;
     }
 
@@ -204,7 +206,6 @@ get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *at
 end:
   db_query_end (query_result);
   db_value_clear (&null_frequency_value);
-  assert (error == NO_ERROR);	// for debug
   return error;
 }
 
@@ -1019,7 +1020,6 @@ db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj)
   DB_OTMPL *obj_tmpl = NULL;
   DB_VALUE value[2];
   DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
-  DB_VALUE histogram_value;
   const char *search_attrs[2] = { "class_of", "key_attr" };
 
   histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
@@ -1316,6 +1316,7 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   error = db_get (histogram_obj, "histogram_values", &histogram_value);
   if (error != NO_ERROR)
     {
+      db_value_clear (&histogram_value);
       return ER_FAILED;
     }
 
@@ -1323,6 +1324,8 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   error = db_get (histogram_obj, "null_frequency", &null_frequency_value);
   if (error != NO_ERROR)
     {
+      db_value_clear (&null_frequency_value);
+      db_value_clear (&histogram_value);
       return ER_FAILED;
     }
 
@@ -1443,6 +1446,9 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
 			cum_sel);
 	}
     }
+
+  db_value_clear (&histogram_value);
+  db_value_clear (&null_frequency_value);
 
   return NO_ERROR;
 }
