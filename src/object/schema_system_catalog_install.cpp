@@ -2143,9 +2143,8 @@ namespace cubschema
     {
       {"class_of", "object"},
       {"key_attr", format_varchar (255)},
-      {"with_fullscan","integer"},
-      {"bucket_count", "integer"},
-      {"histogram_values", format_varbit (1024)},
+      {"with_fullscan", format_varchar (32)},
+      {"null_frequency", "double"},
       {attribute_kind::QUERY_SPEC, sm_define_view_db_histogram_spec ()}
     },
 // constraint

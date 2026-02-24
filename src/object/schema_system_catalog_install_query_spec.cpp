@@ -1649,9 +1649,8 @@ sm_define_view_db_histogram_spec (void)
 	"SELECT "
 	  "[h].[class_of] AS [class_of], "
 	  "[h].[key_attr] AS [key_attr], "
-	  "[h].[with_fullscan] AS [with_fullscan], " // TODO : integer -> varchar(32)
-	  "[h].[null_frequency] AS [null_frequency], "
-	  "[h].[histogram_values] AS [histogram_values] "
+	  "CASE WHEN [h].[with_fullscan] = 0 THEN 'sampling scan' ELSE 'full scan' END AS [with_fullscan], "
+	  "[h].[null_frequency] AS [null_frequency] "
 	"FROM "
 	  /* CT_DB_HISTOGRAM_NAME */
 	  "[%s] AS [h] "
