@@ -1017,7 +1017,6 @@ db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj)
 {
   int error = NO_ERROR;
   DB_OBJECT *histogram_class;
-  DB_OTMPL *obj_tmpl = NULL;
   DB_VALUE value[2];
   DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
   const char *search_attrs[2] = { "class_of", "key_attr" };
