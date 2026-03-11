@@ -4311,7 +4311,7 @@ do_update_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
 
 
 /**
- * do_update_histogram() - Creates a histogram on a class.
+ * do_drop_histogram () - drop a histogram on a class.
  *   return: Error code if it fails
  *   parser(in): Parser context
  *   statement(in): Parse tree of a create histogram statement
