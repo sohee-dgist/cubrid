@@ -914,13 +914,13 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	{
 	  if (histogram_reader.check_value_included<double> (bucket_index, key.dbl))
 	    {
-	      if (!is_ge && include_equal)
+	      if (is_ge == include_equal)
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
 		}
 	      else
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
 	    }
 	  else
