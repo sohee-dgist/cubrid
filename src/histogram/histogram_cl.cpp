@@ -451,6 +451,8 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
   error = dbt_put (obj_tmpl, "histogram_values", &histogram_value);
   if (error != NO_ERROR)
     {
+      dbt_abort_object (obj_tmpl);
+      obj_tmpl = NULL;
       goto end;
     }
 
@@ -459,6 +461,8 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
     {
       assert (er_errid () != NO_ERROR);
       error = er_errid ();
+      dbt_abort_object (obj_tmpl);
+      obj_tmpl = NULL;
       goto end;
     }
 
@@ -914,13 +918,13 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	{
 	  if (histogram_reader.check_value_included<double> (bucket_index, key.dbl))
 	    {
-	      if (!is_ge && include_equal)
+	      if (is_ge == include_equal)
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
 		}
 	      else
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
 	    }
 	  else

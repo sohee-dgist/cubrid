@@ -10181,7 +10181,7 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	      }
 	    case PT_BETWEEN_GT_LE:
 	      {
-		/* selectivity = sel_le(b) - sel_lt(a) */
+		/* selectivity = sel_le(b) - sel_le(a) */
 		histogram_get_comp_selectivity (lhs, arg1, false, true, &selectivity_a, &success1);
 		histogram_get_comp_selectivity (lhs, arg2, false, true, &selectivity_b, &success2);
 		selectivity = selectivity_b - selectivity_a;
@@ -10189,13 +10189,12 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	      }
 	    case PT_BETWEEN_GT_LT:
 	      {
-		/* selectivity = sel_lt(b) - sel_lt(a) */
+		/* selectivity = sel_lt(b) - sel_le(a) */
 		histogram_get_comp_selectivity (lhs, arg1, false, true, &selectivity_a, &success1);
 		histogram_get_comp_selectivity (lhs, arg2, false, false, &selectivity_b, &success2);
 		selectivity = selectivity_b - selectivity_a;
 		break;
 	      }
-	    case PT_BETWEEN_INF_LT:
 	      {
 		histogram_get_comp_selectivity (lhs, arg1, false, false, &selectivity_a, &success1);
 		success2 = true;
