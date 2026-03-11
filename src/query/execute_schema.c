@@ -4125,11 +4125,14 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
   cur_column = histogram_info->target_columns;
   with_fullscan = histogram_info->with_fullscan ? true : false;
 
-  /* update statistics for class first */
-  error = sm_update_statistics (obj, with_fullscan);
-  if (error != NO_ERROR)
+  /* update statistics for class first (only when creating/updating histograms) */
+  if (do_histogram == DO_HISTOGRAM_CREATE)
     {
-      return error;
+      error = sm_update_statistics (obj, with_fullscan);
+      if (error != NO_ERROR)
+	{
+	  return error;
+	}
     }
 
   if (nnames == 0)
