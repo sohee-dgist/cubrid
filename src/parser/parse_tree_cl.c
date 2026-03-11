@@ -7333,7 +7333,6 @@ pt_print_create_entity (PARSER_CONTEXT * parser, PT_NODE * p)
   return q;
 }
 
-/* update_histogram */
 /*
  * pt_init_update_histogram () -
  *   return:
@@ -7345,7 +7344,6 @@ pt_init_update_histogram (PT_NODE * p)
   return p;
 }
 
-/* update_histogram */
 /*
  * pt_init_drop_histogram () -
  *   return:
@@ -7376,7 +7374,7 @@ pt_apply_update_histogram (PARSER_CONTEXT * parser, PT_NODE * p, void *arg)
 }
 
 /*
- * pt_apply_update_histogram () -
+ * pt_print_update_histogram () -
  *   return:
  *   parser(in):
  *   p(in):
@@ -7427,7 +7425,7 @@ pt_print_update_histogram (PARSER_CONTEXT * parser, PT_NODE * p)
 }
 
 /*
- * pt_apply_update_histogram () -
+ * pt_apply_drop_histogram () -
  *   return:
  *   parser(in):
  *   p(in):

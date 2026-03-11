@@ -36,7 +36,8 @@
 
 #define STATS_SAMPLING_THRESHOLD 5000	/* sampling trial count */
 #define STATS_SAMPLING_LEAFS_MAX 5000	/* sampling leaf pages */
-#define NUMBER_OF_SAMPLING_PAGES 5000
+#define MAX_HEAP_SAMPLING_PAGES 5000
+#define MIN_HEAP_SAMPLING_PAGES 100
 #define EXPECTED_ROWS_PER_PAGE 20
 
 /* disk-resident elements of pkeys[] field */

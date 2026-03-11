@@ -274,7 +274,15 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
       return error;
     }
 
-  number_of_mcv = db_get_int (&number_of_mcv_value);
+  if (number_of_mcv_value.domain.general_info.type == DB_TYPE_INTEGER)
+    {
+      number_of_mcv = db_get_int (&number_of_mcv_value);
+    }
+  else
+    {
+      number_of_mcv = 0;
+    }
+
   db_query_end (query_result);
 
   /* ---- get histogram ---- */
