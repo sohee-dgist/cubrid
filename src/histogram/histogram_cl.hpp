@@ -41,6 +41,13 @@ static const char *NULL_FREQUENCY_QUERY_TEMPLATE =
 static const char *NULL_FREQUENCY_WITH_SAMPLING_SCAN_QUERY_TEMPLATE =
 	"SELECT /*+ SAMPLING_SCAN */ AVG(CASE WHEN [%s] IS NULL THEN 1.0 ELSE 0.0 END) AS null_frequency FROM [%s];";
 
+/* mcv count query template */
+static const char *MCV_COUNT_QUERY_TEMPLATE =
+	"WITH s AS (SELECT /*+ SAMPLING_SCAN */ [%s] val FROM [%s] WHERE [%s] IS NOT NULL), "
+	"f AS (SELECT val, COUNT(*) cnt FROM s GROUP BY val), "
+	"t AS (SELECT COUNT(*) total_cnt FROM s) "
+	"SELECT COUNT(*) mcv_count FROM f, t WHERE cnt > total_cnt * (0.5 / %d);";
+
 /* histogram query template */
 static const char *HISTOGRAM_QUERY_TEMPLATE =
 	"WITH src AS (SELECT [%s] AS val FROM [%s] WHERE [%s] IS NOT NULL), "

@@ -230,12 +230,54 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
   DB_QUERY_ERROR query_error;
   hist::HistogramBuilder histogram_builder;
   DB_TYPE type = DB_TYPE_UNKNOWN;
-  // ---- number of MCV ----
-  int number_of_mcv = std::min (100, max_number_of_buckets / 2);
+  DB_VALUE number_of_mcv_value;
+  int number_of_mcv = 0;
+
 
   // ---- query buffer ---- (query_length + table_name_length + attr_name_length)
+
   char query_buf[1024+222+254];
 
+  // ---- number of MCV ----
+
+  snprintf (query_buf, sizeof (query_buf), MCV_COUNT_QUERY_TEMPLATE, attr_name, tbl_name, attr_name,
+	    max_number_of_buckets);
+
+  error = db_compile_and_execute_local (query_buf, &query_result, &query_error);
+  if (error < 0)
+    {
+      db_query_end (query_result);
+      return error;
+    }
+
+  error = db_query_first_tuple (query_result);
+
+  if (error != DB_CURSOR_SUCCESS)
+    {
+      if (error == DB_CURSOR_END)
+	{
+	  error = NO_ERROR;
+	}
+      else
+	{
+	  ASSERT_ERROR ();
+	}
+      db_query_end (query_result);
+      return error;
+    }
+
+  error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("mcv_count"), &number_of_mcv_value);
+  if (error != NO_ERROR)
+    {
+      error = ER_FAILED;
+      db_query_end (query_result);
+      return error;
+    }
+
+  number_of_mcv = db_get_int (&number_of_mcv_value);
+  db_query_end (query_result);
+
+  /* ---- get histogram ---- */
   if (!with_fullscan)
     {
       snprintf (query_buf, sizeof (query_buf), HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE, attr_name, tbl_name,
