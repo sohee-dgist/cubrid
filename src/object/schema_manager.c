@@ -4082,6 +4082,7 @@ sm_get_class_with_statistics (MOP classop)
 {
   SM_CLASS *class_ = NULL;
   int is_class = 0;
+  bool updated = false;
 
   /* only try to get statistics if we know the class has been flushed if it has a temporary oid, it isn't flushed and
    * there are no statistics */
@@ -4136,6 +4137,7 @@ sm_get_class_with_statistics (MOP classop)
 	{
 	  stats_free_statistics (class_->stats);
 	  class_->stats = stats;
+	  updated = true;
 	}
       else if (err != NO_ERROR)
 	{
@@ -4165,15 +4167,17 @@ sm_get_class_with_statistics (MOP classop)
     }
   else
     {
-      /* to do : implement timestamp check and update */
-      stats_free_histogram_and_init (class_->histogram);
-      class_->histogram = NULL;
-      int err = stats_get_histogram (classop, &class_->histogram);
-      if (err != NO_ERROR)
+      if (updated)
 	{
 	  stats_free_histogram_and_init (class_->histogram);
 	  class_->histogram = NULL;
-	  return NULL;
+	  int err = stats_get_histogram (classop, &class_->histogram);
+	  if (err != NO_ERROR)
+	    {
+	      stats_free_histogram_and_init (class_->histogram);
+	      class_->histogram = NULL;
+	      return NULL;
+	    }
 	}
     }
 
@@ -4208,6 +4212,11 @@ sm_get_statistics_force (MOP classop)
 	    {
 	      stats_free_statistics (class_->stats);
 	      class_->stats = NULL;
+	    }
+	  if (class_->histogram)
+	    {
+	      stats_free_histogram_and_init (class_->histogram);
+	      class_->histogram = NULL;
 	    }
 	  int err = stats_get_statistics (WS_OID (classop), 0, &stats);
 	  if (err == NO_ERROR)
@@ -4280,6 +4289,11 @@ sm_update_statistics (MOP classop, bool with_fullscan)
 		      class_->stats = NULL;
 		    }
 
+		  if (class_->histogram != NULL)
+		    {
+		      stats_free_histogram_and_init (class_->histogram);
+		      class_->histogram = NULL;
+		    }
 		  /* make sure the class is flushed before acquiring stats, see comments above in
 		   * sm_get_class_with_statistics */
 		  if (locator_flush_class (classop) != NO_ERROR)
