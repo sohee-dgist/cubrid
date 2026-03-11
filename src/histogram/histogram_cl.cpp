@@ -451,6 +451,8 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
   error = dbt_put (obj_tmpl, "histogram_values", &histogram_value);
   if (error != NO_ERROR)
     {
+      dbt_abort_object (obj_tmpl);
+      obj_tmpl = NULL;
       goto end;
     }
 
@@ -459,6 +461,8 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
     {
       assert (er_errid () != NO_ERROR);
       error = er_errid ();
+      dbt_abort_object (obj_tmpl);
+      obj_tmpl = NULL;
       goto end;
     }
 
