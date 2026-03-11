@@ -1840,15 +1840,20 @@ do_alter (PARSER_CONTEXT * parser, PT_NODE * alter)
 				      &histogram_obj);
 		    if (histogram_obj != NULL)
 		      {
-			db_drop (histogram_obj);
+			error_code = db_drop (histogram_obj);
+			if (error_code != NO_ERROR)
+			  {
+			    AU_ENABLE (au_save);
+			    goto error_exit;
+			  }
 		      }
 		  }
 	      }
 	    break;
 	  }
 	case PT_RENAME_ATTR_MTHD:
-	case PT_RENAME_ENTITY:
 	  {
+	    /* Altering the column name does affect the histogram. Drop histogram before renaming the column. */
 	    if (alter->info.alter.alter_clause.rename.old_name != NULL)
 	      {
 		const char *attr_name = crt_clause->info.alter.alter_clause.rename.old_name->info.name.original;
@@ -1858,12 +1863,21 @@ do_alter (PARSER_CONTEXT * parser, PT_NODE * alter)
 				      &histogram_obj);
 		    if (histogram_obj != NULL)
 		      {
-			db_drop (histogram_obj);
+			error_code = db_drop (histogram_obj);
+			if (error_code != NO_ERROR)
+			  {
+			    AU_ENABLE (au_save);
+			    goto error_exit;
+			  }
 		      }
 		  }
 	      }
 	    break;
 	  }
+	case PT_RENAME_ENTITY:
+	  /* Altering the table name does not affect the histogram. */
+
+	  break;
 	default:
 	  break;
 	}

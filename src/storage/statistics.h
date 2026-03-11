@@ -159,7 +159,7 @@ stats_adjust_sampling_weight (INT64 sampling_ndv, int sampling_weight)
     {
       return sampling_weight;
     }
-  int min_NDV = NUMBER_OF_SAMPLING_PAGES * EXPECTED_ROWS_PER_PAGE / 100;	/* 1% of number of sampling data */
+  int min_NDV = MAX_HEAP_SAMPLING_PAGES * EXPECTED_ROWS_PER_PAGE / 100;	/* 1% of number of sampling data */
   if (sampling_ndv < min_NDV)
     {
       return MAX (sampling_weight * sampling_ndv / min_NDV, 1);
