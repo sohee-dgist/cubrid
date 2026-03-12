@@ -3296,6 +3296,7 @@ pt_bind_names (PARSER_CONTEXT * parser, PT_NODE * node, void *arg, int *continue
 
     case PT_UPDATE_HISTOGRAM:
     case PT_DROP_HISTOGRAM:
+    case PT_SHOW_HISTOGRAM:
       scopestack.specs = node->info.histogram.target_table_spec;
       bind_arg->scopes = &scopestack;
       spec_frame.next = bind_arg->spec_frames;

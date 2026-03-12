@@ -3281,6 +3281,8 @@ do_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
 	case PT_DROP_HISTOGRAM:
 	  error = do_drop_histogram (parser, statement);
 	  break;
+
+
 	case PT_EVALUATE:
 	  error = do_evaluate (parser, statement);
 	  break;
@@ -3891,6 +3893,7 @@ do_execute_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
     case PT_VACUUM:
     case PT_QUERY_TRACE:
     case PT_KILL_STMT:
+    case PT_SHOW_HISTOGRAM:
 
       db_set_read_fetch_instance_version (LC_FETCH_MVCC_VERSION);
       break;
@@ -3981,6 +3984,9 @@ do_execute_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
       break;
     case PT_DROP_HISTOGRAM:
       err = do_drop_histogram (parser, statement);
+      break;
+    case PT_SHOW_HISTOGRAM:
+      err = do_show_histogram (parser, statement);
       break;
     case PT_ALTER:
       /* err = do_alter(parser, statement); */
@@ -16225,6 +16231,10 @@ do_replicate_statement (PARSER_CONTEXT * parser, PT_NODE * statement)
 
     case PT_DROP_HISTOGRAM:
       repl_stmt.statement_type = CUBRID_STMT_DROP_HISTOGRAM;
+      break;
+
+    case PT_SHOW_HISTOGRAM:
+      repl_stmt.statement_type = CUBRID_STMT_SHOW_HISTOGRAM;
       break;
 
     case PT_CREATE_SERIAL:

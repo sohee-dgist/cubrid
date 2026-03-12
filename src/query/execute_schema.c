@@ -96,7 +96,8 @@ typedef enum
 
 typedef enum
 {
-  DO_HISTOGRAM_CREATE, DO_HISTOGRAM_DROP
+  DO_HISTOGRAM_CREATE, DO_HISTOGRAM_DROP,
+  DO_HISTOGRAM_SHOW
 } DO_HISTOGRAM;
 
 typedef enum
@@ -4169,7 +4170,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 		  return error;
 		}
 	    }
-	  else
+	  else if (do_histogram == DO_HISTOGRAM_CREATE)
 	    {
 	      /* type check for the attribute */
 	      attr_type = TP_DOMAIN_TYPE (att->domain);
@@ -4205,6 +4206,15 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 		  return error;
 		}
 	    }
+	  else if (do_histogram == DO_HISTOGRAM_SHOW)
+	    {
+	      attr_type = TP_DOMAIN_TYPE (att->domain);
+	      error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+	      if (error != NO_ERROR)
+		{
+		  return error;
+		}
+	    }
 	}
     }
 
@@ -4219,7 +4229,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	      return error;
 	    }
 	}
-      else
+      else if (do_histogram == DO_HISTOGRAM_CREATE)
 	{
 	  /* type check for the attribute */
 	  DB_ATTRIBUTE *attribute;
@@ -4269,6 +4279,33 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	  if (error != NO_ERROR)
 	    {
 	      assert (false);
+	      return error;
+	    }
+	}
+      else if (do_histogram == DO_HISTOGRAM_SHOW)
+	{
+	  DB_ATTRIBUTE *attribute;
+	  DB_DOMAIN *attr_domain;
+
+	  attribute = db_get_attribute (obj, attname);
+	  if (attribute == NULL)
+	    {
+	      error = ER_OBJ_INVALID_ARGUMENTS;
+	      assert (false);
+	      return error;
+	    }
+	  attr_domain = db_attribute_domain (attribute);
+	  if (attr_domain == NULL)
+	    {
+	      error = ER_OBJ_INVALID_ARGUMENTS;
+	      assert (false);
+	      return error;
+	    }
+
+	  attr_type = TP_DOMAIN_TYPE (attr_domain);
+	  error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+	  if (error != NO_ERROR)
+	    {
 	      return error;
 	    }
 	}
@@ -4369,7 +4406,48 @@ do_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
   return error;
 }
 
+/**
+ * do_show_histogram() - Show a histogram on a class.
+ *   return: Error code if it fails
+ *   parser(in): Parser context
+ *   statement(in): Parse tree of a show histogram statement
+ */
+int
+do_show_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
+{
+  PT_NODE *cls;
+  DB_OBJECT *obj;
+  int error = NO_ERROR, save, nnames = 0;
+  AU_DISABLE (save);
+  CHECK_MODIFICATION_ERROR ();
 
+  /* class should be already available */
+  assert (statement->info.histogram.target_table_spec);
+
+  cls = statement->info.histogram.target_table_spec->info.spec.entity_name;
+  obj = db_find_class (cls->info.name.original);
+  if (obj == NULL)
+    {
+      assert (er_errid () != NO_ERROR);
+      AU_ENABLE (save);
+      return er_errid ();
+    }
+
+  error = update_or_drop_histogram_helper (parser, obj, &statement->info.histogram, DO_HISTOGRAM_SHOW);
+
+  if (error != NO_ERROR)
+    {
+      assert (er_errid () != NO_ERROR);
+      error = er_errid ();
+      AU_ENABLE (save);
+      return error;
+    }
+  AU_ENABLE (save);
+
+  return NO_ERROR;
+}
+
+  /* class should be already available */
 /*
  * do_create_partition() -  Creates partitions
  *   return: Error code if partitions are not created
