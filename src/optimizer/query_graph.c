@@ -5298,8 +5298,16 @@ qo_get_attr_info (QO_ENV * env, QO_SEGMENT * seg)
       attr_infop->ndv += attr_statsp->ndv;
 
       /* set histogram */
-      QO_SEG_PT_NODE (seg)->info.name.histogram = hist_stats->histogram[attr_hist_statsp_index];
-      QO_SEG_PT_NODE (seg)->info.name.null_frequency = hist_stats->null_frequency[attr_hist_statsp_index];
+      if (hist_stats != NULL && attr_hist_statsp_index < hist_stats->n_attrs)
+	{
+	  QO_SEG_PT_NODE (seg)->info.name.histogram = hist_stats->histogram[attr_hist_statsp_index];
+	  QO_SEG_PT_NODE (seg)->info.name.null_frequency = hist_stats->null_frequency[attr_hist_statsp_index];
+	}
+      else
+	{
+	  QO_SEG_PT_NODE (seg)->info.name.histogram = NULL;
+	  QO_SEG_PT_NODE (seg)->info.name.null_frequency = 0.0;
+	}
 
       if (cum_statsp->valid_limits == false)
 	{
