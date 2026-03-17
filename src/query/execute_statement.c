@@ -12106,7 +12106,6 @@ do_create_midxkey_for_constraint (DB_OTMPL * tmpl, SM_CLASS_CONSTRAINT * constra
   return NO_ERROR;
 
 error_return:
-  assert (false);
   if (midxkey.buf != NULL)
     {
       db_private_free (NULL, midxkey.buf);
