@@ -1997,8 +1997,9 @@ smt_check_histogram_exist (MOP classop, const char *attr_name)
   if (histogram_obj != NULL)
     {
       error = ER_LC_CLASSNAME_EXIST;
-      char error_histogram[256];
-      sprintf (error_histogram, "histogram of %s(%s)", sm_get_ch_name (classop), attr_name);
+      // ---- query buffer ---- (error_length + table_name_length + attr_name_length)
+      char error_histogram[100 + 222 + 254];
+      snprintf (error_histogram, sizeof (error_histogram), "histogram of %s(%s)", sm_get_ch_name (classop), attr_name);
       er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 1, error_histogram);
       goto end;
     }
@@ -2033,8 +2034,10 @@ smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name, bool n
       if (!no_error_if_not_found)
 	{
 	  error = ER_LC_UNKNOWN_CLASSNAME;
-	  char error_histogram[256];
-	  sprintf (error_histogram, "histogram of %s(%s)", sm_get_ch_name (classop), attr_name);
+	  // ---- query buffer ---- (error_length + table_name_length + attr_name_length)
+	  char error_histogram[100 + 222 + 254];
+	  snprintf (error_histogram, sizeof (error_histogram), "histogram of %s(%s)", sm_get_ch_name (classop),
+		    attr_name);
 	  er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 1, error_histogram);
 	  goto end;
 	}
