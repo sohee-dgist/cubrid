@@ -190,7 +190,10 @@ get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *at
     {
       assert (er_errid () != NO_ERROR);
       error = er_errid ();
+      dbt_abort_object (obj_tmpl);
+      obj_tmpl = NULL;
       goto end;
+    }
     }
 
   assert (edit_histogram_object == histogram_obj);
