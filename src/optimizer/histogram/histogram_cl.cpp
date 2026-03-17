@@ -194,7 +194,6 @@ get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *at
       obj_tmpl = NULL;
       goto end;
     }
-    }
 
   assert (edit_histogram_object == histogram_obj);
   obj_tmpl = NULL;
