@@ -234,6 +234,7 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
   DB_TYPE type = DB_TYPE_UNKNOWN;
   DB_VALUE number_of_mcv_value;
   int number_of_mcv = 0;
+  DB_VALUE value[4];
 
 
   // ---- query buffer ---- (query_length + table_name_length + attr_name_length)
@@ -331,7 +332,6 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 
   do
     {
-      DB_VALUE value[4];
       hist::HistogramTypes hi{};
       error = db_query_get_tuple_value_by_name (query_result, const_cast < char *> ("endpoint"), &value[0]);
       if (error != NO_ERROR)
@@ -422,6 +422,10 @@ build_histogram:
   return NO_ERROR;
 
 error_end:
+  db_value_clear (&value[0]);
+  db_value_clear (&value[1]);
+  db_value_clear (&value[2]);
+  db_value_clear (&value[3]);
   db_query_end (query_result);
   return error;
 }
@@ -981,22 +985,22 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	    {
 	      if (is_ge == include_equal)
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
 		}
 	      else
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
 	    }
 	  else
 	    {
 	      if (bucket_index == static_cast<int> (histogram_reader.bucket_count()) - 1)
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
 		}
 	      else
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
 	    }
 	}

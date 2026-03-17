@@ -149,6 +149,13 @@ namespace hist
       bool
       find_bucket_and_check (const T &value, int &bucket_index)
       {
+
+	if (nb_ == 1)
+	  {
+	    bucket_index = 0;
+	    return this->check_value_included (bucket_index, value);
+	  }
+
 	bucket_index = this->find_bucket<T> (value);
 	if (bucket_index == -1)
 	  {
