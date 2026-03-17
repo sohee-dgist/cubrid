@@ -15644,7 +15644,7 @@ sm_add_histogram (MOP classop, const char *attr_name, int bucket_count, bool wit
     {
       if (error == ER_LC_CLASSNAME_EXIST)
 	{
-                (void) tran_abort_upto_system_savepoint (SM_ADD_HISTOGRAM_SAVEPOINT_NAME);
+	  (void) tran_abort_upto_system_savepoint (SM_ADD_HISTOGRAM_SAVEPOINT_NAME);
 	  return error;
 	}
       goto error_exit;
