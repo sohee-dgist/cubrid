@@ -607,7 +607,7 @@ histogram_extract_key (const DB_VALUE *db_val, hist::histogram_key &key)
     {
       DB_MONETARY *monetary = db_get_monetary (db_val);
       key.kind = hist::histogram_key_kind::dbl;
-      key.u64 = static_cast<std::uint64_t> (monetary->amount);
+      key.dbl = static_cast<double> (monetary->amount);
       return true;
     }
 
