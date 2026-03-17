@@ -1409,6 +1409,8 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   const char *histogram_blob_ptr = db_get_bit (&histogram_value, &histogram_total_length);
   if (histogram_blob_ptr == NULL || histogram_total_length <= 0)
     {
+      db_value_clear (&histogram_value);
+      db_value_clear (&null_frequency_value);
       return ER_FAILED;
     }
 
@@ -1419,6 +1421,8 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   error = histogram_reader.reset (histogram_blob);
   if (error != NO_ERROR)
     {
+      db_value_clear (&histogram_value);
+      db_value_clear (&null_frequency_value);
       return ER_FAILED;
     }
 
@@ -1437,6 +1441,8 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
       snprintf (line, sizeof (line), "Empty histogram for column: %s", attr_name);
       fprintf (f, "| %-47s|\n", line);
       fprintf (f, "+------------------------------------------------+\n");
+      db_value_clear (&histogram_value);
+      db_value_clear (&null_frequency_value);
       return NO_ERROR;
     }
 
