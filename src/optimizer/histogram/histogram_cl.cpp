@@ -432,6 +432,7 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
   DB_OBJECT *histogram_obj, *edit_histogram_object = NULL;
   DB_OTMPL *obj_tmpl = NULL;
   DB_VALUE histogram_value;
+  db_make_null (&histogram_value);
   error = db_get_histogram (classop, attr_name, &histogram_obj);
   if (error != NO_ERROR)
     {
@@ -477,7 +478,6 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 
 end:
   db_value_clear (&histogram_value);
-  assert (error == NO_ERROR);
   return error;
 }
 
