@@ -979,7 +979,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	{
 	  if (histogram_reader.check_value_included<std::string> (bucket_index, key.str))
 	    {
-	      if (!is_ge && include_equal)
+	      if (is_ge == include_equal)
 		{
 		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
@@ -1024,7 +1024,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	{
 	  if (histogram_reader.check_value_included<std::uint64_t> (bucket_index, key.u64))
 	    {
-	      if (!is_ge && include_equal)
+	      if (is_ge == include_equal)
 		{
 		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}

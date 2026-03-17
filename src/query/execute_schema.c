@@ -20,6 +20,7 @@
  * execute_schema.c
  */
 
+#include "error_code.h"
 #ident "$Id$"
 
 #include "config.h"
@@ -4238,16 +4239,16 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	  attribute = db_get_attribute (obj, attname);
 	  if (attribute == NULL)
 	    {
-	      error = ER_OBJ_INVALID_ARGUMENTS;
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_INVALID_ARGUMENTS, 0);
 	      assert (false);
-	      return error;
+	      return ER_OBJ_INVALID_ARGUMENTS;
 	    }
 	  attr_domain = db_attribute_domain (attribute);
 	  if (attr_domain == NULL)
 	    {
-	      error = ER_OBJ_INVALID_ARGUMENTS;
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OBJ_INVALID_ARGUMENTS, 0);
 	      assert (false);
-	      return error;
+	      return ER_OBJ_INVALID_ARGUMENT;
 	    }
 
 	  attr_type = TP_DOMAIN_TYPE (attr_domain);
