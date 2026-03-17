@@ -1650,7 +1650,7 @@ sm_define_view_db_histogram_spec (void)
 	  "[h].[class_of] AS [class_of], "
 	  "[h].[key_attr] AS [key_attr], "
 	  "CASE WHEN [h].[with_fullscan] = 0 THEN 'sampling scan' ELSE 'full scan' END AS [with_fullscan], "
-	  "[h].[null_frequency] AS [null_frequency] "
+	  "CAST([h].[null_frequency] AS DECIMAL(18, 12)) AS [null_frequency] "
 	"FROM "
 	  /* CT_DB_HISTOGRAM_NAME */
 	  "[%s] AS [h] "

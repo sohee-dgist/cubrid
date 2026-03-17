@@ -606,7 +606,7 @@ histogram_extract_key (const DB_VALUE *db_val, hist::histogram_key &key)
     case DB_TYPE_MONETARY:
     {
       DB_MONETARY *monetary = db_get_monetary (db_val);
-      key.kind = hist::histogram_key_kind::u64;
+      key.kind = hist::histogram_key_kind::dbl;
       key.u64 = static_cast<std::uint64_t> (monetary->amount);
       return true;
     }
@@ -653,6 +653,10 @@ numeric_domain_frac_i64_lt (std::int64_t lo, std::int64_t hi, std::int64_t v)
 
 double numeric_domain_frac_u64_lt (std::uint64_t lo, std::uint64_t hi, std::uint64_t v)
 {
+  if (lo >= v)
+    {
+      return 0.0;
+    }
   if (hi <= v)
     {
       return 1.0;
@@ -668,6 +672,10 @@ double numeric_domain_frac_u64_lt (std::uint64_t lo, std::uint64_t hi, std::uint
 
 double numeric_domain_frac_dbl_lt (double lo, double hi, double v)
 {
+  if (lo >= v)
+    {
+      return 0.0;
+    }
   if (hi <= v)
     {
       return 1.0;
@@ -733,6 +741,13 @@ string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::
   const double pv  = string_pos (to_bytes (v),  v.size ());
 
   const double den = phi - plo;
+
+  if (den <= 0.0)
+    {
+      /* phi == plo: two bucket boundaries map to the same position. clamp01 is applied conservatively */
+      return clamp01 ((pv - plo));
+    }
+
   double t = (pv - plo) / den;
   return clamp01 (t);
 }

@@ -696,7 +696,7 @@ do_create_serial_internal (MOP * serial_object, const char *serial_name, DB_VALU
       goto end;
     }
 
-  obj_tmpl = dbt_create_object_internal ((MOP) serial_class);
+  obj_tmpl = dbt_create_object_internal ((MOP) serial_class, false);
   if (obj_tmpl == NULL)
     {
       assert (er_errid () != NO_ERROR);
@@ -12696,7 +12696,7 @@ do_insert_template (PARSER_CONTEXT * parser, DB_OTMPL ** otemplate, PT_NODE * st
 	  /* now create the object using templates, and then dbt_put each value for each corresponding attribute. Of
 	   * course, it is presumed that the order in which attributes are defined in the class as well as in the
 	   * actual insert statement is preserved. */
-	  *otemplate = dbt_create_object_internal (class_->info.name.db_object);
+	  *otemplate = dbt_create_object_internal (class_->info.name.db_object, false);
 	  if (*otemplate == NULL)
 	    {
 	      assert (er_errid () != NO_ERROR);
@@ -13255,7 +13255,7 @@ insert_subquery_results (PARSER_CONTEXT * parser, PT_NODE * statement, PT_NODE *
 		    }
 
 		  /* create an instance of the target class using templates */
-		  otemplate = dbt_create_object_internal (class_->info.name.db_object);
+		  otemplate = dbt_create_object_internal (class_->info.name.db_object, false);
 		  if (otemplate == NULL)
 		    {
 		      break;
@@ -20823,7 +20823,7 @@ do_create_server_internal (MOP * server_object, DB_VALUE * port_no, DB_VALUE * p
       goto end;
     }
 
-  obj_tmpl = dbt_create_object_internal ((MOP) server_class);
+  obj_tmpl = dbt_create_object_internal ((MOP) server_class, false);
   if (obj_tmpl == NULL)
     {
       assert (er_errid () != NO_ERROR);

@@ -85,6 +85,7 @@
 
 #define SM_ADD_CONSTRAINT_SAVEPOINT_NAME "aDDcONSTRAINT"
 #define SM_ADD_HISTOGRAM_SAVEPOINT_NAME "aDDhISTOGRAM"
+#define SM_DROP_HISTOGRAM_SAVEPOINT_NAME "dELETEhISTOGRAM"
 #define SM_ADD_UNIQUE_CONSTRAINT_SAVEPOINT_NAME "aDDuNIQUEcONSTRAINT"
 #define SM_DROP_CLASS_MOP_SAVEPOINT_NAME "dELETEcLASSmOP"
 #define SM_TRUNCATE_SAVEPOINT_NAME "SmtRUnCATE"
@@ -15679,7 +15680,7 @@ sm_drop_histogram (MOP classop, const char *attr_name)
       return error;
     }
 
-  error = tran_system_savepoint (SM_ADD_HISTOGRAM_SAVEPOINT_NAME);
+  error = tran_system_savepoint (SM_DROP_HISTOGRAM_SAVEPOINT_NAME);
   if (error != NO_ERROR)
     {
       return error;
@@ -15703,7 +15704,7 @@ sm_drop_histogram (MOP classop, const char *attr_name)
 error_exit:
   if (set_savepoint && error != ER_TM_SERVER_DOWN_UNILATERALLY_ABORTED && error != ER_LK_UNILATERALLY_ABORTED)
     {
-      (void) tran_abort_upto_system_savepoint (SM_ADD_HISTOGRAM_SAVEPOINT_NAME);
+      (void) tran_abort_upto_system_savepoint (SM_DROP_HISTOGRAM_SAVEPOINT_NAME);
     }
 
   return error;

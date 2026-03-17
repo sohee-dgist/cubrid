@@ -10195,6 +10195,7 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 		selectivity = selectivity_b - selectivity_a;
 		break;
 	      }
+	    case PT_BETWEEN_INF_LT:
 	      {
 		histogram_get_comp_selectivity (lhs, arg1, false, false, &selectivity_a, &success1);
 		success2 = true;

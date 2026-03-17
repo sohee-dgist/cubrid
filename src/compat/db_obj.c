@@ -476,7 +476,7 @@ dbt_create_object (MOP classobj)
 
   if (!do_check_partitioned_class (classobj, CHECK_PARTITION_PARENT | CHECK_PARTITION_SUBS, NULL))
     {
-      def = dbt_create_object_internal (classobj);
+      def = dbt_create_object_internal (classobj, false);
     }
 
   return def;
@@ -499,7 +499,7 @@ dbt_create_object (MOP classobj)
  *   any reason, the underlying object is not created.
  */
 DB_OTMPL *
-dbt_create_object_internal (MOP classobj)
+dbt_create_object_internal (MOP classobj, bool is_read_only)
 {
   DB_OTMPL *def = NULL;
 
@@ -507,24 +507,11 @@ dbt_create_object_internal (MOP classobj)
   CHECK_1ARG_NULL (classobj);
   CHECK_MODIFICATION_NULL ();
 
-  def = obt_def_object (classobj);
+  def = obt_def_object (classobj, is_read_only);
 
   return def;
 }
 
-DB_OTMPL *
-dbt_create_object_internal_for_read_only (MOP classobj)
-{
-  DB_OTMPL *def = NULL;
-
-  CHECK_CONNECT_NULL ();
-  CHECK_1ARG_NULL (classobj);
-  CHECK_MODIFICATION_NULL ();
-
-  def = obt_def_object_for_read_only (classobj);
-
-  return def;
-}
 
 /*
  * dbt_edit_object() - This function creates an object template for an existing

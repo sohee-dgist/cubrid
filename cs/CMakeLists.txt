@@ -440,15 +440,15 @@ set(PARALLEL_QUERY_EXECUTE_HEADERS
   )
 
 set (HISTOGRAM_SOURCES
-  ${HISTOGRAM_DIR}/histogram_cl.cpp
-  ${HISTOGRAM_DIR}/histogram_builder.cpp
-  ${HISTOGRAM_DIR}/histogram_reader.cpp
+  ${OPTIMIZER_HISTOGRAM_DIR}/histogram_cl.cpp
+  ${OPTIMIZER_HISTOGRAM_DIR}/histogram_builder.cpp
+  ${OPTIMIZER_HISTOGRAM_DIR}/histogram_reader.cpp
   )
 
 set (HISTOGRAM_HEADERS
-  ${HISTOGRAM_DIR}/histogram_cl.hpp
-  ${HISTOGRAM_DIR}/histogram_builder.hpp
-  ${HISTOGRAM_DIR}/histogram_reader.hpp
+  ${OPTIMIZER_HISTOGRAM_DIR}/histogram_cl.hpp
+  ${OPTIMIZER_HISTOGRAM_DIR}/histogram_builder.hpp
+  ${OPTIMIZER_HISTOGRAM_DIR}/histogram_reader.hpp
   )
 
 list(APPEND CONNECTION_SOURCES ${CONNECTION_DIR}/heartbeat.c)

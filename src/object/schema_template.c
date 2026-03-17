@@ -2072,7 +2072,7 @@ smt_add_histogram (MOP classop, const char *attr_name, int bucket_count, bool wi
       goto end;
     }
 
-  obj_tmpl = dbt_create_object_internal ((MOP) histogram_class);
+  obj_tmpl = dbt_create_object_internal ((MOP) histogram_class, false);
 
   if (obj_tmpl == NULL)
     {

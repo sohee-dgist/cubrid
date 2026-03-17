@@ -4417,9 +4417,8 @@ do_show_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
 {
   PT_NODE *cls;
   DB_OBJECT *obj;
-  int error = NO_ERROR, save, nnames = 0;
+  int error = NO_ERROR, save;
   AU_DISABLE (save);
-  CHECK_MODIFICATION_ERROR ();
 
   /* class should be already available */
   assert (statement->info.histogram.target_table_spec);

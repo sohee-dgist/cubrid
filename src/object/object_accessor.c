@@ -1925,7 +1925,7 @@ obj_create (MOP classop)
 
   new_mop = NULL;
 
-  obj_template = obt_def_object (classop);
+  obj_template = obt_def_object (classop, false);
   if (obj_template != NULL)
     {
       /* remember to disable the NON NULL integrity constraint checking */
@@ -2020,7 +2020,7 @@ obj_copy (MOP op)
   if (au_fetch_instance (op, &src, AU_FETCH_READ, TM_TRAN_READ_FETCH_VERSION (), AU_SELECT) != NO_ERROR)
     return NULL;
 
-  obj_template = obt_def_object (ws_class_mop (op));
+  obj_template = obt_def_object (ws_class_mop (op), false);
   if (obj_template != NULL)
     {
       for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
@@ -3690,7 +3690,7 @@ obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE 
   OID *oids = NULL;
   int oid_count = 0;
 
-  DB_OTMPL *obj_tmpl = dbt_create_object_internal_for_read_only (op);
+  DB_OTMPL *obj_tmpl = dbt_create_object_internal (op, true);
   if (obj_tmpl == NULL)
     {
       error = ER_FAILED;
