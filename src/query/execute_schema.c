@@ -1830,6 +1830,31 @@ do_alter (PARSER_CONTEXT * parser, PT_NODE * alter)
       switch (alter_code)
 	{
 	case PT_DROP_ATTR_MTHD:
+	  {
+	    if (crt_clause->info.alter.alter_clause.attr_mthd.attr_mthd_name_list != NULL)
+	      {
+		for (PT_NODE * attr_mthd_name = crt_clause->info.alter.alter_clause.attr_mthd.attr_mthd_name_list;
+		     attr_mthd_name != NULL; attr_mthd_name = attr_mthd_name->next)
+		  {
+		    const char *attr_mthd_name_str = attr_mthd_name->info.name.original;
+		    if (attr_mthd_name_str != NULL)
+		      {
+			db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_mthd_name_str,
+					  &histogram_obj);
+			if (histogram_obj != NULL)
+			  {
+			    error_code = db_drop (histogram_obj);
+			    if (error_code != NO_ERROR)
+			      {
+				AU_ENABLE (au_save);
+				goto error_exit;
+			      }
+			  }
+		      }
+		  }
+	      }
+	    break;
+	  }
 	case PT_MODIFY_ATTR_MTHD:
 	case PT_CHANGE_ATTR:
 	  {
@@ -4166,7 +4191,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	  if (do_histogram == DO_HISTOGRAM_DROP)
 	    {
 	      error = sm_drop_histogram (obj, attname);
-	      if (error != NO_ERROR)
+	      if (error != NO_ERROR && error != ER_LC_UNKNOWN_CLASSNAME)
 		{
 		  return error;
 		}

@@ -15681,6 +15681,11 @@ sm_drop_histogram (MOP classop, const char *attr_name)
       return error;
     }
 
+  if (smt_check_histogram_exist (classop, attr_name) != ER_LC_CLASSNAME_EXIST)
+    {
+      return ER_LC_UNKNOWN_CLASSNAME;
+    }
+
   error = tran_system_savepoint (SM_DROP_HISTOGRAM_SAVEPOINT_NAME);
   if (error != NO_ERROR)
     {
