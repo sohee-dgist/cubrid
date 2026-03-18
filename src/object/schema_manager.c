@@ -15680,11 +15680,9 @@ sm_drop_histogram (MOP classop, const char *attr_name)
       ERROR0 (error, ER_OBJ_INVALID_ARGUMENTS);
       return error;
     }
-  error = smt_check_histogram_exist (classop, attr_name) if (error == ER_LC_CLASSNAME_EXIST)
-    {
-      continue;
-    }
-  else
+  error = smt_check_histogram_exist (classop, attr_name);
+
+  if (error != ER_LC_CLASSNAME_EXIST)
     {
       return error;
     }
