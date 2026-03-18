@@ -1001,11 +1001,11 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	    {
 	      if (bucket_index == static_cast<int> (histogram_reader.bucket_count()) - 1)
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
 	      else
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
 		}
 	    }
 	}
@@ -1116,6 +1116,11 @@ db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj)
 
   db_value_clear (value_ptrs[0]);
   db_value_clear (value_ptrs[1]);
+
+  if (*histogram_obj == NULL && er_errid () != NO_ERROR)
+    {
+      return er_errid ();
+    }
 
   return NO_ERROR;
 }
