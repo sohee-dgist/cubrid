@@ -3683,11 +3683,10 @@ obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE 
 
   SM_CLASS *class_ = NULL;
   int i = 0;
-  BTID *unique_btid = NULL;
-  DB_VALUE *unique_key = NULL;
+  BTID unique_btid;
+  DB_VALUE unique_key;
   BTREE_SEARCH result;
-  SCAN_OPERATION_TYPE op_type = S_SELECT;
-  OID *oids = NULL;
+  OID oid;
   int oid_count = 0;
 
   DB_OTMPL *obj_tmpl = dbt_create_object_internal (op, true);
@@ -3738,21 +3737,8 @@ obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE 
     }
 
 
-  unique_btid = (BTID *) db_private_alloc (NULL, sizeof (BTID));
-  if (unique_btid == NULL)
-    {
-      error = ER_FAILED;
-      goto end_find;
-    }
-  unique_key = (DB_VALUE *) db_private_alloc (NULL, sizeof (DB_VALUE));
-  if (unique_key == NULL)
-    {
-      error = ER_FAILED;
-      goto end_find;
-    }
-
-  BTID_COPY (unique_btid, &cons->index_btid);
-  db_make_null (unique_key);
+  BTID_COPY (&unique_btid, &cons->index_btid);
+  db_make_null (&unique_key);
 
   for (i = 0; i < size; i++)
     {
@@ -3764,24 +3750,13 @@ obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE 
     }
 
   /* multiple key, need to create a MIDXKEY */
-  error = do_create_midxkey_for_constraint (obj_tmpl, cons, unique_key);
+  error = do_create_midxkey_for_constraint (obj_tmpl, cons, &unique_key);
   if (error != NO_ERROR)
     {
       goto end_find;
     }
 
-  if (fetchmode == AU_FETCH_UPDATE)
-    {
-      op_type = S_UPDATE;
-    }
-  else
-    {
-      op_type = S_SELECT;
-    }
-
-  result =
-    btree_find_multi_uniques (ws_oid (obj_tmpl->classobj), obj_tmpl->pruning_type, unique_btid, unique_key, 1,
-			      op_type, &oids, &oid_count);
+  result = btree_find_unique (&unique_btid, &unique_key, ws_oid (obj_tmpl->classobj), &oid);
 
   if (result == BTREE_ERROR_OCCURRED)
     {
@@ -3793,8 +3768,7 @@ obj_find_multi_attr (MOP op, int size, const char *attr_names[], const DB_VALUE 
     }
   else if (result == BTREE_KEY_FOUND)
     {
-      obj = ws_mop (oids, NULL);
-      free (oids);
+      obj = ws_mop (&oid, NULL);
     }
 
 end_find:
@@ -3802,15 +3776,8 @@ end_find:
     {
       dbt_abort_object (obj_tmpl);
     }
-  if (unique_key != NULL)
-    {
-      pr_clear_value (unique_key);
-      db_private_free (NULL, unique_key);
-    }
-  if (unique_btid != NULL)
-    {
-      db_private_free (NULL, unique_btid);
-    }
+
+  db_value_clear (&unique_key);
 
   assert (oid_count < 2);
   return obj;
