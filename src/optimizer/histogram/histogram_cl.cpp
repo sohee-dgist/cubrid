@@ -591,7 +591,6 @@ histogram_extract_key (const DB_VALUE *db_val, hist::histogram_key &key)
       key.u64 = static_cast<std::uint64_t> (*timep);
       return true;
     }
-
     case DB_TYPE_TIMESTAMP:
     case DB_TYPE_TIMESTAMPLTZ:
     {
@@ -624,7 +623,13 @@ histogram_extract_key (const DB_VALUE *db_val, hist::histogram_key &key)
       key.u64 = static_cast<std::uint64_t> (timestamptz->timestamp);
       return true;
     }
-
+    case DB_TYPE_DATETIME:
+    {
+      DB_DATETIME *datetime = db_get_datetime (db_val);
+      key.kind = hist::histogram_key_kind::u64;
+      key.u64 = (static_cast<std::uint64_t> (datetime->date) << 32) | static_cast<std::uint64_t> (datetime->time);
+      return true;
+    }
     case DB_TYPE_DATETIMETZ:
     case DB_TYPE_DATETIMELTZ:
     {
@@ -1174,7 +1179,8 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
       goto error_end;
     }
 
-  for (att = class_->attributes; att != NULL && class_->attributes != NULL; att = (SM_ATTRIBUTE *) att->header.next)
+  for (att = class_->attributes; att != NULL && class_->attributes != NULL
+       && i < attr_count; att = (SM_ATTRIBUTE *) att->header.next)
     {
       const char *attname = (char *) att->header.name;
       DB_VALUE *histogram_value = NULL;
@@ -1319,6 +1325,7 @@ is_histogrammable_type (DB_TYPE type)
     /* date / time */
     case DB_TYPE_TIME:
     case DB_TYPE_DATE:
+    case DB_TYPE_DATETIME:
     case DB_TYPE_TIMESTAMP:
     case DB_TYPE_TIMESTAMPLTZ:
     case DB_TYPE_TIMESTAMPTZ:
