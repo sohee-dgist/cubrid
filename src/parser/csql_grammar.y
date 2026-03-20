@@ -583,7 +583,7 @@ BEGIN_SUPPRESS_WARNING_BISON_FLEX
 %type <boolean> opt_invisible
 %type <number> opt_paren_plus
 %type <number> opt_with_fullscan
-%type <number> with_n_buckets
+%type <number> opt_with_n_buckets
 %type <number> online_parallel
 %type <number> comp_op
 %type <number> opt_of_all_some_any
@@ -667,8 +667,6 @@ BEGIN_SUPPRESS_WARNING_BISON_FLEX
 %type <node> drop_histogram_stmt
 %type <node> opt_index_column_name_list
 %type <node> index_column_name_list
-%type <node> histogram_column_list
-%type <node> histogram_column
 %type <node> update_statistics_stmt
 %type <node> update_histogram_stmt
 %type <node> only_class_name_list
@@ -896,6 +894,7 @@ BEGIN_SUPPRESS_WARNING_BISON_FLEX
 %type <node> constant_set
 %type <node> file_path_name
 %type <node> identifier_list
+%type <node> opt_with_column_list
 %type <node> opt_bracketed_identifier_list
 %type <node> index_column_identifier_list
 %type <node> identifier_without_dot
@@ -4696,22 +4695,12 @@ index_column_name_list
 		}}
 	;
 
-histogram_column_list
+opt_with_column_list
         : /* empty */
         {{ $$ = NULL; }}
 
-        | histogram_column_list ',' histogram_column
-        {{ $$ = parser_make_link ($1, $3);
-                PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)}}
-        | histogram_column
-        {{ $$ = $1;
-                PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos) }}
-        ;
-
-histogram_column
-        : identifier
-        {{ $$ = $1;
-                PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos) }}
+        | ON_ identifier_list
+        {{ $$ = $2; }}
         ;
 
 update_statistics_stmt
@@ -4754,7 +4743,7 @@ update_statistics_stmt
 	;
 
 show_histogram_stmt
-        : SHOW HISTOGRAM only_class_name ON_ histogram_column_list
+        : SHOW HISTOGRAM only_class_name opt_with_column_list
                 {{
                         PT_NODE *uhs = parser_new_node (this_parser, PT_SHOW_HISTOGRAM);
                         PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
@@ -4765,24 +4754,7 @@ show_histogram_stmt
                             PARSER_SAVE_ERR_CONTEXT (target_t, @3.buffer_pos)
                             target_t->info.spec.meta_class = PT_CLASS;
                             uhs->info.histogram.target_table_spec = target_t;
-                            uhs->info.histogram.target_columns = $5;
-                        }
-
-                        $$ = uhs;
-                        PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-                }}
-        | SHOW HISTOGRAM only_class_name
-                {{
-                        PT_NODE *uhs = parser_new_node (this_parser, PT_SHOW_HISTOGRAM);
-                        PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
-
-                        if (uhs && target_t)
-                        {
-                            target_t->info.spec.entity_name = $3;
-                            PARSER_SAVE_ERR_CONTEXT (target_t, @3.buffer_pos)
-                            target_t->info.spec.meta_class = PT_CLASS;
-                            uhs->info.histogram.target_table_spec = target_t;
-                            uhs->info.histogram.target_columns = NULL;
+                            uhs->info.histogram.target_columns = $4;
                         }
 
                         $$ = uhs;
@@ -4791,7 +4763,7 @@ show_histogram_stmt
         ;
 
 update_histogram_stmt
-        : ANALYZE TABLE only_class_name UPDATE HISTOGRAM ON_ histogram_column_list with_n_buckets opt_with_fullscan
+        : ANALYZE TABLE only_class_name UPDATE HISTOGRAM opt_with_column_list opt_with_n_buckets opt_with_fullscan
                 {{
                         PT_NODE *uhs = parser_new_node (this_parser, PT_UPDATE_HISTOGRAM);
                         PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
@@ -4802,27 +4774,9 @@ update_histogram_stmt
                             target_t->info.spec.meta_class = PT_CLASS;
                             uhs->info.histogram.target_table_spec = target_t;
 
-                            uhs->info.histogram.target_columns = $7;
-                            uhs->info.histogram.bucket_count = $8;
-                            uhs->info.histogram.with_fullscan = $9;             
-                        }
-
-                        $$ = uhs;
-                        PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-                }}
-        | ANALYZE TABLE only_class_name UPDATE HISTOGRAM with_n_buckets opt_with_fullscan
-                {{
-                        PT_NODE *uhs = parser_new_node (this_parser, PT_UPDATE_HISTOGRAM);
-                        PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
-                        if (uhs && target_t)
-                        {
-                            target_t->info.spec.entity_name = $3;
-                            PARSER_SAVE_ERR_CONTEXT (target_t, @3.buffer_pos)
-                            target_t->info.spec.meta_class = PT_CLASS;
-                            uhs->info.histogram.target_table_spec = target_t;
-                            uhs->info.histogram.target_columns = NULL;
-                            uhs->info.histogram.bucket_count = $6;
-                            uhs->info.histogram.with_fullscan = $7;
+                            uhs->info.histogram.target_columns = $6;
+                            uhs->info.histogram.bucket_count = $7;
+                            uhs->info.histogram.with_fullscan = $8;             
                         }
 
                         $$ = uhs;
@@ -4831,7 +4785,7 @@ update_histogram_stmt
         ;
 
 drop_histogram_stmt
-        : ANALYZE TABLE only_class_name DROP HISTOGRAM ON_ histogram_column_list
+        : ANALYZE TABLE only_class_name DROP HISTOGRAM opt_with_column_list
                 {{
                         PT_NODE *dhs = parser_new_node (this_parser, PT_DROP_HISTOGRAM);
                         PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
@@ -4841,21 +4795,7 @@ drop_histogram_stmt
                             PARSER_SAVE_ERR_CONTEXT (target_t, @3.buffer_pos)
                             target_t->info.spec.meta_class = PT_CLASS;
                             dhs->info.histogram.target_table_spec = target_t;
-                            dhs->info.histogram.target_columns = $7;
-                        }
-                        $$ = dhs;
-                        PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
-                }}
-        | ANALYZE TABLE only_class_name DROP HISTOGRAM
-                {{
-                        PT_NODE *dhs = parser_new_node (this_parser, PT_DROP_HISTOGRAM);
-                        PT_NODE *target_t = parser_new_node (this_parser, PT_SPEC);
-                        if (dhs && target_t)
-                        {
-                            target_t->info.spec.entity_name = $3;
-                            PARSER_SAVE_ERR_CONTEXT (target_t, @3.buffer_pos)
-                            target_t->info.spec.meta_class = PT_CLASS;
-                            dhs->info.histogram.target_table_spec = target_t;
+                            dhs->info.histogram.target_columns = $6;
                         }
                         $$ = dhs;
                         PARSER_SAVE_ERR_CONTEXT ($$, @$.buffer_pos)
@@ -4899,7 +4839,7 @@ opt_with_fullscan
         ;
 
 
-with_n_buckets
+opt_with_n_buckets
         : /* empty */
                 {{
                         $$ = 10;
