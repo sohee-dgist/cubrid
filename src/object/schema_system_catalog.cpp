@@ -111,7 +111,7 @@ namespace cubschema
     CTV_CHARSET_NAME,		// "db_charset"
     CTV_SERVER_NAME,		// "db_server"
     CTV_SYNONYM_NAME,		// "db_synonym"
-    CTV_DB_HISTOGRAM_NAME		// "db_histogram"
+    CTV_HISTOGRAM_NAME		// "db_histogram"
   };
 
   static const identifier_store sm_catalog_class_names (sm_system_class_names, false);

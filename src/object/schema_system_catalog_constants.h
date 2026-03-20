@@ -79,7 +79,7 @@
 #define CTV_CHARSET_NAME	   "db_charset"
 #define CTV_SERVER_NAME         "db_server"
 #define CTV_SYNONYM_NAME           "db_synonym"
-#define CTV_DB_HISTOGRAM_NAME      "db_histogram"
+#define CTV_HISTOGRAM_NAME      "db_histogram"
 
 #define CT_DBCOLL_COLL_ID_COLUMN	   "coll_id"
 #define CT_DBCOLL_COLL_NAME_COLUMN	   "coll_name"

@@ -310,7 +310,7 @@ catcls_init (void)
   ADD_VIEW_DEFINITION (CTV_CHARSET_NAME, system_catalog_initializer::get_view_charset ());
   ADD_VIEW_DEFINITION (CTV_SERVER_NAME, system_catalog_initializer::get_view_server ());
   ADD_VIEW_DEFINITION (CTV_SYNONYM_NAME, system_catalog_initializer::get_view_synonym ());
-  ADD_VIEW_DEFINITION (CTV_DB_HISTOGRAM_NAME, system_catalog_initializer::get_view_db_histogram ());
+  ADD_VIEW_DEFINITION (CTV_HISTOGRAM_NAME, system_catalog_initializer::get_view_db_histogram ());
 }
 
 int
@@ -2133,10 +2133,10 @@ namespace cubschema
 // db_class
     return system_catalog_definition (
 		   // name
-		   CTV_DB_HISTOGRAM_NAME,
+		   CTV_HISTOGRAM_NAME,
 		   // columns
     {
-      {"class_of", format_varchar (255)},
+      {"class_name", format_varchar (255)},
       {"key_attr", format_varchar (255)},
       {"with_fullscan", format_varchar (32)},
       {"null_frequency", "double"},

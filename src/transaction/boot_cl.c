@@ -1876,7 +1876,7 @@ boot_destroy_catalog_classes (void)
     CTV_SERVER_NAME,
     CT_SYNONYM_NAME,
     CTV_SYNONYM_NAME,
-    CTV_DB_HISTOGRAM_NAME,
+    CTV_HISTOGRAM_NAME,
     NULL
   };
 

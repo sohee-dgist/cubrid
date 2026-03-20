@@ -1647,7 +1647,7 @@ sm_define_view_histogram_spec (void)
   // *INDENT-OFF*
   sprintf (stmt,
 	"SELECT "
-	  "[h].[class_of].[class_name] AS [class_of], "
+	  "[h].[class_of] AS [class_name], "
 	  "[h].[key_attr] AS [key_attr], "
 	  "CASE WHEN [h].[with_fullscan] = 0 THEN 'sampling scan' ELSE 'full scan' END AS [with_fullscan], "
 	  "CAST([h].[null_frequency] AS NUMERIC(18, 12)) AS [null_frequency] "

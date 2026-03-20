@@ -163,7 +163,7 @@ static const char *prohibited_classes[] = {
   CTV_CHARSET_NAME,
   CTV_SERVER_NAME,
   CTV_SYNONYM_NAME,
-  // CTV_DB_HISTOGRAM_NAME, TODO: emit_histogram
+  // CTV_HISTOGRAM_NAME, TODO: emit_histogram
   NULL
 };
 
