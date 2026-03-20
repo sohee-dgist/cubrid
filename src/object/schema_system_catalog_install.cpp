@@ -2136,7 +2136,7 @@ namespace cubschema
 		   CTV_HISTOGRAM_NAME,
 		   // columns
     {
-      {"class_name", format_varchar (255)},
+      {"class_name", "object"},
       {"key_attr", format_varchar (255)},
       {"with_fullscan", format_varchar (32)},
       {"null_frequency", "double"},
