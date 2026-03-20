@@ -13768,11 +13768,17 @@ sm_delete_class_mop (MOP op, bool is_cascade_constraints)
 	  goto end;
 	}
 
-      db_get_histogram (op, att->header.name, &histogram_obj);
+      error = db_get_histogram (op, att->header.name, &histogram_obj);
+      if (error != NO_ERROR)
+	{
+	  AU_ENABLE (au_save);
+	  goto end;
+	}
 
       if (histogram_obj != NULL)
 	{
 	  error = db_drop (histogram_obj);
+	  histogram_obj = NULL;
 	  if (error != NO_ERROR)
 	    {
 	      AU_ENABLE (au_save);
