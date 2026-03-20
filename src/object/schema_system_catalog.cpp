@@ -78,7 +78,7 @@ namespace cubschema
     CT_SERVER_NAME,		// "_db_server"
     CT_SYNONYM_NAME,			// "_db_synonym"
     CT_TRIGGER_NAME,			// "db_trigger"
-    CT_DB_HISTOGRAM_NAME,		// "_db_histogram"
+    CT_HISTOGRAM_NAME,		// "_db_histogram"
 
     /* currently, not implemented */
     CT_RESOLUTION_NAME		// "_db_resolution"

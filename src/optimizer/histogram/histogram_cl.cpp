@@ -1035,11 +1035,11 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
 	    {
 	      if (is_ge == include_equal)
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
 		}
 	      else
 		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
+		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
 		}
 	    }
 	  else
@@ -1075,7 +1075,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool inc
     {
       /* not found in histogram */
       *success = true;
-      *selectivity = 0.0;
+      *selectivity = 1.0 / static_cast<double> (total_rows);
       return;
     }
 
@@ -1101,7 +1101,7 @@ db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj)
   DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
   const char *search_attrs[2] = { "class_of", "key_attr" };
 
-  histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
+  histogram_class = sm_find_class (CT_HISTOGRAM_NAME);
   if (histogram_class == NULL)
     {
       error = ER_BO_MISSING_OR_INVALID_CATALOG;
@@ -1376,6 +1376,12 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   if (error != NO_ERROR)
     {
       snprintf (line, sizeof (line), "ERROR: Failed to dump histogram column: %s", attr_name);
+
+      if (error == ER_OBJ_INVALID_ARGUMENTS)
+	{
+	  snprintf (line, sizeof (line), "TYPE NOT SUPPORTED FOR HISTOGRAM: %s", attr_name);
+	}
+
       fprintf (f, "| %-47s|\n", line);
       fprintf (f, "+------------------------------------------------+\n");
       return NO_ERROR;

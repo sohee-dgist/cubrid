@@ -113,7 +113,7 @@ const OID_CACHE_ENTRY oid_Cache[OID_CACHE_SIZE] = {
   {&oid_DBServer_class, CT_SERVER_NAME},
   {&oid_Synonym_class, CT_SYNONYM_NAME},
   {&oid_Stored_proc_code_class, CT_STORED_PROC_CODE_NAME},
-  {&oid_Histogram_class, CT_DB_HISTOGRAM_NAME},
+  {&oid_Histogram_class, CT_HISTOGRAM_NAME},
 };
 
 /*

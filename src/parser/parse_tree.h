@@ -3531,7 +3531,6 @@ union pt_statement_info
   PT_GRANT_INFO grant;
   PT_HOST_VAR_INFO host_var;
   PT_INDEX_INFO index;
-  PT_HISTOGRAM_INFO histogram;
   PT_INSERT_INFO insert;
   PT_INSERT_VALUE_INFO insert_value;
   PT_ISOLATION_LVL_INFO isolation_lvl;
@@ -3580,6 +3579,7 @@ union pt_statement_info
   PT_TUPLE_VALUE_INFO tuple_value;
   PT_UPDATE_INFO update;
   PT_UPDATE_STATS_INFO update_stats;
+  PT_HISTOGRAM_INFO histogram;
 #if defined (ENABLE_UNUSED_FUNCTION)
   PT_USE_INFO use;
 #endif

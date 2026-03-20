@@ -1839,8 +1839,14 @@ do_alter (PARSER_CONTEXT * parser, PT_NODE * alter)
 		    const char *attr_mthd_name_str = attr_mthd_name->info.name.original;
 		    if (attr_mthd_name_str != NULL)
 		      {
-			db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_mthd_name_str,
-					  &histogram_obj);
+			error_code =
+			  db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_mthd_name_str,
+					    &histogram_obj);
+			if (error_code != NO_ERROR)
+			  {
+			    AU_ENABLE (au_save);
+			    goto error_exit;
+			  }
 			if (histogram_obj != NULL)
 			  {
 			    error_code = db_drop (histogram_obj);
@@ -1863,8 +1869,13 @@ do_alter (PARSER_CONTEXT * parser, PT_NODE * alter)
 		const char *attr_name = crt_clause->info.alter.alter_clause.attr_mthd.attr_old_name->info.name.original;
 		if (attr_name != NULL)
 		  {
-		    db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_name,
-				      &histogram_obj);
+		    error_code = db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_name,
+						   &histogram_obj);
+		    if (error_code != NO_ERROR)
+		      {
+			AU_ENABLE (au_save);
+			goto error_exit;
+		      }
 		    if (histogram_obj != NULL)
 		      {
 			error_code = db_drop (histogram_obj);
@@ -1886,8 +1897,13 @@ do_alter (PARSER_CONTEXT * parser, PT_NODE * alter)
 		const char *attr_name = crt_clause->info.alter.alter_clause.rename.old_name->info.name.original;
 		if (attr_name != NULL)
 		  {
-		    db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_name,
-				      &histogram_obj);
+		    error_code = db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_name,
+						   &histogram_obj);
+		    if (error_code != NO_ERROR)
+		      {
+			AU_ENABLE (au_save);
+			goto error_exit;
+		      }
 		    if (histogram_obj != NULL)
 		      {
 			error_code = db_drop (histogram_obj);
@@ -4224,7 +4240,6 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 		  dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
 		  return error;
 		}
-	      /* TODO: dump the histogram */
 	      error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
 	      if (error != NO_ERROR)
 		{
@@ -4300,7 +4315,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	    {
 	      return error;
 	    }
-	  /* TODO: dump the histogram */
+
 	  error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
 	  if (error != NO_ERROR)
 	    {
@@ -4472,7 +4487,6 @@ do_show_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
   return NO_ERROR;
 }
 
-  /* class should be already available */
 /*
  * do_create_partition() -  Creates partitions
  *   return: Error code if partitions are not created

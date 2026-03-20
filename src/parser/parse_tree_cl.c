@@ -20,7 +20,7 @@
  * parse_tree_cl.c - Parser module for the client
  */
 
-#include "parse_tree.h"
+
 #ident "$Id$"
 
 #include "config.h"
@@ -294,9 +294,6 @@ static PT_NODE *pt_init_auth_cmd (PT_NODE * p);
 static PT_NODE *pt_init_constraint (PT_NODE * node);
 static PT_NODE *pt_init_create_entity (PT_NODE * p);
 static PT_NODE *pt_init_create_index (PT_NODE * p);
-static PT_NODE *pt_init_update_histogram (PT_NODE * p);
-static PT_NODE *pt_init_drop_histogram (PT_NODE * p);
-static PT_NODE *pt_init_show_histogram (PT_NODE * p);
 static PT_NODE *pt_init_data_default (PT_NODE * p);
 static PT_NODE *pt_init_datatype (PT_NODE * p);
 static PT_NODE *pt_init_delete (PT_NODE * p);
@@ -5179,9 +5176,9 @@ pt_init_init_f (void)
   pt_init_func_array[PT_COMMIT_WORK] = pt_init_func_null_function;
   pt_init_func_array[PT_CREATE_ENTITY] = pt_init_create_entity;
   pt_init_func_array[PT_CREATE_INDEX] = pt_init_create_index;
-  pt_init_func_array[PT_UPDATE_HISTOGRAM] = pt_init_update_histogram;
-  pt_init_func_array[PT_DROP_HISTOGRAM] = pt_init_drop_histogram;
-  pt_init_func_array[PT_SHOW_HISTOGRAM] = pt_init_show_histogram;
+  pt_init_func_array[PT_UPDATE_HISTOGRAM] = pt_init_func_null_function;
+  pt_init_func_array[PT_DROP_HISTOGRAM] = pt_init_func_null_function;
+  pt_init_func_array[PT_SHOW_HISTOGRAM] = pt_init_func_null_function;
   pt_init_func_array[PT_CREATE_USER] = pt_init_func_null_function;
   pt_init_func_array[PT_CREATE_TRIGGER] = pt_init_func_null_function;
   pt_init_func_array[PT_CREATE_SERIAL] = pt_init_func_null_function;
@@ -7339,38 +7336,6 @@ pt_print_create_entity (PARSER_CONTEXT * parser, PT_NODE * p)
     }
 
   return q;
-}
-
-/*
- * pt_init_update_histogram () -
- *   return:
- *   p(in):
- */
-static PT_NODE *
-pt_init_update_histogram (PT_NODE * p)
-{
-  return p;
-}
-
-/*
- * pt_init_drop_histogram () -
- *   return:
- *   p(in):
- */
-static PT_NODE *
-pt_init_drop_histogram (PT_NODE * p)
-{
-  p->info.histogram.with_fullscan = 0;
-  p->info.histogram.bucket_count = 0;
-  return p;
-}
-
-static PT_NODE *
-pt_init_show_histogram (PT_NODE * p)
-{
-  p->info.histogram.with_fullscan = 0;
-  p->info.histogram.bucket_count = 0;
-  return p;
 }
 
 /*

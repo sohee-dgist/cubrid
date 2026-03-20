@@ -286,7 +286,7 @@ catcls_init (void)
   ADD_TABLE_DEFINITION (CT_DUAL_NAME, system_catalog_initializer::get_dual ());
   ADD_TABLE_DEFINITION (CT_SYNONYM_NAME, system_catalog_initializer::get_synonym ());
   ADD_TABLE_DEFINITION (CT_SERVER_NAME, system_catalog_initializer::get_server ());
-  ADD_TABLE_DEFINITION (CT_DB_HISTOGRAM_NAME, system_catalog_initializer::get_db_histogram());
+  ADD_TABLE_DEFINITION (CT_HISTOGRAM_NAME, system_catalog_initializer::get_histogram());
 
   ADD_VIEW_DEFINITION (CTV_CLASS_NAME, system_catalog_initializer::get_view_class ());
   ADD_VIEW_DEFINITION (CTV_SUPER_CLASS_NAME, system_catalog_initializer::get_view_direct_super_class ());
@@ -1259,12 +1259,12 @@ namespace cubschema
   }
 
   system_catalog_definition
-  system_catalog_initializer::get_db_histogram ()
+  system_catalog_initializer::get_histogram ()
   {
 // db_class
     return system_catalog_definition (
 		   // name
-		   CT_DB_HISTOGRAM_NAME,
+		   CT_HISTOGRAM_NAME,
 		   // columns
     {
       {"class_of", "object"},
@@ -2136,11 +2136,11 @@ namespace cubschema
 		   CTV_DB_HISTOGRAM_NAME,
 		   // columns
     {
-      {"class_of", "object"},
+      {"class_of", format_varchar (255)},
       {"key_attr", format_varchar (255)},
       {"with_fullscan", format_varchar (32)},
       {"null_frequency", "double"},
-      {attribute_kind::QUERY_SPEC, sm_define_view_db_histogram_spec ()}
+      {attribute_kind::QUERY_SPEC, sm_define_view_histogram_spec ()}
     },
 // constraint
     {},

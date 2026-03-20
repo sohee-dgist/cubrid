@@ -1981,7 +1981,7 @@ smt_check_histogram_exist (MOP classop, const char *attr_name)
   DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
   const char *search_attrs[2] = { "class_of", "key_attr" };
 
-  histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
+  histogram_class = sm_find_class (CT_HISTOGRAM_NAME);
   if (histogram_class == NULL)
     {
       error = ER_BO_MISSING_OR_INVALID_CATALOG;
@@ -1996,11 +1996,8 @@ smt_check_histogram_exist (MOP classop, const char *attr_name)
   histogram_obj = db_find_multi_unique (histogram_class, 2, (char **) search_attrs, value_ptrs, DB_FETCH_READ);
   if (histogram_obj != NULL)
     {
+      /* not error, just return ER_LC_CLASSNAME_EXIST */
       error = ER_LC_CLASSNAME_EXIST;
-      // ---- query buffer ---- (error_length + table_name_length + attr_name_length)
-      char error_histogram[100 + 222 + 254];
-      snprintf (error_histogram, sizeof (error_histogram), "histogram of %s(%s)", sm_get_ch_name (classop), attr_name);
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, error, 1, error_histogram);
       goto end;
     }
 end:
@@ -2015,7 +2012,7 @@ smt_check_histogram_exist_and_delete (MOP classop, const char *attr_name, bool n
   DB_VALUE value[2];
   DB_VALUE *value_ptrs[2] = { &value[0], &value[1] };
   const char *search_attrs[2] = { "class_of", "key_attr" };
-  histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
+  histogram_class = sm_find_class (CT_HISTOGRAM_NAME);
   if (histogram_class == NULL)
     {
       error = ER_BO_MISSING_OR_INVALID_CATALOG;
@@ -2067,7 +2064,7 @@ smt_add_histogram (MOP classop, const char *attr_name, int bucket_count, bool wi
   /* temporarily disable authorization to access db_serial class */
   AU_DISABLE (au_save);
 
-  histogram_class = sm_find_class (CT_DB_HISTOGRAM_NAME);
+  histogram_class = sm_find_class (CT_HISTOGRAM_NAME);
   if (histogram_class == NULL)
     {
       error = ER_QPROC_DB_SERIAL_NOT_FOUND;

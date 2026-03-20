@@ -446,7 +446,6 @@ include_directories(
   src/query/parallel/px_heap_scan
   src/query/parallel
   src/query/parallel/px_query_execute
-  src/histogram
   )
 if(WITH_CCI)
   include_directories(

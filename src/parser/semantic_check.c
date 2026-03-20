@@ -9096,7 +9096,7 @@ pt_check_update_histogram (PARSER_CONTEXT * parser, PT_NODE * node)
       return;
     }
 
-  /* check if this is a partition class (TODO: not implemented) */
+  /* check if this is a sub_ partition class */
   if (sm_partitioned_class_type (db_obj, &is_partition, NULL, NULL) != NO_ERROR)
     {
       PT_ERROR (parser, node, er_msg ());
@@ -12357,7 +12357,7 @@ pt_check_with_info (PARSER_CONTEXT * parser, PT_NODE * node, SEMANTIC_CHK_INFO *
 	{
 	  sc_info_ptr->system_class = false;
 	  node = pt_resolve_names (parser, node, sc_info_ptr);
-	  if (!pt_has_error (parser) && node->node_type == PT_DROP_HISTOGRAM)
+	  if (!pt_has_error (parser))
 	    {
 	      pt_check_update_histogram (parser, node);
 	    }
@@ -12382,7 +12382,7 @@ pt_check_with_info (PARSER_CONTEXT * parser, PT_NODE * node, SEMANTIC_CHK_INFO *
 	{
 	  sc_info_ptr->system_class = false;
 	  node = pt_resolve_names (parser, node, sc_info_ptr);
-	  if (!pt_has_error (parser) && node->node_type == PT_DROP_HISTOGRAM)
+	  if (!pt_has_error (parser))
 	    {
 	      pt_check_update_histogram (parser, node);
 	    }
