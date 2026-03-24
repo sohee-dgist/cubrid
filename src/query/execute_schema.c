@@ -4405,8 +4405,9 @@ do_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
   PT_NODE *cls;
   DB_OBJECT *obj;
   int error = NO_ERROR, save;
-  AU_DISABLE (save);
+  int error = NO_ERROR, save;
   CHECK_MODIFICATION_ERROR ();
+  AU_DISABLE (save);
 
   /* class should be already available */
   assert (statement->info.histogram.target_table_spec);
