@@ -10210,6 +10210,7 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
       arg2 = range_node->info.expr.arg2;
 
       pc_arg1 = qo_classify (arg1);
+      pc1 = pc_arg1;
 
       if (pc_arg1 == PC_HOST_VAR)
 	{
@@ -10328,6 +10329,7 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	      else
 		{
 		  selectivity = selectivity_backup;
+                  assert_release (selectivity == DEFAULT_BETWEEN_SELECTIVITY);
 		}
 	    }
 	}
