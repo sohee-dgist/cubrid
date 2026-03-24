@@ -4182,6 +4182,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 
   if (locator_flush_all_instances (obj, DONT_DECACHE) != NO_ERROR)
     {
+      ASSERT_ERROR_AND_SET (error);
       return error;
     }
 
