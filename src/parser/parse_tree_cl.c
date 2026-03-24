@@ -342,8 +342,7 @@ static PARSER_VARCHAR *pt_print_constraint (PARSER_CONTEXT * parser, PT_NODE * p
 static PARSER_VARCHAR *pt_print_col_def_constraint (PARSER_CONTEXT * parser, PT_NODE * p);
 static PARSER_VARCHAR *pt_print_create_entity (PARSER_CONTEXT * parser, PT_NODE * p);
 static PARSER_VARCHAR *pt_print_create_index (PARSER_CONTEXT * parser, PT_NODE * p);
-static PARSER_VARCHAR *pt_print_update_histogram (PARSER_CONTEXT * parser, PT_NODE * p);
-static PARSER_VARCHAR *pt_print_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * p);
+static PARSER_VARCHAR *pt_print_analyze_histogram (PARSER_CONTEXT * parser, PT_NODE * p);
 static PARSER_VARCHAR *pt_print_show_histogram (PARSER_CONTEXT * parser, PT_NODE * p);
 static PARSER_VARCHAR *pt_print_create_serial (PARSER_CONTEXT * parser, PT_NODE * p);
 static PARSER_VARCHAR *pt_print_create_stored_procedure (PARSER_CONTEXT * parser, PT_NODE * p);
@@ -5309,8 +5308,8 @@ pt_init_print_f (void)
   pt_print_func_array[PT_COMMIT_WORK] = pt_print_commit_work;
   pt_print_func_array[PT_CREATE_ENTITY] = pt_print_create_entity;
   pt_print_func_array[PT_CREATE_INDEX] = pt_print_create_index;
-  pt_print_func_array[PT_UPDATE_HISTOGRAM] = pt_print_update_histogram;
-  pt_print_func_array[PT_DROP_HISTOGRAM] = pt_print_drop_histogram;
+  pt_print_func_array[PT_UPDATE_HISTOGRAM] = pt_print_analyze_histogram;
+  pt_print_func_array[PT_DROP_HISTOGRAM] = pt_print_analyze_histogram;
   pt_print_func_array[PT_SHOW_HISTOGRAM] = pt_print_show_histogram;
   pt_print_func_array[PT_CREATE_USER] = pt_print_create_user;
   pt_print_func_array[PT_CREATE_TRIGGER] = pt_print_create_trigger;
@@ -7363,11 +7362,12 @@ pt_apply_update_histogram (PARSER_CONTEXT * parser, PT_NODE * p, void *arg)
  *   arg(in):
  */
 static PARSER_VARCHAR *
-pt_print_update_histogram (PARSER_CONTEXT * parser, PT_NODE * p)
+pt_print_analyze_histogram (PARSER_CONTEXT * parser, PT_NODE * p)
 {
   PARSER_VARCHAR *b = 0, *tbl = 0, *cl = 0;
   unsigned int saved_cp = parser->custom_print;
   PT_NODE *target_columns;
+
 
   b = pt_append_nulstring (parser, b, "analyze table ");
   if (p->info.histogram.target_table_spec)
@@ -7377,51 +7377,14 @@ pt_print_update_histogram (PARSER_CONTEXT * parser, PT_NODE * p)
 
   b = pt_append_varchar (parser, b, tbl);
 
-  b = pt_append_nulstring (parser, b, " update histogram");
-
-
-  b = pt_append_nulstring (parser, b, " on ");
-
-  if (p->info.histogram.target_columns)
+  if (p->node_type == PT_UPDATE_HISTOGRAM)
     {
-      target_columns = p->info.histogram.target_columns;
-      cl = pt_print_bytes_l (parser, target_columns);
+      b = pt_append_nulstring (parser, b, " update histogram");
     }
-
-  b = pt_append_nulstring (parser, b, " (");
-  b = pt_append_varchar (parser, b, cl);
-  b = pt_append_nulstring (parser, b, ") ");
-
-  parser->custom_print = saved_cp;
-
-  return b;
-}
-
-/*
- * pt_print_drop_histogram () -
- *   return:
- *   parser(in):
- *   p(in):
- *   g(in):
- *   arg(in):
- */
-static PARSER_VARCHAR *
-pt_print_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * p)
-{
-  PARSER_VARCHAR *b = 0, *tbl = 0, *cl = 0;
-  unsigned int saved_cp = parser->custom_print;
-  PT_NODE *target_columns;
-
-  b = pt_append_nulstring (parser, b, "analyze table ");
-  if (p->info.histogram.target_table_spec)
+  else if (p->node_type == PT_DROP_HISTOGRAM)
     {
-      tbl = pt_print_bytes (parser, p->info.histogram.target_table_spec);
+      b = pt_append_nulstring (parser, b, " drop histogram");
     }
-
-  b = pt_append_varchar (parser, b, tbl);
-
-  b = pt_append_nulstring (parser, b, " drop histogram");
-
 
   b = pt_append_nulstring (parser, b, " on ");
 
