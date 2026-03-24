@@ -4405,7 +4405,6 @@ do_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
   PT_NODE *cls;
   DB_OBJECT *obj;
   int error = NO_ERROR, save;
-  int error = NO_ERROR, save;
   CHECK_MODIFICATION_ERROR ();
   AU_DISABLE (save);
 
