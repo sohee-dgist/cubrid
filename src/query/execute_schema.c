@@ -4347,8 +4347,6 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
       return error;
     }
 
-  db_commit_transaction ();
-
   if (do_histogram == DO_HISTOGRAM_CREATE || do_histogram == DO_HISTOGRAM_DROP)
     {
       SM_CLASS *smclass;

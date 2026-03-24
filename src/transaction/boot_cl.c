@@ -2176,5 +2176,20 @@ boot_client_find_and_cache_class_oids (void)
       return ER_FAILED;
     }
   oid_set_cached_class_oid (OID_CACHE_HA_APPLY_INFO_CLASS_ID, &class_mop->oid_info.oid);
+
+  class_mop = sm_find_class (CT_HISTOGRAM_NAME);
+  if (class_mop == NULL)
+    {
+      error = er_errid ();
+      if (error != NO_ERROR)
+	{
+	  return error;
+	}
+
+      er_set (ER_FATAL_ERROR_SEVERITY, ARG_FILE_LINE, ER_GENERIC_ERROR, 0);
+      return ER_FAILED;
+    }
+  oid_set_cached_class_oid (OID_CACHE_HISTOGRAM_CLASS_ID, &class_mop->oid_info.oid);
+
   return NO_ERROR;
 }
