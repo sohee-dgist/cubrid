@@ -4164,18 +4164,6 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
   int is_partition = DB_NOT_PARTITIONED_CLASS;
   DB_TYPE attr_type = DB_TYPE_NULL;
 
-  /* check histogram is allowed on this class */
-  error = sm_partitioned_class_type (obj, &is_partition, NULL, NULL);
-  if (error != NO_ERROR)
-    {
-      return error;
-    }
-  if (is_partition == DB_PARTITION_CLASS)
-    {
-      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_NOT_ALLOWED_ACCESS_TO_PARTITION, 0);
-      return ER_NOT_ALLOWED_ACCESS_TO_PARTITION;
-    }
-
   /* fill infos for catlaog table */
   nnames = pt_length_of_list (histogram_info->target_columns);
   bucket_count = histogram_info->bucket_count;
@@ -4192,17 +4180,18 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	}
     }
 
+  if (locator_flush_all_instances (obj, DONT_DECACHE) != NO_ERROR)
+    {
+      return error;
+    }
+
   if (nnames == 0)
     {
       SM_ATTRIBUTE *att;
-      SM_CLASS *class_ = NULL;
-      error = au_fetch_class (obj, &class_, AU_FETCH_READ, AU_SELECT);
-      if (error != NO_ERROR)
+
+      for (att = (DB_ATTRIBUTE *) db_get_attributes_force (obj); att != NULL; att = db_attribute_next (att))
 	{
-	  return error;
-	}
-      for (att = class_->attributes; att != NULL; att = (SM_ATTRIBUTE *) att->header.next)
-	{
+
 	  attname = (char *) att->header.name;
 	  if (do_histogram == DO_HISTOGRAM_DROP)
 	    {
@@ -4219,7 +4208,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	      if (!is_histogrammable_type (attr_type))
 		{
 		  error = ER_OBJ_INVALID_ARGUMENTS;
-		  dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+		  error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
 		  continue;
 		}
 
@@ -4229,7 +4218,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 		{
 		  if (error != ER_LC_CLASSNAME_EXIST)
 		    {
-		      dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+		      error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
 		      return error;
 		    }
 		}
@@ -4237,7 +4226,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	      error = analyze_classes (NULL, db_get_class_name (obj), attname, bucket_count, with_fullscan, obj);
 	      if (error != NO_ERROR)
 		{
-		  dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+		  error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
 		  return error;
 		}
 	      error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
@@ -4258,7 +4247,6 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	    }
 	}
     }
-
   for (int i = 0; i < nnames; i++)
     {
       attname = (char *) cur_column->info.name.original;
@@ -4296,7 +4284,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	  if (!is_histogrammable_type (attr_type))
 	    {
 	      error = ER_OBJ_INVALID_ARGUMENTS;
-	      dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+	      error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
 	      continue;
 	    }
 	  /* create histogram catalog entry */
@@ -4305,7 +4293,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	    {
 	      if (error != ER_LC_CLASSNAME_EXIST)
 		{
-		  dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
+		  error = dump_histogram (obj, attname, attr_type, with_fullscan, error, stdout);
 		  return error;
 		}
 	    }

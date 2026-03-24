@@ -1390,7 +1390,7 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   class_ = sm_get_class_with_statistics (classop);
   if (class_ == NULL)
     {
-      return ER_FAILED;
+      return NO_ERROR;
     }
 
   error = db_get_histogram (classop, attr_name, &histogram_obj);
@@ -1401,7 +1401,7 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
 
   if (histogram_obj == NULL)
     {
-      return ER_FAILED;
+      return NO_ERROR;
     }
 
   /* get histgoram */

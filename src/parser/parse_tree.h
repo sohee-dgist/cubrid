@@ -1979,8 +1979,7 @@ struct pt_create_entity_info
   unsigned if_not_exists:1;	/* IF NOT EXISTS clause for create table | class */
 };
 
-/* CREATE HISTOGRAM INFO */
-
+/* ANALYZE UPDATE/DROP HISTOGRAM INFO */
 struct pt_histogram_info
 {
   PT_NODE *target_table_spec;	/* PT_SPEC */

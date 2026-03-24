@@ -15623,13 +15623,22 @@ sm_add_histogram (MOP classop, const char *attr_name, int bucket_count, bool wit
 {
   bool set_savepoint = false;
   int error = NO_ERROR;
-  SM_CLASS *class_ = NULL;
-  DB_OBJECT *obj = NULL;
 
   if (attr_name == NULL)
     {
       ERROR0 (error, ER_OBJ_INVALID_ARGUMENTS);
       return error;
+    }
+
+
+  error = smt_check_histogram_exist (classop, attr_name);
+  if (error != NO_ERROR)
+    {
+      if (error == ER_LC_CLASSNAME_EXIST)
+	{
+	  return error;
+	}
+      goto error_exit;
     }
 
   error = tran_system_savepoint (SM_ADD_HISTOGRAM_SAVEPOINT_NAME);
@@ -15639,22 +15648,6 @@ sm_add_histogram (MOP classop, const char *attr_name, int bucket_count, bool wit
     }
 
   set_savepoint = true;
-  error = au_fetch_class (classop, &class_, AU_FETCH_READ, AU_SELECT);
-  if (error != NO_ERROR)
-    {
-      goto error_exit;
-    }
-
-  error = smt_check_histogram_exist (classop, attr_name);
-  if (error != NO_ERROR)
-    {
-      if (error == ER_LC_CLASSNAME_EXIST)
-	{
-	  (void) tran_abort_upto_system_savepoint (SM_ADD_HISTOGRAM_SAVEPOINT_NAME);
-	  return error;
-	}
-      goto error_exit;
-    }
 
   error = smt_add_histogram (classop, attr_name, bucket_count, with_fullscan);
   if (error != NO_ERROR)
