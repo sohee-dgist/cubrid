@@ -1433,8 +1433,6 @@ logddl_is_ddl_type (int node_type, PT_NODE * node)
     case PT_CREATE_ENTITY:
     case PT_CREATE_INDEX:
     case PT_CREATE_SERIAL:
-    case PT_UPDATE_HISTOGRAM:
-    case PT_DROP_HISTOGRAM:
     case PT_CREATE_STORED_PROCEDURE:
     case PT_CREATE_SYNONYM:
     case PT_CREATE_TRIGGER:
@@ -1455,6 +1453,8 @@ logddl_is_ddl_type (int node_type, PT_NODE * node)
     case PT_RENAME_TRIGGER:
     case PT_UPDATE_STATS:
     case PT_TRUNCATE:
+    case PT_UPDATE_HISTOGRAM:
+    case PT_DROP_HISTOGRAM:
       /* TODO: check it  */
       has_password_type = false;
       return true;

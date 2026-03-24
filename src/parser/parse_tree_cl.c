@@ -7369,26 +7369,18 @@ pt_print_update_histogram (PARSER_CONTEXT * parser, PT_NODE * p)
   unsigned int saved_cp = parser->custom_print;
   PT_NODE *target_columns;
 
-  parser->custom_print |= PT_SUPPRESS_RESOLVED;
-
-  if (!(parser->custom_print & PT_SUPPRESS_INDEX))
-    {
-      b = pt_append_nulstring (parser, b, "update");
-    }
-
-  b = pt_append_nulstring (parser, b, " histogram");
-
+  b = pt_append_nulstring (parser, b, "analyze table ");
   if (p->info.histogram.target_table_spec)
     {
       tbl = pt_print_bytes (parser, p->info.histogram.target_table_spec);
     }
 
-  if (!(parser->custom_print & PT_SUPPRESS_INDEX))
-    {
-      b = pt_append_nulstring (parser, b, " on ");
-      b = pt_append_varchar (parser, b, tbl);
-    }
+  b = pt_append_varchar (parser, b, tbl);
 
+  b = pt_append_nulstring (parser, b, " update histogram");
+
+
+  b = pt_append_nulstring (parser, b, " on ");
 
   if (p->info.histogram.target_columns)
     {
@@ -7420,26 +7412,18 @@ pt_print_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * p)
   unsigned int saved_cp = parser->custom_print;
   PT_NODE *target_columns;
 
-  parser->custom_print |= PT_SUPPRESS_RESOLVED;
-
-  if (!(parser->custom_print & PT_SUPPRESS_INDEX))
-    {
-      b = pt_append_nulstring (parser, b, "drop");
-    }
-
-  b = pt_append_nulstring (parser, b, " histogram");
-
+  b = pt_append_nulstring (parser, b, "analyze table ");
   if (p->info.histogram.target_table_spec)
     {
       tbl = pt_print_bytes (parser, p->info.histogram.target_table_spec);
     }
 
-  if (!(parser->custom_print & PT_SUPPRESS_INDEX))
-    {
-      b = pt_append_nulstring (parser, b, " on ");
-      b = pt_append_varchar (parser, b, tbl);
-    }
+  b = pt_append_varchar (parser, b, tbl);
 
+  b = pt_append_nulstring (parser, b, " drop histogram");
+
+
+  b = pt_append_nulstring (parser, b, " on ");
 
   if (p->info.histogram.target_columns)
     {
@@ -7471,26 +7455,15 @@ pt_print_show_histogram (PARSER_CONTEXT * parser, PT_NODE * p)
   unsigned int saved_cp = parser->custom_print;
   PT_NODE *target_columns;
 
-  parser->custom_print |= PT_SUPPRESS_RESOLVED;
-
-  if (!(parser->custom_print & PT_SUPPRESS_INDEX))
-    {
-      b = pt_append_nulstring (parser, b, "show");
-    }
-
-  b = pt_append_nulstring (parser, b, " histogram");
-
+  b = pt_append_nulstring (parser, b, "show histogram ");
   if (p->info.histogram.target_table_spec)
     {
       tbl = pt_print_bytes (parser, p->info.histogram.target_table_spec);
     }
 
-  if (!(parser->custom_print & PT_SUPPRESS_INDEX))
-    {
-      b = pt_append_nulstring (parser, b, " on ");
-      b = pt_append_varchar (parser, b, tbl);
-    }
+  b = pt_append_varchar (parser, b, tbl);
 
+  b = pt_append_nulstring (parser, b, " on ");
 
   if (p->info.histogram.target_columns)
     {
