@@ -122,6 +122,7 @@ int db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_
 bool is_histogrammable_type (DB_TYPE type);
 int stats_get_histogram (MOP classop, HIST_STATS **histogram);
 int stats_free_histogram_and_init (HIST_STATS *histogram);
-int dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with_fullscan, int error, FILE *f);
+int dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with_fullscan, bool detailed, int error,
+		    FILE *f);
 
 #endif // _HISTOGRAM_CL_HPP_

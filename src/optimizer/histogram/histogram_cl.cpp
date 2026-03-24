@@ -416,7 +416,13 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
       db_value_clear (&value[2]);
       db_value_clear (&value[3]);
     }
-  while (db_query_next_tuple (query_result) == DB_CURSOR_SUCCESS);
+  while ((error = db_query_next_tuple (query_result)) == DB_CURSOR_SUCCESS);
+
+  if (error != DB_CURSOR_SUCCESS && error != DB_CURSOR_END)
+    {
+      ASSERT_ERROR_AND_SET (error);
+      goto error_end;
+    }
 
 build_histogram:
 
@@ -1361,7 +1367,8 @@ is_histogrammable_type (DB_TYPE type)
 #define HIST_DUMP_WIDTH 47  /* inner width of the histogram */
 
 int
-dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with_fullscan, int error, FILE *f)
+dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with_fullscan, bool detailed, int error,
+		FILE *f)
 {
   char line[HIST_DUMP_WIDTH + 1];
   SM_CLASS *class_ = NULL;
@@ -1494,57 +1501,59 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   /* bottom border */
   fputs ("+------------------------------------------------+\n", f);
 
-  const double total_rows = static_cast<double> (histogram_reader.total_rows ());
-  const int bucket_cnt = static_cast<int> (histogram_reader.bucket_count ());
-
-  for (int i = 0; i < bucket_cnt; i++)
+  if (detailed)
     {
-      const int rows = static_cast<int> (histogram_reader.bucket_rows (i));
-      const double sel =
-	      (total_rows > 0.0
-	       ? static_cast<double> (rows) / total_rows
-	       : 0.0);
+      const double total_rows = static_cast<double> (histogram_reader.total_rows ());
+      const int bucket_cnt = static_cast<int> (histogram_reader.bucket_count ());
 
-      const std::int32_t ndv =
-	      static_cast<std::int32_t> (histogram_reader.bucket_approx_ndv (i));
-      const bool is_mcv = (ndv == 1);
-      const double cum_sel =
-	      (total_rows > 0.0
-	       ? static_cast<double> (histogram_reader.bucket_cumulative (i)) / total_rows
-	       : 0.0);
-
-      const char *mcv_suffix = is_mcv ? " (MCV)" : "";
-
-      if (i == 0)
+      for (int i = 0; i < bucket_cnt; i++)
 	{
-	  std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
-	  std::fprintf (f,
-			"#%02d (-inf, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
-			i,
-			hi.c_str (),
-			rows,
-			sel,
-			ndv,
-			mcv_suffix,
-			cum_sel);
-	}
-      else
-	{
-	  std::string lo = histogram_reader.bucket_hi_dump_with_type (i - 1, attr_type);
-	  std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
-	  std::fprintf (f,
-			"#%02d (%s, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
-			i,
-			lo.c_str (),
-			hi.c_str (),
-			rows,
-			sel,
-			ndv,
-			mcv_suffix,
-			cum_sel);
+	  const int rows = static_cast<int> (histogram_reader.bucket_rows (i));
+	  const double sel =
+		  (total_rows > 0.0
+		   ? static_cast<double> (rows) / total_rows
+		   : 0.0);
+
+	  const std::int32_t ndv =
+		  static_cast<std::int32_t> (histogram_reader.bucket_approx_ndv (i));
+	  const bool is_mcv = (ndv == 1);
+	  const double cum_sel =
+		  (total_rows > 0.0
+		   ? static_cast<double> (histogram_reader.bucket_cumulative (i)) / total_rows
+		   : 0.0);
+
+	  const char *mcv_suffix = is_mcv ? " (MCV)" : "";
+
+	  if (i == 0)
+	    {
+	      std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
+	      std::fprintf (f,
+			    "#%02d (-inf, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
+			    i,
+			    hi.c_str (),
+			    rows,
+			    sel,
+			    ndv,
+			    mcv_suffix,
+			    cum_sel);
+	    }
+	  else
+	    {
+	      std::string lo = histogram_reader.bucket_hi_dump_with_type (i - 1, attr_type);
+	      std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
+	      std::fprintf (f,
+			    "#%02d (%s, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
+			    i,
+			    lo.c_str (),
+			    hi.c_str (),
+			    rows,
+			    sel,
+			    ndv,
+			    mcv_suffix,
+			    cum_sel);
+	    }
 	}
     }
-
   db_value_clear (&histogram_value);
   db_value_clear (&null_frequency_value);
 

@@ -9724,17 +9724,15 @@ qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	  break;
 
 	case PC_CONST:
-
-	  histogram_get_equal_selectivity (lhs, &rhs->info.value.db_value, &selectivity, &success);
-	  if (success)
-	    {
-	      break;
-	    }
-	  [[fallthrough]];
-
 	case PC_HOST_VAR:
-
-	  host_var = &env->parser->host_variables[rhs->info.host_var.index];
+	  if (pc_rhs == PC_HOST_VAR)
+	    {
+	      host_var = &env->parser->host_variables[rhs->info.host_var.index];
+	    }
+	  else
+	    {
+	      host_var = &rhs->info.value.db_value;
+	    }
 	  histogram_get_equal_selectivity (lhs, host_var, &selectivity, &success);
 	  if (success)
 	    {
@@ -10328,8 +10326,7 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 		}
 	      else
 		{
-		  selectivity = selectivity_backup;
-                  assert_release (selectivity == DEFAULT_BETWEEN_SELECTIVITY);
+		  selectivity = DEFAULT_BETWEEN_SELECTIVITY;
 		}
 	    }
 	}
