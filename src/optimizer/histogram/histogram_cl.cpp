@@ -235,6 +235,10 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
   DB_VALUE number_of_mcv_value;
   int number_of_mcv = 0;
   DB_VALUE value[4];
+  db_make_null (&value[0]);
+  db_make_null (&value[1]);
+  db_make_null (&value[2]);
+  db_make_null (&value[3]);
 
 
   // ---- query buffer ---- (query_length + table_name_length + attr_name_length)
