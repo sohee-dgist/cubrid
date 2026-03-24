@@ -4182,6 +4182,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 
   if (locator_flush_all_instances (obj, DONT_DECACHE) != NO_ERROR)
     {
+      ASSERT_ERROR_AND_SET (error);
       return error;
     }
 
@@ -4405,8 +4406,8 @@ do_drop_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
   PT_NODE *cls;
   DB_OBJECT *obj;
   int error = NO_ERROR, save;
-  AU_DISABLE (save);
   CHECK_MODIFICATION_ERROR ();
+  AU_DISABLE (save);
 
   /* class should be already available */
   assert (statement->info.histogram.target_table_spec);
