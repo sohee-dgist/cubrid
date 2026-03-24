@@ -281,7 +281,11 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
       return error;
     }
 
-  if (number_of_mcv_value.domain.general_info.type == DB_TYPE_INTEGER)
+  if (number_of_mcv_value.domain.general_info.type == DB_TYPE_BIGINT)
+    {
+      number_of_mcv = db_get_bigint (&number_of_mcv_value);
+    }
+  else if (number_of_mcv_value.domain.general_info.type == DB_TYPE_INTEGER)
     {
       number_of_mcv = db_get_int (&number_of_mcv_value);
     }
@@ -770,16 +774,10 @@ string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::
 /* histogram get selectivity functions */
 
 void
-histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity, bool *success)
+histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success)
 {
   assert (selectivity != NULL);
 
-  PRED_CLASS pc_rhs = qo_classify (rhs);
-  if (pc_rhs != PC_CONST)
-    {
-      *success = false;
-      return;
-    }
   hist::HistogramReader histogram_reader;
   if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
     {
@@ -788,7 +786,7 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
     }
 
   hist::histogram_key key;
-  if (!histogram_extract_key (&rhs->info.value.db_value, key))
+  if (!histogram_extract_key (rhs_db_value, key))
     {
       *success = false;
       return;
@@ -848,28 +846,26 @@ histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity
 }
 
 void
-histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool include_equal, double *selectivity,
+histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge, bool include_equal,
+				double *selectivity,
 				bool *success)
 {
   assert (selectivity != NULL);
 
-  PRED_CLASS pc_rhs = qo_classify (rhs);
-  if (pc_rhs != PC_CONST)
+  if (rhs_db_value == NULL)
     {
       *success = false;
       return;
     }
 
   hist::HistogramReader histogram_reader;
-
   if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
     {
       *success = false;
       return;
     }
-
   hist::histogram_key key;
-  if (!histogram_extract_key (&rhs->info.value.db_value, key))
+  if (!histogram_extract_key (rhs_db_value, key))
     {
       *success = false;
       return;

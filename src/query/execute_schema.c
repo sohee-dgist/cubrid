@@ -4347,6 +4347,45 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
       return error;
     }
 
+  if (do_histogram == DO_HISTOGRAM_CREATE || do_histogram == DO_HISTOGRAM_DROP)
+    {
+      SM_CLASS *smclass;
+      /* only recache if the class itself is cached */
+      if (obj->object != NULL)
+	{
+	  error = au_fetch_class_force (obj, &smclass, AU_FETCH_READ);
+	  if (error == NO_ERROR)
+	    {
+	      if (smclass->stats != NULL)
+		{
+		  stats_free_statistics (smclass->stats);
+		  smclass->stats = NULL;
+		}
+
+	      if (smclass->histogram != NULL)
+		{
+		  stats_free_histogram_and_init (smclass->histogram);
+		  smclass->histogram = NULL;
+		}
+	      /* make sure the class is flushed before acquiring stats, see comments above in
+	       * sm_get_class_with_statistics */
+	      if (locator_flush_class (obj) != NO_ERROR)
+		{
+		  assert (er_errid () != NO_ERROR);
+		  return (er_errid ());
+		}
+
+	      /* get the new ones, should do this at the same time as the update operation to avoid two server
+	       * calls */
+	      error = stats_get_statistics (WS_OID (obj), 0, &smclass->stats);
+	      if (error != NO_ERROR)
+		{
+		  return error;
+		}
+	    }
+	}
+    }
+
   return NO_ERROR;
 }
 

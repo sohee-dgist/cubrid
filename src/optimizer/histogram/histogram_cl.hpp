@@ -32,6 +32,7 @@
 struct parser_node;
 typedef struct parser_node PT_NODE;
 typedef struct hist_stats HIST_STATS;
+typedef struct db_value DB_VALUE;
 
 /* null frequency query template */
 static const char *NULL_FREQUENCY_QUERY_TEMPLATE =
@@ -110,8 +111,10 @@ int set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *att
 		   int histogram_total_length, MOP classop);
 
 /* histogram selectivity evaluation functions */
-void histogram_get_equal_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity, bool *success);
-void histogram_get_comp_selectivity (PT_NODE *lhs, PT_NODE *rhs, bool is_ge, bool include_equal, double *selectivity,
+void histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity,
+				      bool *success);
+void histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge, bool include_equal,
+				     double *selectivity,
 				     bool *success);
 
 /* histogram utility functions */
