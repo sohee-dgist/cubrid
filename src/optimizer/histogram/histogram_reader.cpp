@@ -173,7 +173,7 @@ namespace hist
   {
     if (i < 0)
       {
-	return std::numeric_limits<std::int64_t>::min();
+	return std::numeric_limits<std::int64_t>::lowest ();
       }
 
     return get_value<std::int64_t> (bucket_hi_value_ptr (i));
@@ -184,7 +184,7 @@ namespace hist
   {
     if (i < 0)
       {
-	return std::numeric_limits<std::int32_t>::min();
+	return std::numeric_limits<std::int32_t>::lowest();
       }
 
     return static_cast<std::int32_t> (get_value<std::int64_t> (bucket_hi_value_ptr (i)));
@@ -195,7 +195,7 @@ namespace hist
   {
     if (i < 0)
       {
-	return std::numeric_limits<double>::min();
+	return std::numeric_limits<double>::lowest();
       }
 
     return get_value<double> (bucket_hi_value_ptr (i));
@@ -246,7 +246,7 @@ namespace hist
   {
     if (i < 0)
       {
-	return std::numeric_limits<std::uint64_t>::min();
+	return std::numeric_limits<std::uint64_t>::lowest();
       }
 
     return static_cast<std::uint64_t> (get_value<std::int64_t> (bucket_hi_value_ptr (static_cast<std::uint32_t> (i))));
