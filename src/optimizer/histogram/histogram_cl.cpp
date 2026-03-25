@@ -1104,6 +1104,121 @@ histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge
   return;
 }
 
+static bool
+like_match_string (const std::string &pattern, const std::string &value)
+{
+  if (pattern.empty())
+    {
+      return false;
+    }
+
+  const char *p = pattern.c_str ();
+  const char *s = value.data ();
+
+  /* most recent '%' position in pattern */
+  const char *last_percent = nullptr;
+  /* position in string that corresponds to retry after '%' */
+  const char *last_match = nullptr;
+
+  while (*s != '\0')
+    {
+      if (*p == '%')
+	{
+	  /* '%' matches any sequence, including empty */
+	  last_percent = p;
+	  ++p;
+	  last_match = s;
+	}
+      else if (*p == '_' || *p == *s)
+	{
+	  /* '_' matches any single character */
+	  ++p;
+	  ++s;
+	}
+      else if (last_percent != nullptr)
+	{
+	  /* backtrack: let previous '%' absorb one more character */
+	  p = last_percent + 1;
+	  ++last_match;
+	  s = last_match;
+	}
+      else
+	{
+	  return false;
+	}
+    }
+
+  /* trailing '%' can match empty suffix */
+  while (*p == '%')
+    {
+      ++p;
+    }
+
+  return (*p == '\0');
+}
+
+void
+histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success)
+{
+  assert (selectivity != NULL);
+
+  if (rhs_db_value == NULL)
+    {
+      *success = false;
+      return;
+    }
+
+  hist::HistogramReader histogram_reader;
+  if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
+    {
+      *success = false;
+      return;
+    }
+
+  const double total_rows = histogram_reader.total_rows ();
+  if (total_rows <= 0.0)
+    {
+      *success = true;
+      *selectivity = 0.0;
+      return;
+    }
+
+  if (DB_VALUE_TYPE (rhs_db_value) != DB_TYPE_STRING
+      && DB_VALUE_TYPE (rhs_db_value) != DB_TYPE_CHAR)
+    {
+      *success = false;
+      return;
+    }
+
+  const std::string &pattern = db_get_string (rhs_db_value);
+  if (pattern.empty())
+    {
+      *success = false;
+      return;
+    }
+
+  double matched_rows = 0.0;
+
+  for (int i = 0; i < static_cast<int> (histogram_reader.bucket_count ()); i++)
+    {
+      if (histogram_reader.bucket_approx_ndv (i) != 1)
+	{
+	  continue;
+	}
+
+      const std::string &bucket_val = histogram_reader.bucket_hi<std::string> (i);
+      if (like_match_string (pattern, bucket_val))
+	{
+	  matched_rows += histogram_reader.bucket_rows (i);
+	}
+    }
+
+  *selectivity = matched_rows / total_rows;
+  *selectivity *= (1.0 - lhs->info.name.null_frequency);
+  *success = true;
+  return;
+}
+
 int
 db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj)
 {

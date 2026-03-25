@@ -441,6 +441,8 @@ static double qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr);
 
 static double qo_all_some_in_selectivity (QO_ENV * env, PT_NODE * pt_expr);
 
+static double qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr);
+
 static int qo_index_cardinality (QO_ENV * env, PT_NODE * attr);
 static int qo_index_cardinality_with_dedup (QO_ENV * env, PT_NODE * attr, BITSET * seg_bitset);
 
@@ -9760,15 +9762,18 @@ qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	  break;
 
 	case PT_LIKE_ESCAPE:
-	case PT_LIKE:
 	  selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
 	  break;
-
+	case PT_LIKE:
+	  {
+	    selectivity = qo_like_selectivity (env, pt_expr);
+	    break;
+	  }
 	case PT_NOT_LIKE:
-	  lhs_selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
-	  selectivity = qo_not_selectivity (env, lhs_selectivity);
-	  break;
-
+	  {
+	    selectivity = 1 - qo_like_selectivity (env, pt_expr);
+	    break;
+	  }
 	case PT_SETNEQ:
 	case PT_SETEQ:
 	case PT_SUPERSETEQ:
@@ -9842,6 +9847,45 @@ qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
     }
 
   return total_selectivity;
+}
+
+static double
+qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr)
+{
+  PT_NODE *lhs, *rhs;
+  DB_VALUE *host_var;
+  PRED_CLASS pc_lhs, pc_rhs;
+
+  double selectivity;
+
+  lhs = pt_expr->info.expr.arg1;
+  rhs = pt_expr->info.expr.arg2;
+
+  /* the class of lhs and rhs */
+  pc_lhs = qo_classify (lhs);
+  pc_rhs = qo_classify (rhs);
+
+  bool success = false;
+
+  if (pc_lhs == PC_ATTR)
+    {
+      if (pc_rhs == PC_CONST)
+	{
+	  host_var = &rhs->info.value.db_value;
+	}
+      else if (pc_rhs == PC_HOST_VAR)
+	{
+	  host_var = &env->parser->host_variables[rhs->info.host_var.index];
+	}
+
+      histogram_get_like_selectivity (lhs, host_var, &selectivity, &success);
+      if (success)
+	{
+	  return selectivity;
+	}
+    }
+
+  return (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
 }
 
 /*
