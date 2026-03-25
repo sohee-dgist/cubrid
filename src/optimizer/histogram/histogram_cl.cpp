@@ -243,7 +243,7 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 
   // ---- query buffer ---- (query_length + table_name_length + attr_name_length)
 
-  char query_buf[1024+222+254];
+  char query_buf[2048+222+254];
 
   // ---- number of MCV ----
 
@@ -300,12 +300,12 @@ get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
   if (!with_fullscan)
     {
       snprintf (query_buf, sizeof (query_buf), HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE, attr_name, tbl_name,
-		attr_name, number_of_mcv, max_number_of_buckets, max_number_of_buckets);
+		attr_name, number_of_mcv, max_number_of_buckets);
     }
   else
     {
       snprintf (query_buf, sizeof (query_buf), HISTOGRAM_QUERY_TEMPLATE, attr_name, tbl_name, attr_name,
-		number_of_mcv, max_number_of_buckets, max_number_of_buckets);
+		number_of_mcv, max_number_of_buckets);
     }
 
   error = db_compile_and_execute_local (query_buf, &query_result, &query_error);
