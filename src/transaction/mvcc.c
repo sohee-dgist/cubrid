@@ -650,11 +650,6 @@ mvcc_is_mvcc_disabled_class (const OID * class_oid)
       return true;
     }
 
-  if (oid_check_cached_class_oid (OID_CACHE_HISTOGRAM_CLASS_ID, class_oid))
-    {
-      return true;
-    }
-
   return false;
 }
 

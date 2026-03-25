@@ -5236,11 +5236,6 @@ la_is_mvcc_class (const OID * class_oid)
       return false;
     }
 
-  if (oid_check_cached_class_oid (OID_CACHE_HISTOGRAM_CLASS_ID, class_oid))
-    {
-      return false;
-    }
-
   return true;
 }
 

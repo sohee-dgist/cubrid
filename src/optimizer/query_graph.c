@@ -9765,6 +9765,5 @@ qo_is_non_mvcc_class_with_index (QO_CLASS_INFO_ENTRY * class_entry_p)
    * MVCC-disabled classes that have indexes. Index is still used to find unique object by key.
    */
   return (oid_check_cached_class_oid (OID_CACHE_SERIAL_CLASS_ID, &class_entry_p->oid)
-	  || oid_check_cached_class_oid (OID_CACHE_HA_APPLY_INFO_CLASS_ID, &class_entry_p->oid))
-    || oid_check_cached_class_oid (OID_CACHE_HISTOGRAM_CLASS_ID, &class_entry_p->oid);
+	  || oid_check_cached_class_oid (OID_CACHE_HA_APPLY_INFO_CLASS_ID, &class_entry_p->oid));
 }
