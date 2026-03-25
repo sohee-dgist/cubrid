@@ -1830,6 +1830,8 @@ do_alter (PARSER_CONTEXT * parser, PT_NODE * alter)
       switch (alter_code)
 	{
 	case PT_DROP_ATTR_MTHD:
+	case PT_MODIFY_ATTR_MTHD:
+	case PT_CHANGE_ATTR:
 	  {
 	    if (crt_clause->info.alter.alter_clause.attr_mthd.attr_mthd_name_list != NULL)
 	      {
@@ -1859,11 +1861,34 @@ do_alter (PARSER_CONTEXT * parser, PT_NODE * alter)
 		      }
 		  }
 	      }
-	    break;
-	  }
-	case PT_MODIFY_ATTR_MTHD:
-	case PT_CHANGE_ATTR:
-	  {
+	    if (crt_clause->info.alter.alter_clause.attr_mthd.attr_def_list != NULL)
+	      {
+		for (PT_NODE * attr_def = crt_clause->info.alter.alter_clause.attr_mthd.attr_def_list;
+		     attr_def != NULL; attr_def = attr_def->next)
+		  {
+		    const char *attr_def_name = attr_def->info.attr_def.attr_name->info.name.original;
+		    if (attr_def_name != NULL)
+		      {
+			error_code =
+			  db_get_histogram (crt_clause->info.alter.entity_name->info.name.db_object, attr_def_name,
+					    &histogram_obj);
+			if (error_code != NO_ERROR)
+			  {
+			    AU_ENABLE (au_save);
+			    goto error_exit;
+			  }
+			if (histogram_obj != NULL)
+			  {
+			    error_code = db_drop (histogram_obj);
+			    if (error_code != NO_ERROR)
+			      {
+				AU_ENABLE (au_save);
+				goto error_exit;
+			      }
+			  }
+		      }
+		  }
+	      }
 	    if (crt_clause->info.alter.alter_clause.attr_mthd.attr_old_name != NULL)
 	      {
 		const char *attr_name = crt_clause->info.alter.alter_clause.attr_mthd.attr_old_name->info.name.original;
