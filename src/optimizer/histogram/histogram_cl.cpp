@@ -1517,6 +1517,7 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
 	  const std::int32_t ndv =
 		  static_cast<std::int32_t> (histogram_reader.bucket_approx_ndv (i));
 	  const bool is_mcv = (ndv == 1);
+	  const bool next_is_mcv = (i + 1 < bucket_cnt && histogram_reader.bucket_approx_ndv (i + 1) == 1);
 	  const double cum_sel =
 		  (total_rows > 0.0
 		   ? static_cast<double> (histogram_reader.bucket_cumulative (i)) / total_rows
@@ -1527,30 +1528,84 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
 	  if (i == 0)
 	    {
 	      std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
-	      std::fprintf (f,
-			    "#%02d (-inf, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
-			    i,
-			    hi.c_str (),
-			    rows,
-			    sel,
-			    ndv,
-			    mcv_suffix,
-			    cum_sel);
+	      if (is_mcv)
+		{
+		  std::fprintf (f,
+				"#%02d [%s, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
+				i,
+				hi.c_str (),
+				hi.c_str (),
+				rows,
+				sel,
+				ndv,
+				mcv_suffix,
+				cum_sel);
+		}
+	      else
+		{
+		  std::fprintf (f,
+				"#%02d (-inf, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
+				i,
+				hi.c_str (),
+				rows,
+				sel,
+				ndv,
+				mcv_suffix,
+				cum_sel);
+		}
 	    }
 	  else
 	    {
-	      std::string lo = histogram_reader.bucket_hi_dump_with_type (i - 1, attr_type);
-	      std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
-	      std::fprintf (f,
-			    "#%02d (%s, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
-			    i,
-			    lo.c_str (),
-			    hi.c_str (),
-			    rows,
-			    sel,
-			    ndv,
-			    mcv_suffix,
-			    cum_sel);
+	      if (is_mcv)
+		{
+		  std::string lo = histogram_reader.bucket_hi_dump_with_type (i - 1, attr_type);
+		  std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
+		  std::fprintf (f,
+				"#%02d [%s, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
+				i,
+				hi.c_str (),
+				hi.c_str (),
+				rows,
+				sel,
+				ndv,
+				mcv_suffix,
+				cum_sel);
+
+		}
+	      else
+		{
+		  std::string lo = histogram_reader.bucket_hi_dump_with_type (i - 1, attr_type);
+		  std::string hi;
+		  if (next_is_mcv)
+		    {
+		      hi = histogram_reader.bucket_hi_dump_with_type (i + 1, attr_type);
+		      std::fprintf (f,
+				    "#%02d (%s, %s) rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
+				    i,
+				    lo.c_str (),
+				    hi.c_str (),
+				    rows,
+				    sel,
+				    ndv,
+				    mcv_suffix,
+				    cum_sel);
+		    }
+		  else
+		    {
+		      hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
+		      std::fprintf (f,
+				    "#%02d (%s, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
+				    i,
+				    lo.c_str (),
+				    hi.c_str (),
+				    rows,
+				    sel,
+				    ndv,
+				    mcv_suffix,
+				    cum_sel);
+		    }
+
+		}
 	    }
 	}
     }
