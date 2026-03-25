@@ -1204,7 +1204,7 @@ stats_get_histogram (MOP classop, HIST_STATS **histogram)
 	}
 
       (*histogram)->histogram[i] = NULL;
-      (*histogram)->null_frequency[i] = 0.0;
+      (*histogram)->null_frequency[i] = -1.0; // -1.0 means not set
 
       if (error != NO_ERROR)
 	{
