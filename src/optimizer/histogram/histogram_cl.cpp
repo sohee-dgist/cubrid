@@ -829,7 +829,7 @@ histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *s
     {
       /* not found in histogram */
       *success = true;
-      *selectivity = 0.0;
+      *selectivity = 1.0 / static_cast<double> (histogram_reader.total_rows ());
       return;
     }
 
@@ -897,7 +897,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge
       if (bucket_index < 0)
 	{
 	  *success = true;
-	  *selectivity = 0.0;
+	  *selectivity = 1.0 / static_cast<double> (histogram_reader.total_rows ());
 	  return;
 	}
 
@@ -942,7 +942,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge
       if (bucket_index < 0)
 	{
 	  *success = true;
-	  *selectivity = 0.0;
+	  *selectivity = 1.0 / static_cast<double> (histogram_reader.total_rows ());
 	  return;
 	}
 
@@ -986,7 +986,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge
       if (bucket_index < 0)
 	{
 	  *success = true;
-	  *selectivity = 0.0;
+	  *selectivity = 1.0 / static_cast<double> (histogram_reader.total_rows ());
 	  return;
 	}
 
@@ -1031,7 +1031,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge
       if (bucket_index < 0)
 	{
 	  *success = true;
-	  *selectivity = 0.0;
+	  *selectivity = 1.0 / static_cast<double> (histogram_reader.total_rows ());
 	  return;
 	}
 

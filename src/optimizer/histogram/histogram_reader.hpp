@@ -164,11 +164,11 @@ namespace hist
 
 	while (!this->check_value_included (bucket_index, value))
 	  {
-	    bucket_index += 1;
 	    if (bucket_index == static_cast<int> (nb_ - 1))
 	      {
-		return true;
+		return false;
 	      }
+	    bucket_index += 1;
 	  }
 
 	return true;
