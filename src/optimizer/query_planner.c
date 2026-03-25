@@ -9853,7 +9853,7 @@ static double
 qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 {
   PT_NODE *lhs, *rhs;
-  DB_VALUE *host_var;
+  DB_VALUE *host_var = NULL;
   PRED_CLASS pc_lhs, pc_rhs;
 
   double selectivity;
