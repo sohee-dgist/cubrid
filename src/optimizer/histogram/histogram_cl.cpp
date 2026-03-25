@@ -784,6 +784,12 @@ histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *s
 {
   assert (selectivity != NULL);
 
+  if (rhs_db_value == NULL)
+    {
+      *success = false;
+      return;
+    }
+
   hist::HistogramReader histogram_reader;
   if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
     {
