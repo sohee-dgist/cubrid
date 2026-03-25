@@ -10573,14 +10573,21 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	    }
 	  else
 	    {
-	      /* attr1 range (const = ) */
-	      if (lhs_icard != 0)
+	      bool success = false;
+
+	      histogram_get_equal_selectivity (lhs, arg1_db_value, &selectivity, &success);
+
+	      if (!success)
 		{
-		  selectivity = (1.0 / lhs_icard);
-		}
-	      else
-		{
-		  selectivity = DEFAULT_EQUAL_SELECTIVITY;
+		  /* attr1 range (const = ) */
+		  if (lhs_icard != 0)
+		    {
+		      selectivity = (1.0 / lhs_icard);
+		    }
+		  else
+		    {
+		      selectivity = DEFAULT_EQUAL_SELECTIVITY;
+		    }
 		}
 	    }
 	}
