@@ -4841,7 +4841,7 @@ opt_with_fullscan
 opt_with_n_buckets
         : /* empty */
                 {{
-                        $$ = 20;
+                        $$ = 0;
                 }}
         | WITH unsigned_integer BUCKETS
                 {{

@@ -4182,7 +4182,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 				 PT_HISTOGRAM_INFO * const histogram_info, DO_HISTOGRAM do_histogram)
 {
   int error = NO_ERROR;
-  int bucket_count, nnames = 0;
+  int bucket_count, nnames = 0, bucket_count_min, bucket_count_max;
   bool with_fullscan = false;
   char *attname = NULL;
   PT_NODE *cur_column = NULL;
@@ -4191,7 +4191,20 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 
   /* fill infos for catlaog table */
   nnames = pt_length_of_list (histogram_info->target_columns);
-  bucket_count = histogram_info->bucket_count;
+  bucket_count =
+    (histogram_info->bucket_count ==
+     0) ? prm_get_integer_value (PRM_ID_DEFAULT_HISTOGRAM_BUCKET_COUNT) : histogram_info->bucket_count;
+
+  sysprm_get_range (PRM_ID_DEFAULT_HISTOGRAM_BUCKET_COUNT, &bucket_count_min, &bucket_count_max);
+  if (bucket_count < bucket_count_min)
+    {
+      bucket_count = bucket_count_min;
+    }
+  else if (bucket_count > bucket_count_max)
+    {
+      bucket_count = bucket_count_max;
+    }
+
   cur_column = histogram_info->target_columns;
   with_fullscan = histogram_info->with_fullscan ? true : false;
 

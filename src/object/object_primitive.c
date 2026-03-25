@@ -5196,12 +5196,19 @@ mr_index_writeval_object (OR_BUF * buf, DB_VALUE * value)
   DB_OBJECT *obj = NULL;
   int rc = NO_ERROR;
 
-  assert (DB_VALUE_TYPE (value) == DB_TYPE_OBJECT);
+  assert (DB_VALUE_TYPE (value) == DB_TYPE_OBJECT || DB_VALUE_TYPE (value) == DB_TYPE_OID);
 
+  if (DB_VALUE_TYPE (value) == DB_TYPE_OBJECT)
+    {
 #if !defined (SERVER_MODE)
-  obj = db_get_object (value);
-  oidp = WS_OID (obj);
+      obj = db_get_object (value);
+      oidp = WS_OID (obj);
 #endif
+    }
+  else
+    {
+      oidp = db_get_oid (value);
+    }
 
   rc = or_put_data (buf, (char *) (&oidp->pageid), tp_Integer.disksize);
   if (rc == NO_ERROR)

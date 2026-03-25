@@ -248,6 +248,8 @@ static const char sysprm_ha_conf_file_name[] = "cubrid_ha.conf";
 
 #define PRM_NAME_HOSTVAR_PEEKING "hostvar_peeking"
 
+#define PRM_NAME_DEFAULT_HISTOGRAM_BUCKET_COUNT "default_histogram_bucket_count"
+
 #define PRM_NAME_ENABLE_HISTO "communication_histogram"
 
 #define PRM_NAME_MUTEX_BUSY_WAITING_CNT "mutex_busy_waiting_cnt"
@@ -5311,6 +5313,18 @@ SYSPRM_PARAM prm_Def[] = {
    {false, {.b = false}},
    NULL_SYSPRM_PARAM_VALUE,
    NULL_SYSPRM_PARAM_VALUE,
+   (char *) NULL,
+   (DUP_PRM_FUNC) NULL,
+   (DUP_PRM_FUNC) NULL},
+  {PRM_ID_DEFAULT_HISTOGRAM_BUCKET_COUNT,
+   PRM_NAME_DEFAULT_HISTOGRAM_BUCKET_COUNT,
+   (PRM_FOR_CLIENT | PRM_USER_CHANGE),
+   PRM_INTEGER,
+   PRM_CLEAR_DYNAMIC_FLAG,
+   {false, {.i = 16}},
+   {false, {.i = 16}},
+   {false, {.i = 256}},
+   {false, {.i = 4}},
    (char *) NULL,
    (DUP_PRM_FUNC) NULL,
    (DUP_PRM_FUNC) NULL}
