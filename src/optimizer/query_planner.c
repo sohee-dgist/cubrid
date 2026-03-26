@@ -9857,35 +9857,55 @@ qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr)
   PRED_CLASS pc_lhs, pc_rhs;
 
   double selectivity;
+  double total_selectivity = -1.0;
+  PT_NODE *like_node;
 
-  lhs = pt_expr->info.expr.arg1;
-  rhs = pt_expr->info.expr.arg2;
+  like_node = pt_expr;
 
-  /* the class of lhs and rhs */
-  pc_lhs = qo_classify (lhs);
-  pc_rhs = qo_classify (rhs);
 
-  bool success = false;
-
-  if (pc_lhs == PC_ATTR)
+  for (like_node = pt_expr->info.expr.arg2; like_node; like_node = like_node->or_next)
     {
-      if (pc_rhs == PC_CONST)
-	{
-	  host_var = &rhs->info.value.db_value;
-	}
-      else if (pc_rhs == PC_HOST_VAR)
-	{
-	  host_var = &env->parser->host_variables[rhs->info.host_var.index];
-	}
+      bool success = false;
 
-      histogram_get_like_selectivity (lhs, host_var, &selectivity, &success);
-      if (success)
+      lhs = like_node->info.expr.arg1;
+      rhs = like_node->info.expr.arg2;
+
+      if (lhs && rhs)
 	{
-	  return selectivity;
+	  pc_lhs = qo_classify (lhs);
+	  pc_rhs = qo_classify (rhs);
+
+	  if (pc_lhs == PC_ATTR)
+	    {
+	      if (pc_rhs == PC_CONST)
+		{
+		  host_var = &rhs->info.value.db_value;
+		}
+	      else if (pc_rhs == PC_HOST_VAR)
+		{
+		  host_var = &env->parser->host_variables[rhs->info.host_var.index];
+		}
+
+	      histogram_get_like_selectivity (lhs, host_var, &selectivity, &success);
+
+	      if (!success)
+		{
+		  selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
+		}
+	    }
+
+	  total_selectivity = qo_or_selectivity (env, total_selectivity, selectivity);
+	  total_selectivity = MAX (total_selectivity, 0.0);
+	  total_selectivity = MIN (total_selectivity, 1.0);
 	}
     }
 
-  return (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
+  if (total_selectivity == -1.0)
+    {
+      total_selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
+    }
+
+  return total_selectivity;
 }
 
 /*
