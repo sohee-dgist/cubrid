@@ -20,6 +20,7 @@
  * execute_statement.c - functions to do execute
  */
 
+#include "error_code.h"
 #include "parse_tree.h"
 #ident "$Id$"
 
@@ -4512,6 +4513,32 @@ do_update_stats (PARSER_CONTEXT * parser, PT_NODE * statement)
 	  if (class_type == SM_CLASS_CT)
 	    {
 	      error = sm_update_statistics (class_mop, statement->info.update_stats.with_fullscan);
+	      if (error == NO_ERROR)
+		{
+		  DB_OBJECT *obj;
+		  PT_HISTOGRAM_INFO histogram_info;
+		  int save;
+
+		  AU_DISABLE (save);
+		  obj = db_find_class (sm_get_ch_name (class_mop));
+		  if (obj == NULL)
+		    {
+		      assert (er_errid () != NO_ERROR);
+		      AU_ENABLE (save);
+		      return er_errid ();
+		    }
+
+		  histogram_info.target_columns = NULL;
+		  histogram_info.bucket_count = -1;
+		  histogram_info.with_fullscan = false;
+		  error = update_or_drop_histogram_helper (NULL, obj, &histogram_info, DO_HISTOGRAM_CREATE);
+		  if (!(error == NO_ERROR || error == ER_OBJ_INVALID_ARGUMENTS))
+		    {
+		      AU_ENABLE (save);
+		      return error;
+		    }
+		  AU_ENABLE (save);
+		}
 	    }
 	}
 
@@ -6285,8 +6312,8 @@ do_check_for_empty_classes_in_delete (PARSER_CONTEXT * parser, PT_NODE * stateme
     }
 
   /* lock splitted classes with X_LOCK */
-  if (locator_lockhint_classes (num_classes, (const char **) classes_names, locks, need_subclasses, flags, 1, NULL_LOCK)
-      != LC_CLASSNAME_EXIST)
+  if (locator_lockhint_classes
+      (num_classes, (const char **) classes_names, locks, need_subclasses, flags, 1, NULL_LOCK) != LC_CLASSNAME_EXIST)
     {
       assert (er_errid () != NO_ERROR);
       error = er_errid ();
@@ -7368,9 +7395,10 @@ unlink_list (PT_NODE * list)
  * Note:
  */
 static QFILE_LIST_ID *
-get_select_list_to_update (PARSER_CONTEXT * parser, PT_NODE * from, PT_NODE * column_names, PT_NODE * column_values,
-			   PT_NODE * with, PT_NODE * where, PT_NODE * order_by, PT_NODE * orderby_for,
-			   PT_NODE * using_index, PT_NODE * class_specs, PT_NODE * update_stmt)
+get_select_list_to_update (PARSER_CONTEXT * parser, PT_NODE * from, PT_NODE * column_names,
+			   PT_NODE * column_values, PT_NODE * with, PT_NODE * where,
+			   PT_NODE * order_by, PT_NODE * orderby_for, PT_NODE * using_index,
+			   PT_NODE * class_specs, PT_NODE * update_stmt)
 {
   PT_NODE *statement = NULL;
   QFILE_LIST_ID *result = NULL;
@@ -7943,9 +7971,9 @@ do_set_pruning_type (PARSER_CONTEXT * parser, PT_NODE * spec, CLIENT_UPDATE_CLAS
  * Note:
  */
 int
-init_update_data (PARSER_CONTEXT * parser, PT_NODE * statement, CLIENT_UPDATE_INFO ** assigns_data, int *assigns_count,
-		  CLIENT_UPDATE_CLASS_INFO ** cls_data, int *cls_count, DB_VALUE ** values, int *values_cnt,
-		  bool has_delete)
+init_update_data (PARSER_CONTEXT * parser, PT_NODE * statement, CLIENT_UPDATE_INFO ** assigns_data,
+		  int *assigns_count, CLIENT_UPDATE_CLASS_INFO ** cls_data, int *cls_count, DB_VALUE ** values,
+		  int *values_cnt, bool has_delete)
 {
   int error = NO_ERROR;
   int assign_cnt = 0, upd_cls_cnt = 0, vals_cnt = 0, idx, idx2, idx3, i;
@@ -8662,8 +8690,8 @@ update_at_server (PARSER_CONTEXT * parser, PT_NODE * from, PT_NODE * statement, 
 
       error =
 	prepare_and_execute_query (stream.buffer, stream.buffer_size, &parser->query_id,
-				   parser->host_var_count + parser->auto_param_count, parser->host_variables, &list_id,
-				   query_flag);
+				   parser->host_var_count + parser->auto_param_count, parser->host_variables,
+				   &list_id, query_flag);
       AU_RESTORE (au_save);
     }
 
@@ -9765,8 +9793,9 @@ do_execute_update (PARSER_CONTEXT * parser, PT_NODE * statement)
 	      qo_auto_parameterize (parser, statement->info.update.orderby_for);
 	    }
 
-	  err = execute_query (statement->xasl_id, &parser->query_id, parser->host_var_count + parser->auto_param_count,
-			       parser->host_variables, &list_id, query_flag, NULL, NULL);
+	  err =
+	    execute_query (statement->xasl_id, &parser->query_id, parser->host_var_count + parser->auto_param_count,
+			   parser->host_variables, &list_id, query_flag, NULL, NULL);
 
 	  AU_RESTORE (au_save);
 	  if (err != NO_ERROR)
@@ -10331,8 +10360,8 @@ build_xasl_for_server_delete (PARSER_CONTEXT * parser, PT_NODE * statement)
 
       error =
 	prepare_and_execute_query (stream.buffer, stream.buffer_size, &parser->query_id,
-				   parser->host_var_count + parser->auto_param_count, parser->host_variables, &list_id,
-				   query_flag);
+				   parser->host_var_count + parser->auto_param_count, parser->host_variables,
+				   &list_id, query_flag);
       AU_RESTORE (au_save);
     }
 
@@ -12326,8 +12355,8 @@ do_find_unique_constraint_violations (DB_OTMPL * tmpl, bool for_update, OID ** o
     }
 
   result =
-    btree_find_multi_uniques (ws_oid (tmpl->classobj), tmpl->pruning_type, unique_btids, unique_keys, key_cnt, op_type,
-			      oids, oids_count);
+    btree_find_multi_uniques (ws_oid (tmpl->classobj), tmpl->pruning_type, unique_btids, unique_keys, key_cnt,
+			      op_type, oids, oids_count);
   if (result == BTREE_ERROR_OCCURRED)
     {
       error = ER_FAILED;
@@ -12534,8 +12563,8 @@ is_replace_or_odku_allowed (DB_OBJECT * obj, int *allowed)
  * row_count_ptr (in/out)  : Pointer to row counter.
  */
 int
-do_insert_template (PARSER_CONTEXT * parser, DB_OTMPL ** otemplate, PT_NODE * statement, const char **savepoint_name,
-		    int *row_count_ptr)
+do_insert_template (PARSER_CONTEXT * parser, DB_OTMPL ** otemplate, PT_NODE * statement,
+		    const char **savepoint_name, int *row_count_ptr)
 {
   const char *into_label = NULL;
   DB_VALUE *ins_val = NULL, *val = NULL, db_value;
@@ -13287,8 +13316,8 @@ insert_subquery_results (PARSER_CONTEXT * parser, PT_NODE * statement, PT_NODE *
 			      if (!is_vclass)
 				{
 				  error =
-				    db_get_attribute_descriptor (class_->info.name.db_object, attr->info.name.original,
-								 0, 1, &attr_descs[k]);
+				    db_get_attribute_descriptor (class_->info.name.db_object,
+								 attr->info.name.original, 0, 1, &attr_descs[k]);
 				}
 			    }
 			}
@@ -15050,8 +15079,8 @@ do_execute_subquery (PARSER_CONTEXT * parser, PT_NODE * stmt)
     }
 
   err =
-    execute_query (stmt->xasl_id, &query_id, stmt->sub_host_var_count, host_variables, &list_id, flag, &clt_cache_time,
-		   &stmt->cache_time);
+    execute_query (stmt->xasl_id, &query_id, stmt->sub_host_var_count, host_variables, &list_id, flag,
+		   &clt_cache_time, &stmt->cache_time);
 
   if (host_variables)
     {
