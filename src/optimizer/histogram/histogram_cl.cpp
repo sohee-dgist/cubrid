@@ -1203,11 +1203,11 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
     {
       if (histogram_reader.bucket_approx_ndv (i) != 1)
 	{
-	  mcv_rows += histogram_reader.bucket_rows (i);
 	  continue;
 	}
 
       const std::string &bucket_val = histogram_reader.bucket_hi<std::string> (i);
+      mcv_rows += histogram_reader.bucket_rows (i);
       if (like_match_string (pattern, bucket_val))
 	{
 	  matched_rows += histogram_reader.bucket_rows (i);
