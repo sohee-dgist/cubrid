@@ -9857,7 +9857,8 @@ qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr)
   PRED_CLASS pc_lhs, pc_rhs;
 
   double selectivity;
-  double total_selectivity = -1.0;
+  double total_selectivity = 0.0;
+
   PT_NODE *like_node;
 
   for (like_node = pt_expr; like_node; like_node = like_node->or_next)
@@ -9890,17 +9891,18 @@ qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 		  selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
 		}
 	    }
+	  else
+	    {
+	      selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
+	    }
 
 	  total_selectivity = qo_or_selectivity (env, total_selectivity, selectivity);
 	  total_selectivity = MAX (total_selectivity, 0.0);
 	  total_selectivity = MIN (total_selectivity, 1.0);
 	}
+
     }
 
-  if (total_selectivity == -1.0)
-    {
-      total_selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
-    }
 
   return total_selectivity;
 }
