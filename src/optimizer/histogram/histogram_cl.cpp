@@ -1203,7 +1203,7 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
     {
       if (histogram_reader.bucket_approx_ndv (i) != 1)
 	{
-          mcv_rows += histogram_reader.bucket_rows (i);
+	  mcv_rows += histogram_reader.bucket_rows (i);
 	  continue;
 	}
 
@@ -1214,7 +1214,8 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
 	}
     }
 
-  *selectivity = (matched_rows / total_rows) + (1 - (mcv_rows / total_rows)) * (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
+  *selectivity = (matched_rows / total_rows) + (1 - (mcv_rows / total_rows)) * (double) prm_get_float_value (
+			 PRM_ID_LIKE_TERM_SELECTIVITY);
   *selectivity *= (1.0 - lhs->info.name.null_frequency);
   *success = true;
   return;
