@@ -179,6 +179,7 @@ namespace hist
 	  case DB_TYPE_DATE:
 	  case DB_TYPE_MONETARY:
 	  case DB_TYPE_TIMESTAMPTZ:
+	  case DB_TYPE_DATETIME:
 	  {
 	    if (std::holds_alternative<std::uint64_t> (b.data_hi))
 	      {

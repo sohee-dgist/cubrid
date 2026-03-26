@@ -4442,6 +4442,12 @@ sm_update_all_statistics (bool with_fullscan)
 	}
     }
 
+  error = update_histogram_for_all_classes ();
+  if (error != NO_ERROR)
+    {
+      return error;
+    }
+
   return error;
 }
 

@@ -97,12 +97,6 @@ typedef enum
 
 typedef enum
 {
-  DO_HISTOGRAM_CREATE, DO_HISTOGRAM_DROP,
-  DO_HISTOGRAM_SHOW
-} DO_HISTOGRAM;
-
-typedef enum
-{
   SM_ATTR_CHG_NOT_NEEDED = 0,
   SM_ATTR_CHG_ONLY_SCHEMA = 1,
   SM_ATTR_CHG_WITH_ROW_UPDATE = 2,
@@ -4177,7 +4171,7 @@ do_alter_index (PARSER_CONTEXT * parser, const PT_NODE * statement)
  *   obj(in): Class object
  *   histogram_info(in): Histogram information
 */
-static int
+int
 update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 				 PT_HISTOGRAM_INFO * const histogram_info, DO_HISTOGRAM do_histogram)
 {
@@ -4469,7 +4463,6 @@ do_update_histogram (PARSER_CONTEXT * parser, PT_NODE * statement)
   AU_ENABLE (save);
   return error;
 }
-
 
 /**
  * do_drop_histogram () - drop a histogram on a class.
