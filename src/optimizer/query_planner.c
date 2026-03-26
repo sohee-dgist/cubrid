@@ -9860,10 +9860,7 @@ qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr)
   double total_selectivity = -1.0;
   PT_NODE *like_node;
 
-  like_node = pt_expr;
-
-
-  for (like_node = pt_expr->info.expr.arg2; like_node; like_node = like_node->or_next)
+  for (like_node = pt_expr; like_node; like_node = like_node->or_next)
     {
       bool success = false;
 
