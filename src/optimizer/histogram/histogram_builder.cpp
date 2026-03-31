@@ -133,10 +133,10 @@ namespace hist
 	  }
 	  break;
 	  /* ---- double value ---- */
+	  case DB_TYPE_MONETARY:
 	  case DB_TYPE_DOUBLE:
 	  case DB_TYPE_FLOAT:
 	  case DB_TYPE_NUMERIC:
-          case DB_TYPE_MONETARY:
 	  {
 	    if (std::holds_alternative<double> (b.data_hi))
 	      {
