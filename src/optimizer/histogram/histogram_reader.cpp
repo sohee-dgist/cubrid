@@ -317,7 +317,6 @@ namespace hist
       case DB_TYPE_FLOAT:
       case DB_TYPE_DOUBLE:
       case DB_TYPE_NUMERIC:
-      case DB_TYPE_MONETARY:
 	return bucket_hi_dump<double> (i);
       case DB_TYPE_BIT:
       case DB_TYPE_VARBIT:

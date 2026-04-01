@@ -622,14 +622,6 @@ histogram_extract_key (const DB_VALUE *db_val, hist::histogram_key &key)
       return true;
     }
 
-    case DB_TYPE_MONETARY:
-    {
-      DB_MONETARY *monetary = db_get_monetary (db_val);
-      key.kind = hist::histogram_key_kind::dbl;
-      key.dbl = static_cast<double> (monetary->amount);
-      return true;
-    }
-
     case DB_TYPE_TIMESTAMPTZ:
     {
       DB_TIMESTAMPTZ *timestamptz = db_get_timestamptz (db_val);
@@ -1103,6 +1095,57 @@ histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge
   return;
 }
 
+static double
+pattern_heuristic_selectivity (const std::string &pattern, char escape_char)
+{
+  const double FIXED_CHAR_SEL = 0.20;   /* normal character */
+  const double ANY_CHAR_SEL = 0.90;     /* _ */
+  const double FULL_WILDCARD_SEL = 5.0; /* % */
+
+  double sel = 1.0;
+  int pos = 0;
+
+  if (pattern.empty())
+    {
+      return 1.0;
+    }
+
+  /* leading wildcard는 스킵 */
+  while (pattern[pos] == '%' || pattern[pos] == '_')
+    {
+      pos++;
+    }
+
+  for (; pattern[pos] != '\0'; pos++)
+    {
+      if (pattern[pos] == escape_char && pattern[pos + 1] != '\0')
+	{
+	  /* escaped character is treated as normal character */
+	  sel *= FIXED_CHAR_SEL;
+	  pos++; /* consume next character */
+	}
+      else if (pattern[pos] == '%')
+	{
+	  sel *= FULL_WILDCARD_SEL;
+	}
+      else if (pattern[pos] == '_')
+	{
+	  sel *= ANY_CHAR_SEL;
+	}
+      else
+	{
+	  sel *= FIXED_CHAR_SEL;
+	}
+
+      if (sel > 1.0)
+	{
+	  sel = 1.0;
+	}
+    }
+
+  return sel;
+}
+
 static bool
 like_match_string (const std::string &pattern, const std::string &value)
 {
@@ -1214,8 +1257,9 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
 	}
     }
 
-  *selectivity = (matched_rows / total_rows) + (1 - (mcv_rows / total_rows)) * (double) prm_get_float_value (
-			 PRM_ID_LIKE_TERM_SELECTIVITY);
+  const double pattern_sel = pattern_heuristic_selectivity (pattern, '\0');
+
+  *selectivity = (matched_rows / total_rows) + (1 - (mcv_rows / total_rows)) * pattern_sel;
 
   *selectivity *= (1.0 - lhs->info.name.null_frequency);
   *success = true;
@@ -1443,7 +1487,6 @@ is_histogrammable_type (DB_TYPE type)
     case DB_TYPE_FLOAT:
     case DB_TYPE_DOUBLE:
     case DB_TYPE_NUMERIC:
-    case DB_TYPE_MONETARY:
     case DB_TYPE_BIGINT:
       return true;
 
