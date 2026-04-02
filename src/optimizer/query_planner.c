@@ -9699,6 +9699,7 @@ qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 {
   double lhs_selectivity, rhs_selectivity, selectivity, total_selectivity;
   PT_NODE *node;
+  bool not_null_calculated = false;
 
   QO_ASSERT (env, pt_expr != NULL);
   QO_ASSERT (env, pt_expr->node_type == PT_EXPR);
@@ -9819,6 +9820,7 @@ qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	    {
 	      selectivity = DEFAULT_NULL_SELECTIVITY;
 	    }
+	  not_null_calculated = true;
 	  break;
 
 	case PT_IS_NOT_NULL:
@@ -9831,6 +9833,7 @@ qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	      selectivity = DEFAULT_NULL_SELECTIVITY;
 	    }
 	  selectivity = 1 - selectivity;
+	  not_null_calculated = true;
 	  break;
 
 	case PT_EXISTS:
@@ -9839,6 +9842,20 @@ qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 
 	default:
 	  break;
+	}
+
+      if (!not_null_calculated)
+	{
+	  if (pt_expr->info.expr.arg1 && pt_expr->info.expr.arg1->node_type == PT_NAME
+	      && pt_expr->info.expr.arg1->info.name.null_frequency >= 0.0)
+	    {
+	      selectivity = pt_expr->info.expr.arg1->info.name.null_frequency;
+	    }
+	  if (pt_expr->info.expr.arg2 && pt_expr->info.expr.arg2->node_type == PT_NAME
+	      && pt_expr->info.expr.arg2->info.name.null_frequency >= 0.0)
+	    {
+	      selectivity = pt_expr->info.expr.arg2->info.name.null_frequency;
+	    }
 	}
 
       total_selectivity = qo_or_selectivity (env, total_selectivity, selectivity);

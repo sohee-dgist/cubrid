@@ -833,7 +833,6 @@ histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *s
   const double bucket_rows = static_cast<double> (histogram_reader.bucket_rows (bucket_index));
   const double total_rows = static_cast<double> (histogram_reader.total_rows ());
   const double approx_ndv = static_cast<double> (histogram_reader.bucket_approx_ndv (bucket_index));
-  const double null_frequency = lhs->info.name.null_frequency;
 
   if (total_rows <= 0.0 || approx_ndv <= 0.0)
     {
@@ -843,7 +842,6 @@ histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *s
     }
 
   *selectivity = (bucket_rows / total_rows) / approx_ndv;
-  *selectivity *= (1.0 - null_frequency);
   *success = true;
   return;
 }
@@ -1090,7 +1088,6 @@ histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge
       *selectivity = 1.0 - *selectivity;
     }
 
-  *selectivity *= (1.0 - lhs->info.name.null_frequency);
   *success = true;
   return;
 }
@@ -1259,9 +1256,10 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
 
   const double pattern_sel = pattern_heuristic_selectivity (pattern, '\0');
 
+  assert_release (pattern_sel >= 0.0 && pattern_sel <= 1.0);
+
   *selectivity = (matched_rows / total_rows) + (1 - (mcv_rows / total_rows)) * pattern_sel;
 
-  *selectivity *= (1.0 - lhs->info.name.null_frequency);
   *success = true;
   return;
 }
