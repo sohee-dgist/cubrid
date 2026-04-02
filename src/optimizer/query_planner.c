@@ -9849,12 +9849,12 @@ qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	  if (pt_expr->info.expr.arg1 && pt_expr->info.expr.arg1->node_type == PT_NAME
 	      && pt_expr->info.expr.arg1->info.name.null_frequency >= 0.0)
 	    {
-	      selectivity = pt_expr->info.expr.arg1->info.name.null_frequency;
+	      selectivity = selectivity * (1 - pt_expr->info.expr.arg1->info.name.null_frequency);
 	    }
 	  if (pt_expr->info.expr.arg2 && pt_expr->info.expr.arg2->node_type == PT_NAME
 	      && pt_expr->info.expr.arg2->info.name.null_frequency >= 0.0)
 	    {
-	      selectivity = pt_expr->info.expr.arg2->info.name.null_frequency;
+	      selectivity = selectivity * (1 - pt_expr->info.expr.arg2->info.name.null_frequency);
 	    }
 	}
 
