@@ -1297,9 +1297,18 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
     }
 
 
-  const double total_non_mcv_sel =
-	  matched_buckets_sel * hist_weight
-	  + pattern_sel * (1.0 - hist_weight);
+  double total_non_mcv_sel = 0.0;
+
+  if (pattern_sel < matched_buckets_sel && histogram_reader.bucket_count () > 199)
+    {
+      total_non_mcv_sel = matched_buckets_sel;
+    }
+  else
+    {
+      total_non_mcv_sel = matched_buckets_sel * hist_weight
+			  + pattern_sel * (1.0 - hist_weight);
+    }
+
 
   assert_release (pattern_sel >= 0.0 && pattern_sel <= 1.0);
 
