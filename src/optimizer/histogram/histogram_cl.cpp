@@ -1099,25 +1099,46 @@ pattern_heuristic_selectivity (const std::string &pattern, char escape_char)
   const double ANY_CHAR_SEL = 0.90;     /* _ */
   const double FULL_WILDCARD_SEL = 5.0; /* % */
 
-  double sel = 1.0;
-  int pos = 0;
-
   if (pattern.empty())
     {
       return 1.0;
     }
 
-  /* leading wildcard는 스킵 */
-  while (pattern[pos] == '%' || pattern[pos] == '_')
+  /* Find the position of the first wildcard (% or _).
+   * The fixed prefix before it is assumed to be already handled
+   * by a range predicate, so it is excluded from heuristic calculation.
+   */
+  size_t pos = 0;
+  while (pos < pattern.size()
+	 && pattern[pos] != '%'
+	 && pattern[pos] != '_')
     {
-      pos++;
+      /* Treat escaped literal characters as part of the fixed prefix. */
+      if (pattern[pos] == escape_char && pos + 1 < pattern.size())
+	{
+	  pos += 2;
+	}
+      else
+	{
+	  pos++;
+	}
     }
 
-  for (; pattern[pos] != '\0'; pos++)
+  /* If there is no wildcard, there is no remaining pattern part
+   * to estimate heuristically.
+   */
+  if (pos >= pattern.size())
     {
-      if (pattern[pos] == escape_char && pattern[pos + 1] != '\0')
+      return 1.0;
+    }
+
+  double sel = 1.0;
+
+  for (; pos < pattern.size(); pos++)
+    {
+      if (pattern[pos] == escape_char && pos + 1 < pattern.size())
 	{
-	  /* escaped character is treated as normal character */
+	  /* Escaped character is treated as a normal literal character. */
 	  sel *= FIXED_CHAR_SEL;
 	  pos++; /* consume next character */
 	}
