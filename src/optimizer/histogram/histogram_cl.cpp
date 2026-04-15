@@ -1270,7 +1270,7 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
 	  if (like_match_string (pattern, bucket_val))
 	    {
 	      matched_buckets = matched_buckets + (1.0);
-	      total_confidence_buckets = total_confidence_buckets + (1.0 / histogram_reader.bucket_approx_ndv (i));
+	      total_confidence_buckets = total_confidence_buckets + (3.0 / histogram_reader.bucket_approx_ndv (i));
 	    }
 
 	  continue;
@@ -1285,7 +1285,7 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
     }
 
   const double pattern_sel = pattern_heuristic_selectivity (pattern, '\0');
-  const double matched_buckets_sel = matched_buckets / histogram_reader.bucket_count ();
+  const double matched_buckets_sel = matched_buckets / static_cast<double> (histogram_reader.bucket_count ());
   double hist_weight = total_confidence_buckets;
   if (hist_weight > 1.0)
     {
@@ -1299,7 +1299,7 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
 
   double total_non_mcv_sel = 0.0;
 
-  if (pattern_sel < matched_buckets_sel && histogram_reader.bucket_count () > 199)
+  if (histogram_reader.bucket_count () > 199)
     {
       total_non_mcv_sel = matched_buckets_sel;
     }
@@ -1313,6 +1313,7 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
   assert_release (pattern_sel >= 0.0 && pattern_sel <= 1.0);
 
   *selectivity = (matched_rows / total_rows) + (1 - (mcv_rows / total_rows)) * total_non_mcv_sel;
+  *selectivity =  std::max (1.0 / total_rows, *selectivity);
 
   *success = true;
   return;
