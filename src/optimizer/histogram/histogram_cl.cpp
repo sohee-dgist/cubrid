@@ -1259,61 +1259,107 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
 
   double matched_rows = 0.0;
   double mcv_rows = 0.0;
-  double matched_buckets = 0.0;
-  double total_confidence_buckets = 0.0;
+
+  double matched_non_mcv_buckets = 0.0;
+  double non_mcv_buckets = 0.0;
+
+  /* Confidence that bucket_hi can represent the entire bucket. */
+  double ndv_confidence_sum = 0.0;
 
   for (int i = 0; i < static_cast<int> (histogram_reader.bucket_count ()); i++)
     {
-      if (histogram_reader.bucket_approx_ndv (i) != 1)
+      const double bucket_rows = histogram_reader.bucket_rows (i);
+      const int approx_ndv = histogram_reader.bucket_approx_ndv (i);
+      const std::string &bucket_val = histogram_reader.bucket_hi<std::string> (i);
+
+      if (approx_ndv == 1)
 	{
-	  const std::string &bucket_val = histogram_reader.bucket_hi<std::string> (i);
+	  /* MCV bucket. */
+	  mcv_rows += bucket_rows;
+
 	  if (like_match_string (pattern, bucket_val))
 	    {
-	      matched_buckets = matched_buckets + (1.0);
-	      total_confidence_buckets = total_confidence_buckets + (3.0 / histogram_reader.bucket_approx_ndv (i));
+	      matched_rows += bucket_rows;
 	    }
 
 	  continue;
 	}
 
-      const std::string &bucket_val = histogram_reader.bucket_hi<std::string> (i);
-      mcv_rows += histogram_reader.bucket_rows (i);
+      /*
+       * Non-MCV bucket.
+       *
+       * Since LIKE matching is tested only against bucket_hi, the bucket
+       * becomes less reliable as approx_ndv grows.
+       */
+      non_mcv_buckets += 1.0;
+
+      const double bucket_confidence =
+	      std::min (1.0, 3.0 / static_cast<double> (approx_ndv));
+
+      ndv_confidence_sum += bucket_confidence;
+
       if (like_match_string (pattern, bucket_val))
 	{
-	  matched_rows += histogram_reader.bucket_rows (i);
+	  matched_non_mcv_buckets += 1.0;
 	}
     }
 
   const double pattern_sel = pattern_heuristic_selectivity (pattern, '\0');
-  const double matched_buckets_sel = matched_buckets / static_cast<double> (histogram_reader.bucket_count ());
-  double hist_weight = total_confidence_buckets;
-  if (hist_weight > 1.0)
-    {
-      hist_weight = 1.0;
-    }
-  else if (hist_weight < 0.0)
-    {
-      hist_weight = 0.0;
-    }
-
-
-  double total_non_mcv_sel = 0.0;
-
-  if (histogram_reader.bucket_count () > 199)
-    {
-      total_non_mcv_sel = matched_buckets_sel;
-    }
-  else
-    {
-      total_non_mcv_sel = matched_buckets_sel * hist_weight
-			  + pattern_sel * (1.0 - hist_weight);
-    }
-
-
   assert_release (pattern_sel >= 0.0 && pattern_sel <= 1.0);
 
-  *selectivity = (matched_rows / total_rows) + (1 - (mcv_rows / total_rows)) * total_non_mcv_sel;
-  *selectivity =  std::max (1.0 / total_rows, *selectivity);
+  double total_non_mcv_sel = pattern_sel;
+
+  if (non_mcv_buckets > 0.0)
+    {
+      const double matched_buckets_sel =
+	      matched_non_mcv_buckets / non_mcv_buckets;
+
+      /*
+       * 1. Trust the histogram more when there are more non-MCV buckets.
+       *
+       * If around 200 buckets should be considered reasonably reliable,
+       * a baseline value between 64 and 100 is usually a practical choice.
+       */
+      const double bucket_count_weight =
+	      non_mcv_buckets / (non_mcv_buckets + 64.0);
+
+      /*
+       * 2. Do not over-trust matched_buckets_sel when only a few buckets match.
+       *
+       * A single matched bucket is weak evidence. The observation becomes
+       * more meaningful once around 4 to 8 buckets match.
+       */
+      const double matched_support_weight =
+	      matched_non_mcv_buckets / (matched_non_mcv_buckets + 4.0);
+
+      /*
+       * 3. Trust bucket_hi less when each bucket contains many distinct values.
+       */
+      const double avg_ndv_confidence =
+	      ndv_confidence_sum / non_mcv_buckets;
+
+      double hist_weight =
+	      bucket_count_weight * matched_support_weight * avg_ndv_confidence;
+
+      if (hist_weight > 1.0)
+	{
+	  hist_weight = 1.0;
+	}
+      else if (hist_weight < 0.0)
+	{
+	  hist_weight = 0.0;
+	}
+
+      total_non_mcv_sel =
+	      matched_buckets_sel * hist_weight
+	      + pattern_sel * (1.0 - hist_weight);
+    }
+
+  *selectivity =
+	  (matched_rows / total_rows)
+	  + (1.0 - (mcv_rows / total_rows)) * total_non_mcv_sel;
+
+  *selectivity = std::max (1.0 / total_rows, *selectivity);
 
   *success = true;
   return;
