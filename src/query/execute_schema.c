@@ -4194,7 +4194,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
   /* update statistics for class first (only when creating/updating histograms) */
   if (do_histogram == DO_HISTOGRAM_CREATE)
     {
-      error = sm_update_statistics (obj, with_fullscan);
+      error = sm_update_statistics (obj, true);
       if (error != NO_ERROR)
 	{
 	  return error;

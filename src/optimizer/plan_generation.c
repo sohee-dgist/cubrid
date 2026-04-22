@@ -37,6 +37,7 @@
 #include "xasl.h"
 #include "xasl_generation.h"
 #include "xasl_predicate.hpp"
+#include <cmath>
 
 typedef int (*ELIGIBILITY_FN) (QO_TERM *);
 
@@ -1405,6 +1406,44 @@ is_always_true (QO_TERM * term)
   return true;
 }
 
+static double
+qo_pred_rank_weight (int rank)
+{
+  switch (rank)
+    {
+    case 0:
+    case 1:
+      return 1.0;
+
+    case 2:
+      return 1.5;
+
+    case 3:
+      return 8.0;
+
+    default:
+      return 12.0;
+    }
+}
+
+static double
+qo_pred_eval_score (double sel, int rank)
+{
+  double weight;
+
+  if (sel <= 0.0)
+    {
+      sel = 1e-12;
+    }
+  else if (sel > 1.0)
+    {
+      sel = 1.0;
+    }
+
+  weight = qo_pred_rank_weight (rank);
+  return -std::log (sel) / weight;
+}
+
 /*
  * make_pred_from_bitset () -
  *   return: PT_NODE *
@@ -1433,6 +1472,8 @@ make_pred_from_bitset (QO_ENV * env, BITSET * predset, ELIGIBILITY_FN safe)
   pred_list = NULL;		/* init */
   for (i = bitset_iterate (predset, &bi); i != -1; i = bitset_next_member (&bi))
     {
+      double pointer_score;
+
       term = QO_ENV_TERM (env, i);
 
       /* Don't ever let one of our fabricated terms find its way into the predicate; that will cause serious confusion. */
@@ -1455,26 +1496,42 @@ make_pred_from_bitset (QO_ENV * env, BITSET * predset, ELIGIBILITY_FN safe)
 	  goto exit_on_error;
 	}
 
-      /* set AND predicate evaluation pred_order desc, selectivity asc, rank asc */
+      /* keep original metadata for downstream use/debug */
       pointer->info.pointer.sel = QO_TERM_SELECTIVITY (term);
       pointer->info.pointer.rank = QO_TERM_RANK (term);
       pointer->info.pointer.pred_order = QO_TERM_PRED_ORDER (term);
 
-      /* insert to the AND predicate list by descending order of (selectivity, rank) vector; this order is used at
-       * pt_to_pred_expr_with_arg() */
+      pointer_score = qo_pred_eval_score (pointer->info.pointer.sel, pointer->info.pointer.rank);
+
+      /*
+       * insert to the AND predicate list on:
+       *   1) pred_order desc
+       *   2) effective score desc
+       *   3) selectivity asc
+       *   4) rank asc
+       */
       found = false;		/* init */
       prev = NULL;		/* init */
       for (curr = pred_list; curr; curr = curr->next)
 	{
+	  double curr_score;
+
+	  curr_score = qo_pred_eval_score (curr->info.pointer.sel, curr->info.pointer.rank);
+
 	  cmp = pointer->info.pointer.pred_order - curr->info.pointer.pred_order;
 
 	  if (cmp == 0)
-	    {			/* same selectivity, re-compare rank */
+	    {
+	      cmp = pointer_score - curr_score;
+	    }
+
+	  if (cmp == 0)
+	    {
 	      cmp = curr->info.pointer.sel - pointer->info.pointer.sel;
 	    }
 
 	  if (cmp == 0)
-	    {			/* same selectivity, re-compare rank */
+	    {
 	      cmp = curr->info.pointer.rank - pointer->info.pointer.rank;
 	    }
 
@@ -1482,7 +1539,7 @@ make_pred_from_bitset (QO_ENV * env, BITSET * predset, ELIGIBILITY_FN safe)
 	    {
 	      pointer->next = curr;
 	      if (prev == NULL)
-		{		/* very the first */
+		{
 		  pred_list = pointer;
 		}
 	      else
@@ -1500,12 +1557,12 @@ make_pred_from_bitset (QO_ENV * env, BITSET * predset, ELIGIBILITY_FN safe)
       if (found == false)
 	{
 	  if (prev == NULL)
-	    {			/* very the first */
+	    {
 	      pointer->next = pred_list;
 	      pred_list = pointer;
 	    }
 	  else
-	    {			/* very the last */
+	    {
 	      prev->next = pointer;
 	    }
 	}

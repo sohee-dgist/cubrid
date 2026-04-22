@@ -10558,6 +10558,7 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	  double selectivity_a = 0.0, selectivity_b = 0.0, selectivity_backup = selectivity;
 	  bool success1 = false;
 	  bool success2 = false;
+	  bool success3 = false;
 	  switch (op_type)
 	    {
 	    case PT_BETWEEN_GE_LE:
@@ -10623,6 +10624,15 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	    default:
 	      break;
 	    }
+
+	  double default_selectivity = 0.0;
+	  histogram_get_default_selectivity (lhs, arg1_db_value, &default_selectivity, &success3);
+
+	  if (success3)
+	    {
+	      selectivity = MAX (selectivity, default_selectivity);
+	    }
+
 	  if (!(success1 && success2))
 	    {
 	      if (op_type == PT_BETWEEN_INF_LT || op_type == PT_BETWEEN_INF_LE || op_type == PT_BETWEEN_GE_INF

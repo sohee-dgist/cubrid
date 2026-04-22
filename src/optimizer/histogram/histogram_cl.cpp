@@ -841,7 +841,36 @@ histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *s
       return;
     }
 
-  *selectivity = (bucket_rows / total_rows) / approx_ndv;
+  *selectivity = std::max (1.0 / total_rows, (bucket_rows / total_rows) / approx_ndv);
+  *success = true;
+  return;
+}
+
+void
+histogram_get_default_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success)
+{
+  assert (selectivity != NULL);
+
+  if (rhs_db_value == NULL)
+    {
+      *success = false;
+      return;
+    }
+
+  hist::HistogramReader histogram_reader;
+  if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
+    {
+      *success = false;
+      return;
+    }
+
+  if (histogram_reader.total_rows () <= 0.0)
+    {
+      *success = false;
+      return;
+    }
+
+  *selectivity = 0.5 / static_cast<double> (histogram_reader.total_rows ());
   *success = true;
   return;
 }
@@ -1350,9 +1379,31 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
 	  hist_weight = 0.0;
 	}
 
+      const double eps = 1e-12;
+
+      const double a = std::max (matched_buckets_sel, eps);
+      const double b = std::max (pattern_sel, eps);
+
+      const double ratio = std::max (a, b) / std::min (a, b);
+
+      /*
+       * When histogram evidence and pattern heuristic disagree,
+       * bias the interpolation further toward the histogram observation.
+       */
+      const double disagreement_boost =
+	      (ratio - 1.0) / ratio;
+
+      double boosted_weight =
+	      hist_weight + (1.0 - hist_weight) * disagreement_boost;
+
+      if (boosted_weight > 1.0)
+	{
+	  boosted_weight = 1.0;
+	}
+
       total_non_mcv_sel =
-	      matched_buckets_sel * hist_weight
-	      + pattern_sel * (1.0 - hist_weight);
+	      matched_buckets_sel * boosted_weight
+	      + pattern_sel * (1.0 - boosted_weight);
     }
 
   *selectivity =

@@ -6077,6 +6077,54 @@ qo_exchange (QO_TERM * t0, QO_TERM * t1)
    */
 }
 
+static double
+qo_rank_weight (int rank)
+{
+  switch (rank)
+    {
+    case 0:
+    case 1:
+      return 1.0;
+
+    case 2:
+      return 1.5;
+
+    case 3:
+      return 8.0;
+
+    default:
+      return 12.0;
+    }
+}
+
+static double
+qo_term_eval_score (QO_TERM * term)
+{
+  double sel;
+  double weight;
+
+  sel = QO_TERM_SELECTIVITY (term);
+
+  /* guard */
+  if (sel <= 0.0)
+    {
+      sel = 1e-12;
+    }
+  else if (sel > 1.0)
+    {
+      sel = 1.0;
+    }
+
+  weight = qo_rank_weight (QO_TERM_RANK (term));
+
+  /*
+   * Larger score means:
+   *   - stronger filtering benefit
+   *   - cheaper evaluation cost
+   */
+  return -log (sel) / weight;
+}
+
 /*
  * qo_discover_edges () -
  *   return:
@@ -6135,25 +6183,68 @@ qo_discover_edges (QO_ENV * env)
 	  if (QO_TERM_SELECTIVITY (term1) < QO_TERM_SELECTIVITY (term2))
 	    {
 	      qo_exchange (term1, term2);
+	      term1 = QO_ENV_TERM (env, t1);
 	    }
 	}
     }
-  /* sort sarg-term on pred_order desc, selectivity asc */
+
+  /*
+   * IMPORTANT:
+   * get_rank() is normally called after qo_discover_edges() in qo_optimize_helper().
+   * If we want to use rank here for sarg-term ordering, compute it here explicitly.
+   */
+  for (t1 = i; t1 < env->nterms; t1++)
+    {
+      get_term_rank (env, QO_ENV_TERM (env, t1));
+    }
+
+  /*
+   * sort sarg-term on:
+   *   1) pred_order desc
+   *   2) effective score desc
+   *      effective score = -log(selectivity) / rank_weight
+   *   3) selectivity asc
+   *   4) rank asc
+   */
   for (t1 = i; t1 < env->nterms - 1; t1++)
     {
       term1 = QO_ENV_TERM (env, t1);
+
       for (t2 = t1 + 1; t2 < env->nterms; t2++)
 	{
+	  double score1, score2;
+
 	  term2 = QO_ENV_TERM (env, t2);
 
 	  if (QO_TERM_PRED_ORDER (term1) < QO_TERM_PRED_ORDER (term2))
 	    {
 	      qo_exchange (term1, term2);
+	      term1 = QO_ENV_TERM (env, t1);
 	    }
-	  else if ((QO_TERM_PRED_ORDER (term1) == QO_TERM_PRED_ORDER (term2))
-		   && (QO_TERM_SELECTIVITY (term1) > QO_TERM_SELECTIVITY (term2)))
+	  else if (QO_TERM_PRED_ORDER (term1) == QO_TERM_PRED_ORDER (term2))
 	    {
-	      qo_exchange (term1, term2);
+	      score1 = qo_term_eval_score (term1);
+	      score2 = qo_term_eval_score (term2);
+
+	      if (score1 < score2)
+		{
+		  qo_exchange (term1, term2);
+		  term1 = QO_ENV_TERM (env, t1);
+		}
+	      else if (fabs (score1 - score2) <= 1e-12)
+		{
+		  if (QO_TERM_SELECTIVITY (term1) > QO_TERM_SELECTIVITY (term2))
+		    {
+		      qo_exchange (term1, term2);
+		      term1 = QO_ENV_TERM (env, t1);
+		    }
+		  else if (QO_TERM_SELECTIVITY (term1) == QO_TERM_SELECTIVITY (term2)
+			   && QO_TERM_RANK (term1) > QO_TERM_RANK (term2))
+		    {
+		      qo_exchange (term1, term2);
+		      term1 = QO_ENV_TERM (env, t1);
+		    }
+		}
 	    }
 	}
     }
@@ -6206,7 +6297,7 @@ qo_discover_edges (QO_ENV * env)
 		{
 		  bitset_union (&direct_nodes, &(QO_TERM_NODES (edge2)));
 		}
-	    }			/* for (j = 0; ...) */
+	    }
 
 	  /* check for direct connected nodes */
 	  for (t = bitset_iterate (&direct_nodes, &iter); t != -1; t = bitset_next_member (&iter))
@@ -6214,7 +6305,7 @@ qo_discover_edges (QO_ENV * env)
 	      node = QO_ENV_NODE (env, t);
 	      if (!QO_NODE_SARGABLE (node))
 		{
-		  break;	/* give up */
+		  break;
 		}
 	    }
 
