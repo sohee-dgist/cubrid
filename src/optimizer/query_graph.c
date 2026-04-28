@@ -1745,8 +1745,8 @@ qo_add_term (PT_NODE * conjunct, int term_type, QO_ENV * env)
   QO_TERM_MULTI_COL_SEGS (term) = NULL;	/* init */
   QO_TERM_MULTI_COL_CNT (term) = 0;	/* init */
   QO_TERM_PRED_ORDER (term) = pt_is_expr_node (conjunct) ? conjunct->info.expr.pred_order : 0;
-  QO_TERM_LEFT_MCV_MASS (term) = 0.0;
-  QO_TERM_RIGHT_MCV_MASS (term) = 0.0;
+  QO_TERM_HEAD_MCV_MAX_FREQUENCY (term) = 0.0;
+  QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) = 0.0;
 
   env->nterms++;
 
@@ -2772,21 +2772,29 @@ wrapup:
 
       if (qo_is_equi_join_term (term))
 	{
-	  double left_mcv_mass = 0.0;
-	  double right_mcv_mass = 0.0;
+	  double lhs_mcv_max_frequency = 0.0;
+	  double rhs_mcv_max_frequency = 0.0;
 	  bool success1 = false;
 	  bool success2 = false;
-	  histogram_get_mcv_mass (pt_expr->info.expr.arg1, &left_mcv_mass, &success1);
-	  histogram_get_mcv_mass (pt_expr->info.expr.arg2, &right_mcv_mass, &success2);
+	  histogram_get_max_mcv_frequency (pt_expr->info.expr.arg1, &lhs_mcv_max_frequency, &success1);
+	  histogram_get_max_mcv_frequency (pt_expr->info.expr.arg2, &rhs_mcv_max_frequency, &success2);
 	  if (success1 && success2)
 	    {
-	      QO_TERM_LEFT_MCV_MASS (term) = left_mcv_mass;
-	      QO_TERM_RIGHT_MCV_MASS (term) = right_mcv_mass;
+	      if (head_node != NULL && BITSET_MEMBER (lhs_nodes, QO_NODE_IDX (head_node)))
+		{
+		  QO_TERM_HEAD_MCV_MAX_FREQUENCY (term) = lhs_mcv_max_frequency;
+		  QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) = rhs_mcv_max_frequency;
+		}
+	      else
+		{
+		  QO_TERM_HEAD_MCV_MAX_FREQUENCY (term) = rhs_mcv_max_frequency;
+		  QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) = lhs_mcv_max_frequency;
+		}
 	    }
 	  else
 	    {
-	      QO_TERM_LEFT_MCV_MASS (term) = 0.0;
-	      QO_TERM_RIGHT_MCV_MASS (term) = 0.0;
+	      QO_TERM_HEAD_MCV_MAX_FREQUENCY (term) = 0.0;
+	      QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) = 0.0;
 	    }
 	}
 
@@ -6078,6 +6086,8 @@ qo_exchange (QO_TERM * t0, QO_TERM * t1)
   BITSET_EXCHANGE (t0->nodes, t1->nodes);
   BITSET_EXCHANGE (t0->segments, t1->segments);
   DOUBLE_EXCHANGE (t0->selectivity, t1->selectivity);
+  DOUBLE_EXCHANGE (t0->head_mcv_max_frequency, t1->head_mcv_max_frequency);
+  DOUBLE_EXCHANGE (t0->tail_mcv_max_frequency, t1->tail_mcv_max_frequency);
   INT_EXCHANGE (t0->rank, t1->rank);
   PT_NODE_EXCHANGE (t0->pt_expr, t1->pt_expr);
   INT_EXCHANGE (t0->location, t1->location);

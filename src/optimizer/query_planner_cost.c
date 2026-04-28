@@ -1364,10 +1364,10 @@ double
 qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * tail_info,
 				double base_cardinality, double term_sel)
 {
-  double left_mcv_mass, right_mcv_mass, effective_mcv_mass;
+  double effective_mcv_max_frequency;
   double head_card, tail_card, small_card, large_card;
   bool head_small, tail_small;
-  double mcv_boost, risk_fanout, risk_card, risk_sel;
+  double risk_fanout, risk_card, risk_sel;
 
   if (term == NULL || head_info == NULL || tail_info == NULL)
     {
@@ -1380,16 +1380,10 @@ qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * t
     }
 
   /*
-   * Use the larger side's MCV mass for now.
-   * Later this should be changed to the MCV mass of the fanout-risk side:
-   *   - if head is small, use tail-side join column MCV mass
-   *   - if tail is small, use head-side join column MCV mass
+   * Broad join terms are not the hot-key problem this guard is meant to fix.
+   * Penalizing them can hide good plans that start from filtered dimension tables.
    */
-  left_mcv_mass = QO_TERM_LEFT_MCV_MASS (term);
-  right_mcv_mass = QO_TERM_RIGHT_MCV_MASS (term);
-  effective_mcv_mass = MAX (left_mcv_mass, right_mcv_mass);
-
-  if (effective_mcv_mass < QO_MCV_GUARD_MIN_MASS)
+  if (term_sel >= QO_MCV_GUARD_MAX_BASE_SELECTIVITY)
     {
       return term_sel;
     }
@@ -1411,28 +1405,22 @@ qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * t
 
   small_card = head_small ? head_card : tail_card;
   large_card = head_small ? tail_card : head_card;
+  effective_mcv_max_frequency =
+    head_small ? QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) : QO_TERM_HEAD_MCV_MAX_FREQUENCY (term);
+
+  if (effective_mcv_max_frequency < QO_MCV_GUARD_MIN_FREQUENCY)
+    {
+      return term_sel;
+    }
 
   base_cardinality = MAX (1.0, base_cardinality);
 
   /*
-   * Strong experimental guard.
-   *
-   * sqrt(mcv_mass) makes moderate MCV mass visible.
-   * The hard-coded average fanout guess is temporary.
+   * If the small side joins through one hot key, the largest single MCV
+   * frequency on the large side is the direct upper-risk fanout signal.
    */
-  mcv_boost = sqrt (effective_mcv_mass);
-
-  risk_fanout = QO_MCV_GUARD_AVG_FANOUT_GUESS * (1.0 + mcv_boost * QO_MCV_GUARD_SKEW_FACTOR);
-
-  risk_fanout = MIN (risk_fanout, QO_MCV_GUARD_AVG_FANOUT_GUESS * QO_MCV_GUARD_MAX_FANOUT_FACTOR);
-
+  risk_fanout = large_card * effective_mcv_max_frequency;
   risk_card = small_card * risk_fanout;
-
-  /*
-   * Do not let a single join-term guard imply more rows than the larger input side.
-   * This is conservative for semi-FK style joins and prevents wild explosions.
-   */
-  risk_card = MIN (risk_card, large_card);
 
   if (risk_card <= 1.0)
     {
@@ -1440,6 +1428,7 @@ qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * t
     }
 
   risk_sel = risk_card / base_cardinality;
+  risk_sel = MIN (risk_sel, term_sel * QO_MCV_GUARD_MAX_SELECTIVITY_MULTIPLIER);
 
   if (risk_sel > term_sel)
     {

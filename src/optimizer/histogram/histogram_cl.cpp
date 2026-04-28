@@ -2541,23 +2541,23 @@ histogram_get_eqjoin_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivit
 }
 
 /*
- * histogram_get_mcv_mass () - get MCV row mass of a column histogram
+ * histogram_get_max_mcv_frequency () - get the largest single MCV frequency
  *
- * mcv_mass = sum(rows of buckets whose approx_ndv == 1) / total histogram rows
+ * max_mcv_frequency = max(rows of one bucket whose approx_ndv == 1) / total histogram rows
  *
  * In this histogram format, approx_ndv == 1 means exact-value bucket,
  * which is treated as an MCV bucket.
  */
 void
-histogram_get_mcv_mass (PT_NODE *pt_col, double *out_mcv_mass, bool *out_success)
+histogram_get_max_mcv_frequency (PT_NODE *pt_col, double *out_max_mcv_frequency, bool *out_success)
 {
   hist::HistogramReader reader;
   double total_rows = 0.0;
-  double mcv_rows = 0.0;
+  double max_mcv_rows = 0.0;
 
-  if (out_mcv_mass != NULL)
+  if (out_max_mcv_frequency != NULL)
     {
-      *out_mcv_mass = 0.0;
+      *out_max_mcv_frequency = 0.0;
     }
 
   if (out_success != NULL)
@@ -2565,7 +2565,7 @@ histogram_get_mcv_mass (PT_NODE *pt_col, double *out_mcv_mass, bool *out_success
       *out_success = false;
     }
 
-  if (pt_col == NULL || out_mcv_mass == NULL || out_success == NULL)
+  if (pt_col == NULL || out_max_mcv_frequency == NULL || out_success == NULL)
     {
       return;
     }
@@ -2596,18 +2596,21 @@ histogram_get_mcv_mass (PT_NODE *pt_col, double *out_mcv_mass, bool *out_success
 	  continue;
 	}
 
-      mcv_rows += bucket_rows;
+      if (bucket_rows > max_mcv_rows)
+	{
+	  max_mcv_rows = bucket_rows;
+	}
     }
 
-  if (mcv_rows < 0.0)
+  if (max_mcv_rows < 0.0)
     {
-      mcv_rows = 0.0;
+      max_mcv_rows = 0.0;
     }
-  else if (mcv_rows > total_rows)
+  else if (max_mcv_rows > total_rows)
     {
-      mcv_rows = total_rows;
+      max_mcv_rows = total_rows;
     }
 
-  *out_mcv_mass = clamp01 (mcv_rows / total_rows);
+  *out_max_mcv_frequency = clamp01 (max_mcv_rows / total_rows);
   *out_success = true;
 }

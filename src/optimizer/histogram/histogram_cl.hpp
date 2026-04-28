@@ -294,7 +294,7 @@ void histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool 
 void histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success);
 void histogram_get_default_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success);
 void histogram_get_eqjoin_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity, bool *success);
-void histogram_get_mcv_mass (PT_NODE *pt_col, double *out_mcv_mass, bool *out_success);
+void histogram_get_max_mcv_frequency (PT_NODE *pt_col, double *out_max_mcv_frequency, bool *out_success);
 /* histogram utility functions */
 int db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj);
 bool is_histogrammable_type (DB_TYPE type);

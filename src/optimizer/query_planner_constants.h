@@ -78,12 +78,11 @@
 #define QO_COST_WEIGHT_MAX                     5.00
 
 /* MCV/hot-key join cardinality guard */
-#define QO_MCV_GUARD_MIN_MASS                  0.01
-#define QO_MCV_GUARD_SMALL_CARD_ABS            10.0
-#define QO_MCV_GUARD_SMALL_CARD_RATIO          0.001
-#define QO_MCV_GUARD_AVG_FANOUT_GUESS          5000.0
-#define QO_MCV_GUARD_SKEW_FACTOR               100.0
-#define QO_MCV_GUARD_MAX_FANOUT_FACTOR         1000.0
+#define QO_MCV_GUARD_MIN_FREQUENCY             0.05
+#define QO_MCV_GUARD_SMALL_CARD_ABS            5.0
+#define QO_MCV_GUARD_SMALL_CARD_RATIO          0.0001
+#define QO_MCV_GUARD_MAX_BASE_SELECTIVITY      0.01
+#define QO_MCV_GUARD_MAX_SELECTIVITY_MULTIPLIER 5.0
 
 /* Delayed selective sarg repeated lookup penalty */
 #define QO_DELAYED_SARG_OUTER_CARD_THRESHOLD   10000.0
