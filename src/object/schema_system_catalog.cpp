@@ -77,7 +77,8 @@ namespace cubschema
     CT_CHARSET_NAME,			// "_db_charset"
     CT_SERVER_NAME,		// "_db_server"
     CT_SYNONYM_NAME,			// "_db_synonym"
-    CT_TRIGGER_NAME,		// "_db_trigger"
+    CT_TRIGGER_NAME,			// "db_trigger"
+    CT_HISTOGRAM_NAME,		// "_db_histogram"
 
     /* currently, not implemented */
     CT_RESOLUTION_NAME		// "_db_resolution"
@@ -109,7 +110,8 @@ namespace cubschema
     CTV_COLLATION_NAME,	// "db_collation"
     CTV_CHARSET_NAME,		// "db_charset"
     CTV_SERVER_NAME,		// "db_server"
-    CTV_SYNONYM_NAME			// "db_synonym"
+    CTV_SYNONYM_NAME,		// "db_synonym"
+    CTV_HISTOGRAM_NAME		// "db_histogram"
   };
 
   static const identifier_store sm_catalog_class_names (sm_system_class_names, false);

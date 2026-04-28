@@ -1853,6 +1853,7 @@ boot_destroy_catalog_classes (void)
     CT_PARTITION_NAME,
     CT_STORED_PROC_NAME,
     CT_STORED_PROC_ARGS_NAME,
+    CT_HISTOGRAM_NAME,
     CTV_CLASS_NAME,
     CTV_SUPER_CLASS_NAME,
     CTV_VCLASS_NAME,
@@ -1874,6 +1875,7 @@ boot_destroy_catalog_classes (void)
     CTV_SERVER_NAME,
     CT_SYNONYM_NAME,
     CTV_SYNONYM_NAME,
+    CTV_HISTOGRAM_NAME,
     NULL
   };
 
@@ -2173,5 +2175,6 @@ boot_client_find_and_cache_class_oids (void)
       return ER_FAILED;
     }
   oid_set_cached_class_oid (OID_CACHE_HA_APPLY_INFO_CLASS_ID, &class_mop->oid_info.oid);
+
   return NO_ERROR;
 }

@@ -248,6 +248,8 @@ static const char sysprm_ha_conf_file_name[] = "cubrid_ha.conf";
 
 #define PRM_NAME_HOSTVAR_PEEKING "hostvar_peeking"
 
+#define PRM_NAME_DEFAULT_HISTOGRAM_BUCKET_COUNT "default_histogram_bucket_count"
+
 #define PRM_NAME_ENABLE_HISTO "communication_histogram"
 
 #define PRM_NAME_MUTEX_BUSY_WAITING_CNT "mutex_busy_waiting_cnt"
@@ -5316,6 +5318,18 @@ SYSPRM_PARAM prm_Def[] = {
    (char *) NULL,
    (DUP_PRM_FUNC) NULL,
    (DUP_PRM_FUNC) NULL},
+  {PRM_ID_DEFAULT_HISTOGRAM_BUCKET_COUNT,
+   PRM_NAME_DEFAULT_HISTOGRAM_BUCKET_COUNT,
+   (PRM_FOR_CLIENT | PRM_USER_CHANGE),
+   PRM_INTEGER,
+   PRM_CLEAR_DYNAMIC_FLAG,
+   {false, {.i = 300}},
+   {false, {.i = 300}},
+   {false, {.i = 1000}},
+   {false, {.i = 4}},
+   (char *) NULL,
+   (DUP_PRM_FUNC) NULL,
+   (DUP_PRM_FUNC) NULL},
   {PRM_ID_LOG_POSTPONE_CACHE_SIZE,
    PRM_NAME_LOG_POSTPONE_CACHE_SIZE,
    (PRM_FOR_SERVER | PRM_HIDDEN),
@@ -5327,7 +5341,7 @@ SYSPRM_PARAM prm_Def[] = {
    {false, {.i = 4}},
    (char *) NULL,
    (DUP_PRM_FUNC) NULL,
-   (DUP_PRM_FUNC) NULL},
+   (DUP_PRM_FUNC) NULL}
 };
 
 SYSPRM_INDIRECT_POS prm_Def_session_idx[DIM (prm_Def)];

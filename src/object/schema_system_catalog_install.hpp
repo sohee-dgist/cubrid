@@ -58,6 +58,7 @@ namespace cubschema
       static system_catalog_definition get_dual ();
       static system_catalog_definition get_server ();
       static system_catalog_definition get_synonym ();
+      static system_catalog_definition get_histogram ();
 
       // views
       static system_catalog_definition get_view_class ();
@@ -82,6 +83,7 @@ namespace cubschema
       static system_catalog_definition get_view_charset ();
       static system_catalog_definition get_view_synonym ();
       static system_catalog_definition get_view_server ();
+      static system_catalog_definition get_view_db_histogram ();
   };
 }
 
@@ -108,5 +110,6 @@ const char *sm_define_view_collation_spec (void);
 const char *sm_define_view_charset_spec (void);
 const char *sm_define_view_synonym_spec (void);
 const char *sm_define_view_server_spec (void);
+const char *sm_define_view_histogram_spec (void);
 
 #endif /* _SCHEMA_SYSTEM_CATALOG_INSTALL_HPP_ */

@@ -139,6 +139,7 @@ static const char *prohibited_classes[] = {
   CT_DUAL_NAME,
   CT_SERVER_NAME,
   CT_SYNONYM_NAME,
+  CT_HISTOGRAM_NAME,
   /* catalog vclasses */
   CTV_CLASS_NAME,
   CTV_SUPER_CLASS_NAME,
@@ -162,6 +163,7 @@ static const char *prohibited_classes[] = {
   CTV_CHARSET_NAME,
   CTV_SERVER_NAME,
   CTV_SYNONYM_NAME,
+  // CTV_HISTOGRAM_NAME, TODO: emit_histogram
   NULL
 };
 

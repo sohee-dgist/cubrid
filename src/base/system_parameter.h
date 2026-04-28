@@ -526,6 +526,8 @@ enum param_id
 
   PRM_ID_HOSTVAR_PEEKING,
 
+  PRM_ID_DEFAULT_HISTOGRAM_BUCKET_COUNT,
+
   PRM_ID_LOG_POSTPONE_CACHE_SIZE,
 
   /* change PRM_LAST_ID when adding new system parameters */
