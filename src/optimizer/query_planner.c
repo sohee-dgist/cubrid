@@ -91,6 +91,40 @@
 #define RBO_CHECK_RATIO 1.2
 #define RBO_CHECK_LIMIT_RATIO 10
 
+/*
+ * Base planner CPU cost weights.
+ *
+ * Keep these as multipliers around the existing generic CPU weight.
+ * The goal is not to replace the current planner model, but to refine
+ * predicate evaluation cost based on operator/data-type characteristics.
+ */
+
+/* generic predicate evaluation */
+#define QO_COST_WEIGHT_PRED_DEFAULT            1.00
+
+/* numeric/date equality or simple scalar comparison */
+#define QO_COST_WEIGHT_NUMERIC_COMPARE         1.00
+#define QO_COST_WEIGHT_TEMPORAL_COMPARE        1.05
+
+/* string comparisons */
+#define QO_COST_WEIGHT_STRING_EQUAL            1.10
+#define QO_COST_WEIGHT_STRING_RANGE            1.25
+#define QO_COST_WEIGHT_STRING_COLLATION        1.50
+
+/* LIKE family */
+#define QO_COST_WEIGHT_LIKE_PREFIX             1.40	/* e.g. 'abc%' */
+#define QO_COST_WEIGHT_LIKE_CONTAINS           2.50	/* e.g. '%abc%' */
+#define QO_COST_WEIGHT_LIKE_COMPLEX            3.00	/* mixed %, _, escapes */
+
+/* joins */
+#define QO_COST_WEIGHT_JOIN_DEFAULT            1.00
+#define QO_COST_WEIGHT_JOIN_STRING_EQUAL       1.10
+#define QO_COST_WEIGHT_JOIN_STRING_RANGE       1.25
+
+/* optional guard rails */
+#define QO_COST_WEIGHT_MIN                     0.50
+#define QO_COST_WEIGHT_MAX                     5.00
+
 #define	qo_scan_walk	qo_generic_walk
 #define	qo_worst_walk	qo_generic_walk
 
@@ -174,6 +208,8 @@ static void qo_hjoin_cost (QO_PLAN *);
 static void qo_follow_cost (QO_PLAN *);
 static void qo_worst_cost (QO_PLAN *);
 static void qo_zero_cost (QO_PLAN *);
+static double qo_get_term_cost_weight (QO_TERM * term);
+static double qo_get_nljoin_term_cpu_overhead (QO_PLAN * planp, double guessed_result_cardinality);
 
 static void qo_estimate_ngroups (QO_PLAN *, SORT_TYPE);
 static int qo_get_group_ndv (QO_PLAN *, SORT_TYPE);
@@ -1681,19 +1717,36 @@ qo_seq_scan_new (QO_INFO * info, QO_NODE * node)
 }
 
 
-/*
- * qo_sscan_cost () -
- *   return:
- *   planp(in):
- */
+static double
+qo_sum_bitset_term_cost_weights (QO_ENV * env, BITSET * terms)
+{
+  BITSET_ITERATOR iter;
+  int t;
+  double sum = 0.0;
+
+  for (t = bitset_iterate (terms, &iter); t != -1; t = bitset_next_member (&iter))
+    {
+      QO_TERM *term = QO_ENV_TERM (env, t);
+      sum += qo_get_term_cost_weight (term);
+    }
+
+  return sum;
+}
+
 static void
 qo_sscan_cost (QO_PLAN * planp)
 {
   QO_NODE *nodep;
+  double extra_weight = 0.0;
+  double scan_rows;
 
   nodep = planp->plan_un.scan.node;
   planp->fixed_cpu_cost = 0.0;
   planp->fixed_io_cost = 0.0;
+
+  scan_rows = MAX (1, QO_NODE_NCARD (nodep));
+  planp->info->scan_rows = scan_rows;
+
   if (QO_NODE_NCARD (nodep) == 0)
     {
       planp->variable_cpu_cost = 1.0 * (double) QO_CPU_WEIGHT;
@@ -1702,8 +1755,11 @@ qo_sscan_cost (QO_PLAN * planp)
     {
       planp->variable_cpu_cost = (double) QO_NODE_NCARD (nodep) * (double) QO_CPU_WEIGHT;
     }
+
+  extra_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(QO_NODE_SARGS (nodep)));
+
+  planp->variable_cpu_cost += scan_rows * QO_CPU_WEIGHT * extra_weight;
   planp->variable_io_cost = (double) QO_NODE_TCARD (nodep);
-  planp->info->scan_rows = MAX (1, QO_NODE_NCARD (nodep));
 
 #if TEST_DUMP_PLAN_SCAN_COST
   fprintf (stdout, "\nSequential Scan Cost: \n");
@@ -2047,6 +2103,24 @@ qo_index_scan_new (QO_INFO * info, QO_NODE * node, QO_NODE_INDEX_ENTRY * ni_entr
   return plan;
 }
 
+static void
+qo_apply_scan_term_cpu_overhead (QO_PLAN * planp)
+{
+  double scan_rows = MAX (1.0, planp->info->scan_rows);
+  double range_weight = 0.0;
+  double key_filter_weight = 0.0;
+  double data_filter_weight = 0.0;
+
+  range_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->plan_un.scan.terms));
+
+  key_filter_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->plan_un.scan.kf_terms));
+
+  data_filter_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->sarged_terms));
+
+  planp->variable_cpu_cost +=
+    scan_rows * QO_CPU_WEIGHT * (1.2 * range_weight + 1.0 * key_filter_weight + 0.8 * data_filter_weight);
+}
+
 /*
  * qo_iscan_cost () -
  *   return:
@@ -2230,6 +2304,7 @@ qo_iscan_cost (QO_PLAN * planp)
   planp->variable_cpu_cost = (leaf_access + heap_access) * (double) QO_CPU_WEIGHT;
   planp->variable_io_cost = object_IO;
   planp->info->scan_rows = MAX (1, (double) QO_NODE_NCARD (nodep) * sel * filter_sel);
+  qo_apply_scan_term_cpu_overhead (planp);
 
 #if TEST_DUMP_PLAN_SCAN_COST
   fprintf (stdout, "\nIndex Scan Cost: \n");
@@ -3284,6 +3359,115 @@ qo_can_apply_limit_card (QO_ENV * env)
   return true;
 }
 
+static double
+qo_get_join_term_cost_weight (QO_TERM * term)
+{
+  PT_NODE *expr;
+
+  if (term == NULL)
+    {
+      return QO_COST_WEIGHT_JOIN_DEFAULT;
+    }
+
+  expr = QO_TERM_PT_EXPR (term);
+  if (expr == NULL || expr->node_type != PT_EXPR)
+    {
+      return QO_COST_WEIGHT_JOIN_DEFAULT;
+    }
+
+  switch (expr->info.expr.op)
+    {
+    case PT_EQ:
+    case PT_NULLSAFE_EQ:
+      {
+	PT_NODE *lhs = expr->info.expr.arg1;
+
+	if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	  {
+	    return QO_COST_WEIGHT_JOIN_STRING_EQUAL;
+	  }
+	return QO_COST_WEIGHT_JOIN_DEFAULT;
+      }
+
+    case PT_LT:
+    case PT_LE:
+    case PT_GT:
+    case PT_GE:
+    case PT_BETWEEN:
+    case PT_RANGE:
+      {
+	PT_NODE *lhs = expr->info.expr.arg1;
+
+	if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	  {
+	    return QO_COST_WEIGHT_JOIN_STRING_RANGE;
+	  }
+	return QO_COST_WEIGHT_JOIN_DEFAULT;
+      }
+
+    default:
+      return QO_COST_WEIGHT_JOIN_DEFAULT;
+    }
+}
+
+static double
+qo_sum_join_term_cost_weights (QO_ENV * env, BITSET * terms)
+{
+  BITSET_ITERATOR iter;
+  int t;
+  double sum = 0.0;
+
+  if (env == NULL || terms == NULL)
+    {
+      return 0.0;
+    }
+
+  for (t = bitset_iterate (terms, &iter); t != -1; t = bitset_next_member (&iter))
+    {
+      QO_TERM *term = QO_ENV_TERM (env, t);
+      sum += qo_get_join_term_cost_weight (term);
+    }
+
+  return sum;
+}
+
+static double
+qo_get_nljoin_term_cpu_overhead (QO_PLAN * planp, double guessed_result_cardinality)
+{
+  double join_term_weight_sum = 0.0;
+
+  if (planp == NULL || planp->plan_type != QO_PLANTYPE_JOIN || planp->info == NULL || planp->info->env == NULL)
+    {
+      return 0.0;
+    }
+
+  if (guessed_result_cardinality <= 0.0)
+    {
+      return 0.0;
+    }
+
+  /*
+   * For temporary nl-join plans used only for inner-plan search,
+   * join-term bitsets may be empty even after explicit init.
+   * That is fine; the summed overhead will become 0.
+   */
+
+  join_term_weight_sum += qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.join_terms));
+
+  if (IS_OUTER_JOIN_TYPE (planp->plan_un.join.join_type))
+    {
+      join_term_weight_sum +=
+	qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.during_join_terms));
+    }
+
+  if (join_term_weight_sum <= 0.0)
+    {
+      return 0.0;
+    }
+
+  return guessed_result_cardinality * QO_CPU_WEIGHT * 0.5 * join_term_weight_sum;
+}
+
 /*
  * qo_nljoin_cost () -
  *   return:
@@ -3414,6 +3598,8 @@ qo_nljoin_cost (QO_PLAN * planp)
     /* subq cost is already included in the inner. so add it for the cardinality excluded due to ISCAN_IO_HIT_RATIO. */
     planp->variable_cpu_cost += guessed_result_cardinality * ISCAN_IO_HIT_RATIO * subq_cpu_cost;
     planp->variable_io_cost += guessed_result_cardinality * ISCAN_IO_HIT_RATIO * subq_io_cost;	/* assume IO as # blocks */
+
+    planp->variable_cpu_cost += qo_get_nljoin_term_cpu_overhead (planp, guessed_result_cardinality);
   }
 
 #if TEST_DUMP_PLAN_JOIN_COST
@@ -3987,6 +4173,85 @@ qo_zero_cost (QO_PLAN * planp)
   planp->variable_cpu_cost = 0.0;
   planp->variable_io_cost = 0.0;
 }
+
+static double
+qo_get_term_cost_weight (QO_TERM * term)
+{
+  PT_NODE *expr;
+
+  if (term == NULL)
+    {
+      return QO_COST_WEIGHT_PRED_DEFAULT;
+    }
+
+  expr = QO_TERM_PT_EXPR (term);
+  if (expr == NULL || expr->node_type != PT_EXPR)
+    {
+      return QO_COST_WEIGHT_PRED_DEFAULT;
+    }
+
+  switch (expr->info.expr.op)
+    {
+    case PT_EQ:
+    case PT_NE:
+      {
+	PT_NODE *lhs = expr->info.expr.arg1;
+	PT_NODE *rhs = expr->info.expr.arg2;
+
+	if (lhs != NULL && lhs->type_enum == PT_TYPE_CHAR)
+	  {
+	    return QO_COST_WEIGHT_STRING_EQUAL;
+	  }
+	if (lhs != NULL && lhs->type_enum == PT_TYPE_VARCHAR)
+	  {
+	    return QO_COST_WEIGHT_STRING_EQUAL;
+	  }
+	return QO_COST_WEIGHT_NUMERIC_COMPARE;
+      }
+
+    case PT_LT:
+    case PT_LE:
+    case PT_GT:
+    case PT_GE:
+      {
+	PT_NODE *lhs = expr->info.expr.arg1;
+	if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	  {
+	    return QO_COST_WEIGHT_STRING_RANGE;
+	  }
+	return QO_COST_WEIGHT_NUMERIC_COMPARE;
+      }
+
+    case PT_LIKE:
+      {
+	PT_NODE *rhs = expr->info.expr.arg2;
+
+	if (rhs != NULL && rhs->node_type == PT_VALUE)
+	  {
+	    const char *pat = db_get_string (&rhs->info.value.db_value);
+	    if (pat != NULL)
+	      {
+		const char *pct = strchr (pat, '%');
+		const char *und = strchr (pat, '_');
+
+		if (pct != NULL && pct[1] == '\0' && und == NULL && pct != pat)
+		  {
+		    return QO_COST_WEIGHT_LIKE_PREFIX;
+		  }
+		if (pat[0] == '%' || und != NULL)
+		  {
+		    return QO_COST_WEIGHT_LIKE_CONTAINS;
+		  }
+	      }
+	  }
+	return QO_COST_WEIGHT_LIKE_COMPLEX;
+      }
+
+    default:
+      return QO_COST_WEIGHT_PRED_DEFAULT;
+    }
+}
+
 
 
 /*
@@ -6045,6 +6310,15 @@ qo_find_best_nljoin_inner_plan_on_info (QO_PLAN * outer, QO_INFO * info, JOIN_TY
   temp->plan_type = QO_PLANTYPE_JOIN;
   temp->plan_un.join.join_type = join_type;	/* set nl-join type */
   temp->plan_un.join.outer = outer;	/* set outer */
+  temp->plan_un.join.inner = NULL;
+
+/* temporary join plan: initialize join-side bitsets explicitly */
+  bitset_init (&(temp->plan_un.join.join_terms), info->env);
+  bitset_init (&(temp->plan_un.join.hash_terms), info->env);
+  bitset_init (&(temp->plan_un.join.during_join_terms), info->env);
+  bitset_init (&(temp->plan_un.join.after_join_terms), info->env);
+
+
 
   temp->multi_range_opt_use = PLAN_MULTI_RANGE_OPT_NO;
 
@@ -6073,6 +6347,11 @@ qo_find_best_nljoin_inner_plan_on_info (QO_PLAN * outer, QO_INFO * info, JOIN_TY
     }
 
   /* free temp plan */
+  bitset_delset (&(temp->plan_un.join.join_terms));
+  bitset_delset (&(temp->plan_un.join.hash_terms));
+  bitset_delset (&(temp->plan_un.join.during_join_terms));
+  bitset_delset (&(temp->plan_un.join.after_join_terms));
+
   temp->plan_un.join.outer = NULL;
   temp->plan_un.join.inner = NULL;
 
@@ -7835,7 +8114,71 @@ planner_visit_node (QO_PLANNER * planner, QO_PARTITION * partition, PT_HINT_ENUM
 		}
 	      else
 		{
-		  selectivity *= QO_TERM_SELECTIVITY (term);
+		  double term_sel = QO_TERM_SELECTIVITY (term);
+
+		  if (QO_TERM_IS_FLAGED (term, QO_TERM_EQUAL_OP))
+		    {
+		      const double left_mcv_mass = QO_TERM_LEFT_MCV_MASS (term);
+		      const double right_mcv_mass = QO_TERM_RIGHT_MCV_MASS (term);
+
+		      const double effective_mcv_mass = MAX (left_mcv_mass, right_mcv_mass);
+
+		      const double head_card = MAX (1.0, head_info->cardinality);
+		      const double tail_card = MAX (1.0, tail_info->cardinality);
+		      const double base_card = MAX (1.0, cardinality);
+
+		      const bool head_small =
+			head_info->cardinality <= 10.0
+			|| (head_info->total_rows > 0.0 && head_info->cardinality / head_info->total_rows <= 0.001);
+
+		      const bool tail_small =
+			tail_info->cardinality <= 10.0
+			|| (tail_info->total_rows > 0.0 && tail_info->cardinality / tail_info->total_rows <= 0.001);
+
+		      if (effective_mcv_mass > 0.0 && head_small != tail_small)
+			{
+			  const double small_card = head_small ? head_card : tail_card;
+			  const double large_card = head_small ? tail_card : head_card;
+
+			  /*
+			   * Strong experimental guard.
+			   *
+			   * avg_fanout_guess:
+			   *   generic lower-bound fanout for large relationship/fact table.
+			   *
+			   * mcv_boost:
+			   *   strong nonlinear boost. sqrt(mcv_mass) makes even moderate
+			   *   MCV mass more visible.
+			   */
+			  const double avg_fanout_guess = 500.0;
+			  const double skew_factor = 100.0;
+			  const double max_fanout_factor = 1000.0;
+
+			  double mcv_boost = sqrt (effective_mcv_mass);
+
+			  double risk_fanout = avg_fanout_guess * (1.0 + mcv_boost * skew_factor);
+
+			  risk_fanout = MIN (risk_fanout, avg_fanout_guess * max_fanout_factor);
+
+			  double risk_card = small_card * risk_fanout;
+
+			  /*
+			   * Cap by the larger input side. This prevents the guard from making
+			   * the join result larger than the candidate large side.
+			   */
+			  risk_card = MIN (risk_card, large_card);
+
+			  if (risk_card > 1.0)
+			    {
+			      const double risk_sel = risk_card / base_card;
+
+			      term_sel = MAX (term_sel, risk_sel);
+			      term_sel = MIN (term_sel, 1.0);
+			    }
+			}
+		    }
+
+		  selectivity *= term_sel;
 		  selectivity = MAX (1.0 / MAX (cardinality, 1.0), selectivity);
 
 		  double head_factor, tail_factor;
@@ -9758,12 +10101,12 @@ qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	  break;
 	case PT_LIKE:
 	  {
-	    selectivity = qo_like_selectivity (env, pt_expr);
+	    selectivity = qo_like_selectivity (env, node);
 	    break;
 	  }
 	case PT_NOT_LIKE:
 	  {
-	    selectivity = 1 - qo_like_selectivity (env, pt_expr);
+	    selectivity = 1 - qo_like_selectivity (env, node);
 	    break;
 	  }
 	case PT_SETNEQ:
@@ -9864,55 +10207,44 @@ qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr)
   DB_VALUE *host_var = NULL;
   PRED_CLASS pc_lhs, pc_rhs;
 
-  double selectivity;
-  double total_selectivity = 0.0;
+  double selectivity = 0.0;
 
-  PT_NODE *like_node;
+  PT_NODE *like_node = pt_expr;
+  bool success = false;
 
-  for (like_node = pt_expr; like_node; like_node = like_node->or_next)
+  lhs = like_node->info.expr.arg1;
+  rhs = like_node->info.expr.arg2;
+
+  if (lhs && rhs)
     {
-      bool success = false;
+      pc_lhs = qo_classify (lhs);
+      pc_rhs = qo_classify (rhs);
 
-      lhs = like_node->info.expr.arg1;
-      rhs = like_node->info.expr.arg2;
-
-      if (lhs && rhs)
+      if (pc_lhs == PC_ATTR)
 	{
-	  pc_lhs = qo_classify (lhs);
-	  pc_rhs = qo_classify (rhs);
-
-	  if (pc_lhs == PC_ATTR)
+	  if (pc_rhs == PC_CONST)
 	    {
-	      if (pc_rhs == PC_CONST)
-		{
-		  host_var = &rhs->info.value.db_value;
-		}
-	      else if (pc_rhs == PC_HOST_VAR)
-		{
-		  host_var = &env->parser->host_variables[rhs->info.host_var.index];
-		}
-
-	      histogram_get_like_selectivity (lhs, host_var, &selectivity, &success);
-
-	      if (!success)
-		{
-		  selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
-		}
+	      host_var = &rhs->info.value.db_value;
 	    }
-	  else
+	  else if (pc_rhs == PC_HOST_VAR)
+	    {
+	      host_var = &env->parser->host_variables[rhs->info.host_var.index];
+	    }
+
+	  histogram_get_like_selectivity (lhs, host_var, &selectivity, &success);
+
+	  if (!success)
 	    {
 	      selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
 	    }
-
-	  total_selectivity = qo_or_selectivity (env, total_selectivity, selectivity);
-	  total_selectivity = MAX (total_selectivity, 0.0);
-	  total_selectivity = MIN (total_selectivity, 1.0);
 	}
-
+      else
+	{
+	  selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
+	}
     }
 
-
-  return total_selectivity;
+  return selectivity;
 }
 
 /*
@@ -10010,23 +10342,34 @@ qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr)
       switch (pc_rhs)
 	{
 	case PC_ATTR:
-	  /* attr = attr */
+	  {
+	    /* attr = attr */
+	    bool success = false;
+	    double eqjoin_selectivity = 0.0;
+	    histogram_get_eqjoin_selectivity (lhs, rhs, &eqjoin_selectivity, &success);
+	    if (success)
+	      {
+		selectivity = eqjoin_selectivity;
+		histogram_get_eqjoin_selectivity (lhs, rhs, &eqjoin_selectivity, &success);
+	      }
+	    else
+	      {
 
-	  /* check for indexes on either of the attributes */
-	  lhs_icard = qo_index_cardinality (env, lhs);
-	  rhs_icard = qo_index_cardinality (env, rhs);
+		/* check for indexes on either of the attributes */
+		lhs_icard = qo_index_cardinality (env, lhs);
+		rhs_icard = qo_index_cardinality (env, rhs);
 
-	  icard = MAX (lhs_icard, rhs_icard);
-	  if (icard != 0)
-	    {
-	      selectivity = (1.0 / icard);
-	    }
-	  else
-	    {
-	      selectivity = DEFAULT_EQUIJOIN_SELECTIVITY;
-	    }
-
-	  /* TODO: add histogram selectivity */
+		icard = MAX (lhs_icard, rhs_icard);
+		if (icard != 0)
+		  {
+		    selectivity = (1.0 / icard);
+		  }
+		else
+		  {
+		    selectivity = DEFAULT_EQUIJOIN_SELECTIVITY;
+		  }
+	      }
+	  }
 	  break;
 
 	case PC_CONST:
@@ -10625,12 +10968,12 @@ qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	      break;
 	    }
 
-	  double default_selectivity = 0.0;
-	  histogram_get_default_selectivity (lhs, arg1_db_value, &default_selectivity, &success3);
+	  double default_zero_selectivity = 0.0;
+	  histogram_get_default_selectivity (lhs, arg1_db_value, &default_zero_selectivity, &success3);
 
 	  if (success3)
 	    {
-	      selectivity = MAX (selectivity, default_selectivity);
+	      selectivity = MAX (selectivity, default_zero_selectivity);
 	    }
 
 	  if (!(success1 && success2))

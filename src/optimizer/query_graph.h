@@ -627,13 +627,19 @@ struct qo_term
   double selectivity;
 
   /*
+   * The selectivity of this term by MCV mass.
+   */
+  double left_mcv_mass;
+  double right_mcv_mass;
+
+  /*
    * The "flavor" of this term.  This is determined by analysis of the
    * segment or where-clause disjunct that gives rise to the term.
    */
   QO_TERMCLASS term_class;
 
   /*
-   * The rank of this term. used for the same selectivity
+   * The rank of this term. used for the same selectivity : TODO DELETE THIS
    */
   int rank;
 
@@ -724,6 +730,8 @@ struct qo_term
 #define QO_TERM_NODES(t)	(t)->nodes
 #define QO_TERM_SEGS(t)		(t)->segments
 #define QO_TERM_SELECTIVITY(t)	(t)->selectivity
+#define QO_TERM_LEFT_MCV_MASS(t)	(t)->left_mcv_mass
+#define QO_TERM_RIGHT_MCV_MASS(t)	(t)->right_mcv_mass
 #define QO_TERM_RANK(t)		(t)->rank
 #define QO_TERM_HEAD(t)		(t)->head
 #define QO_TERM_TAIL(t)		(t)->tail

@@ -43,6 +43,7 @@
 #include "optimizer.h"
 #include "query_graph.h"
 #include "query_planner.h"
+#include "histogram_cl.hpp"
 #include "schema_manager.h"
 #include "statistics.h"
 #include "system_parameter.h"
@@ -1744,6 +1745,8 @@ qo_add_term (PT_NODE * conjunct, int term_type, QO_ENV * env)
   QO_TERM_MULTI_COL_SEGS (term) = NULL;	/* init */
   QO_TERM_MULTI_COL_CNT (term) = 0;	/* init */
   QO_TERM_PRED_ORDER (term) = pt_is_expr_node (conjunct) ? conjunct->info.expr.pred_order : 0;
+  QO_TERM_LEFT_MCV_MASS (term) = 0.0;
+  QO_TERM_RIGHT_MCV_MASS (term) = 0.0;
 
   env->nterms++;
 
@@ -2766,6 +2769,27 @@ wrapup:
 
     case PREDICATE_TERM:
       QO_TERM_SELECTIVITY (term) = qo_expr_selectivity (env, pt_expr);
+
+      if (qo_is_equi_join_term (term))
+	{
+	  double left_mcv_mass = 0.0;
+	  double right_mcv_mass = 0.0;
+	  bool success1 = false;
+	  bool success2 = false;
+	  histogram_get_mcv_mass (pt_expr->info.expr.arg1, &left_mcv_mass, &success1);
+	  histogram_get_mcv_mass (pt_expr->info.expr.arg2, &right_mcv_mass, &success2);
+	  if (success1 && success2)
+	    {
+	      QO_TERM_LEFT_MCV_MASS (term) = left_mcv_mass;
+	      QO_TERM_RIGHT_MCV_MASS (term) = right_mcv_mass;
+	    }
+	  else
+	    {
+	      QO_TERM_LEFT_MCV_MASS (term) = 0.0;
+	      QO_TERM_RIGHT_MCV_MASS (term) = 0.0;
+	    }
+	}
+
       break;
 
     default:
@@ -6098,6 +6122,77 @@ qo_rank_weight (int rank)
 }
 
 static double
+qo_term_eval_weight (QO_TERM * term)
+{
+  PT_NODE *expr;
+  PT_NODE *lhs;
+  PT_NODE *rhs;
+
+  if (term == NULL)
+    {
+      return 1.0;
+    }
+
+  expr = QO_TERM_PT_EXPR (term);
+  if (expr == NULL || expr->node_type != PT_EXPR)
+    {
+      return 1.0;
+    }
+
+  lhs = expr->info.expr.arg1;
+  rhs = expr->info.expr.arg2;
+
+  switch (expr->info.expr.op)
+    {
+    case PT_EQ:
+    case PT_NE:
+    case PT_NULLSAFE_EQ:
+      if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	{
+	  return 1.1;
+	}
+      return 1.0;
+
+    case PT_LT:
+    case PT_LE:
+    case PT_GT:
+    case PT_GE:
+    case PT_BETWEEN:
+    case PT_RANGE:
+      if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	{
+	  return 1.25;
+	}
+      return 1.0;
+
+    case PT_LIKE:
+      if (rhs != NULL && rhs->node_type == PT_VALUE)
+	{
+	  const char *pat = db_get_string (&rhs->info.value.db_value);
+	  if (pat != NULL)
+	    {
+	      const char *pct = strchr (pat, '%');
+	      const char *und = strchr (pat, '_');
+
+	      if (pct != NULL && pct[1] == '\0' && und == NULL && pct != pat)
+		{
+		  return 1.25;	/* prefix like 'abc%' */
+		}
+
+	      if (pat[0] == '%' || und != NULL)
+		{
+		  return 2.5;	/* contains/complex pattern */
+		}
+	    }
+	}
+      return 1.5;
+
+    default:
+      return 1.0;
+    }
+}
+
+static double
 qo_term_eval_score (QO_TERM * term)
 {
   double sel;
@@ -6105,7 +6200,6 @@ qo_term_eval_score (QO_TERM * term)
 
   sel = QO_TERM_SELECTIVITY (term);
 
-  /* guard */
   if (sel <= 0.0)
     {
       sel = 1e-12;
@@ -6115,14 +6209,9 @@ qo_term_eval_score (QO_TERM * term)
       sel = 1.0;
     }
 
-  weight = qo_rank_weight (QO_TERM_RANK (term));
+  weight = qo_term_eval_weight (term);
 
-  /*
-   * Larger score means:
-   *   - stronger filtering benefit
-   *   - cheaper evaluation cost
-   */
-  return -log (sel) / weight;
+  return (1.0 - sel) / weight;
 }
 
 /*
