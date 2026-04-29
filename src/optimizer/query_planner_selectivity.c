@@ -22,8 +22,6 @@
 #include "query_planner_internal.h"
 #include "query_planner_constants.h"
 
-int qo_index_cardinality (QO_ENV * env, PT_NODE * attr);
-
 double
 qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 {

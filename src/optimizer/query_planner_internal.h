@@ -47,6 +47,7 @@
 #include "dbtype.h"
 #include "regu_var.hpp"
 #include "histogram_cl.hpp"
+#include "query_planner_constants.h"
 
 /* Structural equivalence classes for expressions */
 typedef enum PRED_CLASS
@@ -60,30 +61,6 @@ typedef enum PRED_CLASS
   PC_MULTI_ATTR
 } PRED_CLASS;
 
-struct ndv_info
-{
-  QO_ENV *env;
-  int total_ndv;
-  BITSET seg_bitset;
-};
-typedef struct ndv_info NDV_INFO;
-
-double log3 (double n);
-void qo_estimate_ngroups (QO_PLAN * plan, SORT_TYPE sort_type);
-double qo_estimate_ndv (double N, double p, double n);
-int qo_get_group_ndv (QO_PLAN * plan, SORT_TYPE sort_type);
-void qo_plan_compute_cost (QO_PLAN * plan);
-void qo_plan_compute_subquery_cost (PT_NODE * subquery, double *subq_cpu_cost, double *subq_io_cost);
-void qo_sscan_cost (QO_PLAN * planp);
-void qo_iscan_cost (QO_PLAN * planp);
-void qo_sort_cost (QO_PLAN * planp);
-bool qo_can_apply_limit_card (QO_ENV * env);
-void qo_nljoin_cost (QO_PLAN * planp);
-void qo_mjoin_cost (QO_PLAN * planp);
-void qo_hjoin_cost (QO_PLAN * plan_p);
-void qo_follow_cost (QO_PLAN * planp);
-void qo_worst_cost (QO_PLAN * planp);
-void qo_zero_cost (QO_PLAN * planp);
 double qo_or_selectivity (QO_ENV * env, double lhs_sel, double rhs_sel);
 double qo_and_selectivity (QO_ENV * env, double lhs_sel, double rhs_sel);
 double qo_not_selectivity (QO_ENV * env, double sel);
@@ -92,17 +69,8 @@ double qo_comp_selectivity (QO_ENV * env, PT_NODE * pt_expr);
 double qo_between_selectivity (QO_ENV * env, PT_NODE * pt_expr);
 double qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr);
 double qo_all_some_in_selectivity (QO_ENV * env, PT_NODE * pt_expr);
-PRED_CLASS qo_classify (PT_NODE * attr);
 double qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr);
-double qo_sum_bitset_term_cost_weights (QO_ENV * env, BITSET * terms);
-void qo_apply_scan_term_cpu_overhead (QO_PLAN * planp);
-double qo_get_join_term_cost_weight (QO_TERM * term);
-double qo_sum_join_term_cost_weights (QO_ENV * env, BITSET * terms);
-double qo_get_nljoin_term_cpu_overhead (QO_PLAN * planp, double guessed_result_cardinality);
-double qo_get_term_cost_weight (QO_TERM * term);
-bool qo_info_is_small_filtered_side (QO_INFO * info);
-double qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * tail_info,
-				       double base_cardinality, double term_sel);
-double qo_get_delayed_sarg_lookup_penalty (QO_PLAN * planp, double guessed_outer_cardinality);
+PRED_CLASS qo_classify (PT_NODE * attr);
+int qo_index_cardinality (QO_ENV * env, PT_NODE * attr);
 
 #endif /* _QUERY_PLANNER_INTERNAL_H_ */

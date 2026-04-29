@@ -6,7 +6,7 @@ Client-side (`#if !defined(SERVER_MODE)`).
 
 | File | Role |
 |------|------|
-| `query_planner.c`, `query_planner_cost.c`, `query_planner_selectivity.c` | Core planner modules: generate and cost QO_PLAN trees from QO_ENV |
+| `query_planner.c`, `query_planner_selectivity.c` | Core planner modules: generate and cost QO_PLAN trees from QO_ENV |
 | `query_graph.c` | Query graph construction (nodes = tables, edges = joins) |
 | `plan_generation.c` | Plan enumeration and cost-based selection |
 | `query_bitset.c` | Bitset operations for plan enumeration |
@@ -25,7 +25,7 @@ Client-side (`#if !defined(SERVER_MODE)`).
 | Fix cost estimation | `plan_generation.c` |
 | Fix query graph | `query_graph.c` |
 | Fix query rewriting | `rewriter/` |
-| Fix index selection | `query_planner.c`, `query_planner_cost.c` — index scan cost vs sequential scan |
+| Fix index selection | `query_planner.c` — index scan cost vs sequential scan |
 
 ## Pipeline Position
 
