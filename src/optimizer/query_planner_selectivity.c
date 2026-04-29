@@ -268,7 +268,6 @@ qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 	    if (success)
 	      {
 		selectivity = eqjoin_selectivity;
-		histogram_get_eqjoin_selectivity (lhs, rhs, &eqjoin_selectivity, &success);
 	      }
 	    else
 	      {

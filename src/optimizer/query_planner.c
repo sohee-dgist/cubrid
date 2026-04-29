@@ -3173,6 +3173,19 @@ qo_join_info (QO_PLAN * plan, FILE * f, int howfar)
   qo_plan_lite_print (plan->plan_un.join.inner, f, howfar + INDENT_INCR);
 }
 
+/*
+ * qo_can_apply_limit_card () -
+ *   return: true if limit-based cardinality can be applied for guessed_result_cardinality, false otherwise
+ *   env(in):
+ *
+ * Limit card should NOT be applied when the query has:
+ * 1. ORDER BY (sort needed, cannot stop early)
+ * 2. Analytic (window functions need full partition)
+ * 3. DISTINCT (deduplication needs full result)
+ * 4. GROUP BY (aggregation needs full group)
+ * 5. Aggregate functions (scalar or with GROUP BY)
+ * 6. Window / Recursive CTE / Hierarchical Query (CONNECT BY)
+ */
 
 static bool
 qo_can_apply_limit_card (QO_ENV * env)
@@ -3335,9 +3348,11 @@ qo_get_nljoin_term_cpu_overhead (QO_PLAN * planp, double guessed_result_cardinal
    * That is fine; the summed overhead will become 0.
    */
 
-  join_term_weight_sum += qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.join_terms));
-
-  if (IS_OUTER_JOIN_TYPE (planp->plan_un.join.join_type))
+  if (BITSET_IS_VALID (&(planp->plan_un.join.join_terms)))
+    {
+      join_term_weight_sum += qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.join_terms));
+    }
+  if (BITSET_IS_VALID (&(planp->plan_un.join.during_join_terms)))
     {
       join_term_weight_sum +=
 	qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.during_join_terms));
@@ -3421,12 +3436,15 @@ qo_nljoin_cost (QO_PLAN * planp)
 
   inner_cpu_cost = guessed_result_cardinality * inner->variable_cpu_cost;
 
+  /* inner side IO cost of nested-loop block join */
   if (qo_is_iscan (inner))
     {
       inner_io_cost = guessed_result_cardinality * inner->variable_io_cost * (1 - ISCAN_IO_HIT_RATIO);
     }
   else
     {
+      /* if inner is seq scan, it is calculated by default card. */
+      /* This prevents the worst plan if the cardinality is calculated to be less than the actual value. */
       inner_io_cost = (guessed_result_cardinality + SSCAN_DEFAULT_CARD) * inner->variable_io_cost;
     }
 
@@ -3441,20 +3459,6 @@ qo_nljoin_cost (QO_PLAN * planp)
 	inner_io_cost *= delayed_sarg_penalty;
       }
   }
-
-
-  /* inner side IO cost of nested-loop block join */
-  if (qo_is_iscan (inner))
-    {
-      inner_io_cost = guessed_result_cardinality * inner->variable_io_cost * (1 - ISCAN_IO_HIT_RATIO);
-    }
-  else
-    {
-      /* if inner is seq scan, it is calculated by default card. */
-      /* This prevents the worst plan if the cardinality is calculated to be less than the actual value. */
-      inner_io_cost = (guessed_result_cardinality + SSCAN_DEFAULT_CARD) * inner->variable_io_cost;
-    }
-
   /* outer side CPU cost of nested-loop block join */
   outer_cpu_cost = outer->variable_cpu_cost;
   /* outer side IO cost of nested-loop block join */
@@ -3500,7 +3504,10 @@ qo_nljoin_cost (QO_PLAN * planp)
     planp->variable_cpu_cost += guessed_result_cardinality * ISCAN_IO_HIT_RATIO * subq_cpu_cost;
     planp->variable_io_cost += guessed_result_cardinality * ISCAN_IO_HIT_RATIO * subq_io_cost;	/* assume IO as # blocks */
 
-    planp->variable_cpu_cost += qo_get_nljoin_term_cpu_overhead (planp, guessed_result_cardinality);
+    if (planp->info->env && BITSET_IS_VALID (&(planp->plan_un.join.join_terms)))
+      {
+	planp->variable_cpu_cost += qo_get_nljoin_term_cpu_overhead (planp, guessed_result_cardinality);
+      }
   }
 
 #if TEST_DUMP_PLAN_JOIN_COST
@@ -8139,10 +8146,10 @@ planner_visit_node (QO_PLANNER * planner, QO_PARTITION * partition, PT_HINT_ENUM
 		}
 	      else
 		{
-	      double term_sel = QO_TERM_SELECTIVITY (term);
+		  double term_sel = QO_TERM_SELECTIVITY (term);
 
-	      term_sel = qo_apply_mcv_hotkey_join_guard (term, head_info, tail_info, cardinality, term_sel);
-	      selectivity *= term_sel;
+		  term_sel = qo_apply_mcv_hotkey_join_guard (term, head_info, tail_info, cardinality, term_sel);
+		  selectivity *= term_sel;
 		  selectivity = MAX (1.0 / MAX (cardinality, 1.0), selectivity);
 
 		  double head_factor, tail_factor;
