@@ -256,13 +256,9 @@ set(PARSER_HEADERS
 set(OPTIMIZER_SOURCES
   ${OPTIMIZER_DIR}/query_bitset.c
   ${OPTIMIZER_DIR}/query_graph.c
-  ${OPTIMIZER_DIR}/query_planner_plan.c
+  ${OPTIMIZER_DIR}/query_planner.c
   ${OPTIMIZER_DIR}/query_planner_cost.c
-  ${OPTIMIZER_DIR}/query_planner_compare.c
-  ${OPTIMIZER_DIR}/query_planner_search.c
   ${OPTIMIZER_DIR}/query_planner_selectivity.c
-  ${OPTIMIZER_DIR}/query_planner_index.c
-  ${OPTIMIZER_DIR}/query_planner_json.c
   ${OPTIMIZER_DIR}/plan_generation.c
   )
 
