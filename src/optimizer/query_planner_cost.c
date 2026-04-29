@@ -20,6 +20,12 @@
 
 #include "config.h"
 #include "query_planner_internal.h"
+#include "query_planner_constants.h"
+
+void qo_plan_fprint (QO_PLAN * plan, FILE * f, int howfar, const char *title);
+void qo_plan_lite_print (QO_PLAN * plan, FILE * f, int howfar);
+PT_NODE *qo_get_col_product_ndv (PARSER_CONTEXT * parser, PT_NODE * tree, void *arg, int *continue_walk);
+bool qo_plan_is_orderby_skip_candidate (QO_PLAN * plan);
 
 double
 log3 (double n)
@@ -226,22 +232,6 @@ qo_plan_compute_subquery_cost (PT_NODE * subquery, double *subq_cpu_cost, double
   return;
 }
 
-double
-qo_sum_bitset_term_cost_weights (QO_ENV * env, BITSET * terms)
-{
-  BITSET_ITERATOR iter;
-  int t;
-  double sum = 0.0;
-
-  for (t = bitset_iterate (terms, &iter); t != -1; t = bitset_next_member (&iter))
-    {
-      QO_TERM *term = QO_ENV_TERM (env, t);
-      sum += qo_get_term_cost_weight (term);
-    }
-
-  return sum;
-}
-
 void
 qo_sscan_cost (QO_PLAN * planp)
 {
@@ -286,24 +276,6 @@ qo_sscan_cost (QO_PLAN * planp)
     }
   fprintf (stdout, "\n");
 #endif /* TEST_DUMP_PLAN_SCAN_COST */
-}
-
-void
-qo_apply_scan_term_cpu_overhead (QO_PLAN * planp)
-{
-  double scan_rows = MAX (1.0, planp->info->scan_rows);
-  double range_weight = 0.0;
-  double key_filter_weight = 0.0;
-  double data_filter_weight = 0.0;
-
-  range_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->plan_un.scan.terms));
-
-  key_filter_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->plan_un.scan.kf_terms));
-
-  data_filter_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->sarged_terms));
-
-  planp->variable_cpu_cost +=
-    scan_rows * QO_CPU_WEIGHT * (1.2 * range_weight + 1.0 * key_filter_weight + 0.8 * data_filter_weight);
 }
 
 void
@@ -702,115 +674,6 @@ qo_can_apply_limit_card (QO_ENV * env)
     }
 
   return true;
-}
-
-double
-qo_get_join_term_cost_weight (QO_TERM * term)
-{
-  PT_NODE *expr;
-
-  if (term == NULL)
-    {
-      return QO_COST_WEIGHT_JOIN_DEFAULT;
-    }
-
-  expr = QO_TERM_PT_EXPR (term);
-  if (expr == NULL || expr->node_type != PT_EXPR)
-    {
-      return QO_COST_WEIGHT_JOIN_DEFAULT;
-    }
-
-  switch (expr->info.expr.op)
-    {
-    case PT_EQ:
-    case PT_NULLSAFE_EQ:
-      {
-	PT_NODE *lhs = expr->info.expr.arg1;
-
-	if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
-	  {
-	    return QO_COST_WEIGHT_JOIN_STRING_EQUAL;
-	  }
-	return QO_COST_WEIGHT_JOIN_DEFAULT;
-      }
-
-    case PT_LT:
-    case PT_LE:
-    case PT_GT:
-    case PT_GE:
-    case PT_BETWEEN:
-    case PT_RANGE:
-      {
-	PT_NODE *lhs = expr->info.expr.arg1;
-
-	if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
-	  {
-	    return QO_COST_WEIGHT_JOIN_STRING_RANGE;
-	  }
-	return QO_COST_WEIGHT_JOIN_DEFAULT;
-      }
-
-    default:
-      return QO_COST_WEIGHT_JOIN_DEFAULT;
-    }
-}
-
-double
-qo_sum_join_term_cost_weights (QO_ENV * env, BITSET * terms)
-{
-  BITSET_ITERATOR iter;
-  int t;
-  double sum = 0.0;
-
-  if (env == NULL || terms == NULL)
-    {
-      return 0.0;
-    }
-
-  for (t = bitset_iterate (terms, &iter); t != -1; t = bitset_next_member (&iter))
-    {
-      QO_TERM *term = QO_ENV_TERM (env, t);
-      sum += qo_get_join_term_cost_weight (term);
-    }
-
-  return sum;
-}
-
-double
-qo_get_nljoin_term_cpu_overhead (QO_PLAN * planp, double guessed_result_cardinality)
-{
-  double join_term_weight_sum = 0.0;
-
-  if (planp == NULL || planp->plan_type != QO_PLANTYPE_JOIN || planp->info == NULL || planp->info->env == NULL)
-    {
-      return 0.0;
-    }
-
-  if (guessed_result_cardinality <= 0.0)
-    {
-      return 0.0;
-    }
-
-  /*
-   * For temporary nl-join plans used only for inner-plan search,
-   * join-term bitsets may be empty even after explicit init.
-   * That is fine; the summed overhead will become 0.
-   */
-
-  join_term_weight_sum += qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.join_terms));
-
-  if (IS_OUTER_JOIN_TYPE (planp->plan_un.join.join_type))
-    {
-      join_term_weight_sum +=
-	qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.during_join_terms));
-    }
-
-  if (join_term_weight_sum <= 0.0)
-    {
-      return 0.0;
-    }
-
-  return guessed_result_cardinality * QO_CPU_WEIGHT * 0.5 * join_term_weight_sum;
 }
 
 void
@@ -1259,6 +1122,149 @@ qo_zero_cost (QO_PLAN * planp)
   planp->fixed_io_cost = 0.0;
   planp->variable_cpu_cost = 0.0;
   planp->variable_io_cost = 0.0;
+}
+
+double
+qo_sum_bitset_term_cost_weights (QO_ENV * env, BITSET * terms)
+{
+  BITSET_ITERATOR iter;
+  int t;
+  double sum = 0.0;
+
+  for (t = bitset_iterate (terms, &iter); t != -1; t = bitset_next_member (&iter))
+    {
+      QO_TERM *term = QO_ENV_TERM (env, t);
+      sum += qo_get_term_cost_weight (term);
+    }
+
+  return sum;
+}
+
+void
+qo_apply_scan_term_cpu_overhead (QO_PLAN * planp)
+{
+  double scan_rows = MAX (1.0, planp->info->scan_rows);
+  double range_weight = 0.0;
+  double key_filter_weight = 0.0;
+  double data_filter_weight = 0.0;
+
+  range_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->plan_un.scan.terms));
+
+  key_filter_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->plan_un.scan.kf_terms));
+
+  data_filter_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->sarged_terms));
+
+  planp->variable_cpu_cost +=
+    scan_rows * QO_CPU_WEIGHT * (1.2 * range_weight + 1.0 * key_filter_weight + 0.8 * data_filter_weight);
+}
+
+double
+qo_get_join_term_cost_weight (QO_TERM * term)
+{
+  PT_NODE *expr;
+
+  if (term == NULL)
+    {
+      return QO_COST_WEIGHT_JOIN_DEFAULT;
+    }
+
+  expr = QO_TERM_PT_EXPR (term);
+  if (expr == NULL || expr->node_type != PT_EXPR)
+    {
+      return QO_COST_WEIGHT_JOIN_DEFAULT;
+    }
+
+  switch (expr->info.expr.op)
+    {
+    case PT_EQ:
+    case PT_NULLSAFE_EQ:
+      {
+	PT_NODE *lhs = expr->info.expr.arg1;
+
+	if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	  {
+	    return QO_COST_WEIGHT_JOIN_STRING_EQUAL;
+	  }
+	return QO_COST_WEIGHT_JOIN_DEFAULT;
+      }
+
+    case PT_LT:
+    case PT_LE:
+    case PT_GT:
+    case PT_GE:
+    case PT_BETWEEN:
+    case PT_RANGE:
+      {
+	PT_NODE *lhs = expr->info.expr.arg1;
+
+	if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	  {
+	    return QO_COST_WEIGHT_JOIN_STRING_RANGE;
+	  }
+	return QO_COST_WEIGHT_JOIN_DEFAULT;
+      }
+
+    default:
+      return QO_COST_WEIGHT_JOIN_DEFAULT;
+    }
+}
+
+double
+qo_sum_join_term_cost_weights (QO_ENV * env, BITSET * terms)
+{
+  BITSET_ITERATOR iter;
+  int t;
+  double sum = 0.0;
+
+  if (env == NULL || terms == NULL)
+    {
+      return 0.0;
+    }
+
+  for (t = bitset_iterate (terms, &iter); t != -1; t = bitset_next_member (&iter))
+    {
+      QO_TERM *term = QO_ENV_TERM (env, t);
+      sum += qo_get_join_term_cost_weight (term);
+    }
+
+  return sum;
+}
+
+double
+qo_get_nljoin_term_cpu_overhead (QO_PLAN * planp, double guessed_result_cardinality)
+{
+  double join_term_weight_sum = 0.0;
+
+  if (planp == NULL || planp->plan_type != QO_PLANTYPE_JOIN || planp->info == NULL || planp->info->env == NULL)
+    {
+      return 0.0;
+    }
+
+  if (guessed_result_cardinality <= 0.0)
+    {
+      return 0.0;
+    }
+
+  /*
+   * For temporary nl-join plans used only for inner-plan search,
+   * join-term bitsets may be empty even after explicit init.
+   * That is fine; the summed overhead will become 0.
+   */
+
+  join_term_weight_sum += qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.join_terms));
+
+  if (IS_OUTER_JOIN_TYPE (planp->plan_un.join.join_type))
+    {
+      join_term_weight_sum +=
+	qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.during_join_terms));
+    }
+
+  if (join_term_weight_sum <= 0.0)
+    {
+      return 0.0;
+    }
+
+  return guessed_result_cardinality * QO_CPU_WEIGHT * 0.5 * join_term_weight_sum;
 }
 
 double

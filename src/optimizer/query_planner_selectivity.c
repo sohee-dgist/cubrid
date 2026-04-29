@@ -20,6 +20,9 @@
 
 #include "config.h"
 #include "query_planner_internal.h"
+#include "query_planner_constants.h"
+
+int qo_index_cardinality (QO_ENV * env, PT_NODE * attr);
 
 double
 qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
@@ -191,53 +194,6 @@ qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
     }
 
   return total_selectivity;
-}
-
-double
-qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr)
-{
-  PT_NODE *lhs, *rhs;
-  DB_VALUE *host_var = NULL;
-  PRED_CLASS pc_lhs, pc_rhs;
-
-  double selectivity = 0.0;
-
-  PT_NODE *like_node = pt_expr;
-  bool success = false;
-
-  lhs = like_node->info.expr.arg1;
-  rhs = like_node->info.expr.arg2;
-
-  if (lhs && rhs)
-    {
-      pc_lhs = qo_classify (lhs);
-      pc_rhs = qo_classify (rhs);
-
-      if (pc_lhs == PC_ATTR)
-	{
-	  if (pc_rhs == PC_CONST)
-	    {
-	      host_var = &rhs->info.value.db_value;
-	    }
-	  else if (pc_rhs == PC_HOST_VAR)
-	    {
-	      host_var = &env->parser->host_variables[rhs->info.host_var.index];
-	    }
-
-	  histogram_get_like_selectivity (lhs, host_var, &selectivity, &success);
-
-	  if (!success)
-	    {
-	      selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
-	    }
-	}
-      else
-	{
-	  selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
-	}
-    }
-
-  return selectivity;
 }
 
 double
@@ -1138,4 +1094,51 @@ qo_classify (PT_NODE * attr)
     default:
       return PC_OTHER;
     }
+}
+
+double
+qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr)
+{
+  PT_NODE *lhs, *rhs;
+  DB_VALUE *host_var = NULL;
+  PRED_CLASS pc_lhs, pc_rhs;
+
+  double selectivity = 0.0;
+
+  PT_NODE *like_node = pt_expr;
+  bool success = false;
+
+  lhs = like_node->info.expr.arg1;
+  rhs = like_node->info.expr.arg2;
+
+  if (lhs && rhs)
+    {
+      pc_lhs = qo_classify (lhs);
+      pc_rhs = qo_classify (rhs);
+
+      if (pc_lhs == PC_ATTR)
+	{
+	  if (pc_rhs == PC_CONST)
+	    {
+	      host_var = &rhs->info.value.db_value;
+	    }
+	  else if (pc_rhs == PC_HOST_VAR)
+	    {
+	      host_var = &env->parser->host_variables[rhs->info.host_var.index];
+	    }
+
+	  histogram_get_like_selectivity (lhs, host_var, &selectivity, &success);
+
+	  if (!success)
+	    {
+	      selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
+	    }
+	}
+      else
+	{
+	  selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
+	}
+    }
+
+  return selectivity;
 }
