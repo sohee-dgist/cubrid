@@ -59,14 +59,14 @@
 #define QO_COST_WEIGHT_TEMPORAL_COMPARE        1.05
 
 /* string comparisons */
-#define QO_COST_WEIGHT_STRING_EQUAL            1.10
-#define QO_COST_WEIGHT_STRING_RANGE            1.25
-#define QO_COST_WEIGHT_STRING_COLLATION        1.50
+#define QO_COST_WEIGHT_STRING_EQUAL            3.00
+#define QO_COST_WEIGHT_STRING_RANGE            3.25
+#define QO_COST_WEIGHT_STRING_COLLATION        3.50
 
 /* LIKE family */
-#define QO_COST_WEIGHT_LIKE_PREFIX             1.40	/* e.g. 'abc%' */
-#define QO_COST_WEIGHT_LIKE_CONTAINS           2.50	/* e.g. '%abc%' */
-#define QO_COST_WEIGHT_LIKE_COMPLEX            3.00	/* mixed %, _, escapes */
+#define QO_COST_WEIGHT_LIKE_PREFIX             3.50	/* e.g. 'abc%' */
+#define QO_COST_WEIGHT_LIKE_CONTAINS           10.00	/* e.g. '%abc%' */
+#define QO_COST_WEIGHT_LIKE_COMPLEX            14.00	/* mixed %, _, escapes */
 
 /* joins */
 #define QO_COST_WEIGHT_JOIN_DEFAULT            1.00
@@ -78,16 +78,24 @@
 #define QO_COST_WEIGHT_MAX                     5.00
 
 /* MCV/hot-key join cardinality guard */
-#define QO_MCV_GUARD_MIN_FREQUENCY             0.05
+#define QO_MCV_GUARD_MIN_FREQUENCY             0.1
 #define QO_MCV_GUARD_SMALL_CARD_ABS            5.0
 #define QO_MCV_GUARD_SMALL_CARD_RATIO          0.0001
 #define QO_MCV_GUARD_MAX_BASE_SELECTIVITY      0.01
 #define QO_MCV_GUARD_MAX_SELECTIVITY_MULTIPLIER 5.0
 
 /* Delayed selective sarg repeated lookup penalty */
-#define QO_DELAYED_SARG_OUTER_CARD_THRESHOLD   10000.0
+#define QO_DELAYED_SARG_OUTER_CARD_THRESHOLD   1.0
 #define QO_DELAYED_SARG_PENALTY_FACTOR         0.25
-#define QO_DELAYED_SARG_PENALTY_MAX            5.0
+#define QO_DELAYED_SARG_PENALTY_MAX            2.0
+/* Bridge fanout amplification before residual filter */
+#define QO_READ_BEFORE_FILTER_RATIO_FLOOR      1.5
+#define QO_READ_BEFORE_FILTER_PENALTY_FACTOR   0.20
+#define QO_READ_BEFORE_FILTER_PENALTY_MAX      1.0
+/* Join-level bridge fanout penalty (edge-level amplification) */
+#define QO_BRIDGE_FANOUT_RATIO_FLOOR           4.0
+#define QO_BRIDGE_FANOUT_PENALTY_FACTOR        0.15
+#define QO_BRIDGE_FANOUT_PENALTY_MAX           2.0
 
 #define DEFAULT_NULL_SELECTIVITY (double) 0.01
 #define DEFAULT_EXISTS_SELECTIVITY (double) 0.1

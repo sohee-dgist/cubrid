@@ -4059,6 +4059,8 @@ static double
 qo_get_term_cost_weight (QO_TERM * term)
 {
   PT_NODE *expr;
+  PT_NODE *node;
+  double total_weight = 0.0;
 
   if (term == NULL)
     {
@@ -4071,66 +4073,106 @@ qo_get_term_cost_weight (QO_TERM * term)
       return QO_COST_WEIGHT_PRED_DEFAULT;
     }
 
-  switch (expr->info.expr.op)
+  for (node = expr; node != NULL; node = node->or_next)
     {
-    case PT_EQ:
-    case PT_NE:
-      {
-	PT_NODE *lhs = expr->info.expr.arg1;
-	PT_NODE *rhs = expr->info.expr.arg2;
+      double weight = QO_COST_WEIGHT_PRED_DEFAULT;
 
-	if (lhs != NULL && lhs->type_enum == PT_TYPE_CHAR)
-	  {
-	    return QO_COST_WEIGHT_STRING_EQUAL;
-	  }
-	if (lhs != NULL && lhs->type_enum == PT_TYPE_VARCHAR)
-	  {
-	    return QO_COST_WEIGHT_STRING_EQUAL;
-	  }
-	return QO_COST_WEIGHT_NUMERIC_COMPARE;
-      }
+      if (node->node_type != PT_EXPR)
+	{
+	  continue;
+	}
 
-    case PT_LT:
-    case PT_LE:
-    case PT_GT:
-    case PT_GE:
-      {
-	PT_NODE *lhs = expr->info.expr.arg1;
-	if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+      switch (node->info.expr.op)
+	{
+	case PT_EQ:
+	case PT_NE:
 	  {
-	    return QO_COST_WEIGHT_STRING_RANGE;
-	  }
-	return QO_COST_WEIGHT_NUMERIC_COMPARE;
-      }
+	    PT_NODE *lhs = node->info.expr.arg1;
 
-    case PT_LIKE:
-      {
-	PT_NODE *rhs = expr->info.expr.arg2;
-
-	if (rhs != NULL && rhs->node_type == PT_VALUE)
-	  {
-	    const char *pat = db_get_string (&rhs->info.value.db_value);
-	    if (pat != NULL)
+	    if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
 	      {
-		const char *pct = strchr (pat, '%');
-		const char *und = strchr (pat, '_');
+		weight = QO_COST_WEIGHT_STRING_EQUAL;
+	      }
+	    else
+	      {
+		weight = QO_COST_WEIGHT_NUMERIC_COMPARE;
+	      }
+	    break;
+	  }
 
-		if (pct != NULL && pct[1] == '\0' && und == NULL && pct != pat)
+	case PT_LT:
+	case PT_LE:
+	case PT_GT:
+	case PT_GE:
+	  {
+	    PT_NODE *lhs = node->info.expr.arg1;
+	    if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	      {
+		weight = QO_COST_WEIGHT_STRING_RANGE;
+	      }
+	    else
+	      {
+		weight = QO_COST_WEIGHT_NUMERIC_COMPARE;
+	      }
+	    break;
+	  }
+
+	case PT_LIKE:
+	case PT_NOT_LIKE:
+	  {
+	    PT_NODE *rhs = node->info.expr.arg2;
+
+	    if (rhs != NULL && rhs->node_type == PT_VALUE)
+	      {
+		const char *pat = db_get_string (&rhs->info.value.db_value);
+		if (pat != NULL)
 		  {
-		    return QO_COST_WEIGHT_LIKE_PREFIX;
+		    const char *pct = strchr (pat, '%');
+		    const char *und = strchr (pat, '_');
+
+		    if (pct != NULL && pct[1] == '\0' && und == NULL && pct != pat)
+		      {
+			weight = QO_COST_WEIGHT_LIKE_PREFIX;
+		      }
+		    else if (pat[0] == '%' || und != NULL)
+		      {
+			weight = QO_COST_WEIGHT_LIKE_CONTAINS;
+		      }
+		    else
+		      {
+			weight = QO_COST_WEIGHT_LIKE_COMPLEX;
+		      }
 		  }
-		if (pat[0] == '%' || und != NULL)
+		else
 		  {
-		    return QO_COST_WEIGHT_LIKE_CONTAINS;
+		    weight = QO_COST_WEIGHT_LIKE_COMPLEX;
 		  }
 	      }
+	    else
+	      {
+		weight = QO_COST_WEIGHT_LIKE_COMPLEX;
+	      }
+	    break;
 	  }
-	return QO_COST_WEIGHT_LIKE_COMPLEX;
-      }
 
-    default:
+	case PT_LIKE_ESCAPE:
+	  weight = QO_COST_WEIGHT_LIKE_COMPLEX;
+	  break;
+
+	default:
+	  weight = QO_COST_WEIGHT_PRED_DEFAULT;
+	  break;
+	}
+
+      total_weight += weight;
+    }
+
+  if (total_weight <= 0.0)
+    {
       return QO_COST_WEIGHT_PRED_DEFAULT;
     }
+
+  return total_weight;
 }
 
 static bool
@@ -4158,6 +4200,7 @@ static double
 qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * tail_info,
 				double base_cardinality, double term_sel)
 {
+  const double mcv_freq_floor = QO_MCV_GUARD_MIN_FREQUENCY;
   double effective_mcv_max_frequency;
   double head_card, tail_card, small_card, large_card;
   bool head_small, tail_small;
@@ -4202,7 +4245,11 @@ qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * t
   effective_mcv_max_frequency =
     head_small ? QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) : QO_TERM_HEAD_MCV_MAX_FREQUENCY (term);
 
-  if (effective_mcv_max_frequency < QO_MCV_GUARD_MIN_FREQUENCY)
+  /*
+   * For heavy fanout joins (e.g. movie_id chains), a hot key can still be meaningful
+   * even when MCV max frequency is below the historical guard threshold.
+   */
+  if (effective_mcv_max_frequency < mcv_freq_floor)
     {
       return term_sel;
     }
@@ -4238,8 +4285,15 @@ static double
 qo_get_delayed_sarg_lookup_penalty (QO_PLAN * planp, double guessed_outer_cardinality)
 {
   QO_PLAN *inner;
-  double data_filter_weight;
+  double residual_filter_weight;
+  double join_term_weight;
+  double delayed_component;
+  double read_before_filter_component;
+  double bridge_fanout_component;
+  double read_before_filter_ratio;
+  double capped_component;
   double penalty;
+  bool strong_bridge_fanout;
 
   if (planp == NULL || planp->plan_type != QO_PLANTYPE_JOIN)
     {
@@ -4269,18 +4323,8 @@ qo_get_delayed_sarg_lookup_penalty (QO_PLAN * planp, double guessed_outer_cardin
       return 1.0;
     }
 
-  if (guessed_outer_cardinality < QO_DELAYED_SARG_OUTER_CARD_THRESHOLD)
-    {
-      return 1.0;
-    }
-
-  if (bitset_is_empty (&inner->sarged_terms))
-    {
-      return 1.0;
-    }
-
-  data_filter_weight = qo_sum_bitset_term_cost_weights (inner->info->env, &inner->sarged_terms);
-  if (data_filter_weight <= 0.0)
+  residual_filter_weight = qo_sum_bitset_term_cost_weights (inner->info->env, &inner->sarged_terms);
+  if (residual_filter_weight <= 0.0)
     {
       return 1.0;
     }
@@ -4293,9 +4337,63 @@ qo_get_delayed_sarg_lookup_penalty (QO_PLAN * planp, double guessed_outer_cardin
    * - n.name LIKE 'B%' remains as a sarg/data filter
    * - outer cardinality is large
    */
-  penalty = 1.0
-    + MIN (QO_DELAYED_SARG_PENALTY_MAX,
-	   data_filter_weight * log10 (MAX (10.0, guessed_outer_cardinality)) * QO_DELAYED_SARG_PENALTY_FACTOR);
+  delayed_component =
+    residual_filter_weight * log10 (MAX (10.0, guessed_outer_cardinality)) * QO_DELAYED_SARG_PENALTY_FACTOR;
+  delayed_component = MIN (QO_DELAYED_SARG_PENALTY_MAX, delayed_component);
+
+  read_before_filter_component = 0.0;
+  read_before_filter_ratio = 1.0;
+  if (inner->info->cardinality > 0.0)
+    {
+      read_before_filter_ratio = inner->info->total_rows / inner->info->cardinality;
+      read_before_filter_ratio = MAX (1.0, read_before_filter_ratio);
+    }
+  strong_bridge_fanout = (read_before_filter_ratio > QO_BRIDGE_FANOUT_RATIO_FLOOR);
+
+  /*
+   * Keep threshold behavior for tiny outers only when there is no strong
+   * fanout signal from the inner side.
+   */
+  if (guessed_outer_cardinality < QO_DELAYED_SARG_OUTER_CARD_THRESHOLD && !strong_bridge_fanout)
+    {
+      return 1.0;
+    }
+
+  /*
+   * Penalize bridge-like fanout where a large amount is read before residual
+   * filter terms can discard rows.
+   */
+  if (read_before_filter_ratio > QO_READ_BEFORE_FILTER_RATIO_FLOOR)
+    {
+      read_before_filter_component =
+	residual_filter_weight * log10 (read_before_filter_ratio) * QO_READ_BEFORE_FILTER_PENALTY_FACTOR;
+      read_before_filter_component = MIN (QO_READ_BEFORE_FILTER_PENALTY_MAX, read_before_filter_component);
+    }
+
+  bridge_fanout_component = 0.0;
+  if (read_before_filter_ratio > QO_BRIDGE_FANOUT_RATIO_FLOOR)
+    {
+      join_term_weight = 0.0;
+
+      if (BITSET_IS_VALID (&(planp->plan_un.join.join_terms)))
+	{
+	  join_term_weight += qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.join_terms));
+	}
+      if (BITSET_IS_VALID (&(planp->plan_un.join.during_join_terms)))
+	{
+	  join_term_weight += qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.during_join_terms));
+	}
+
+      join_term_weight = MAX (1.0, join_term_weight);
+      bridge_fanout_component =
+	log10 (read_before_filter_ratio) * join_term_weight * QO_BRIDGE_FANOUT_PENALTY_FACTOR;
+      bridge_fanout_component = MIN (QO_BRIDGE_FANOUT_PENALTY_MAX, bridge_fanout_component);
+    }
+
+  capped_component =
+    MIN (QO_DELAYED_SARG_PENALTY_MAX + QO_READ_BEFORE_FILTER_PENALTY_MAX + QO_BRIDGE_FANOUT_PENALTY_MAX,
+	 delayed_component + read_before_filter_component + bridge_fanout_component);
+  penalty = 1.0 + capped_component;
 
   return penalty;
 }
