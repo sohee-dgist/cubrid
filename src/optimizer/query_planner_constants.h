@@ -77,10 +77,12 @@
 #define QO_COST_WEIGHT_MIN                     0.50
 #define QO_COST_WEIGHT_MAX                     5.00
 
+/* sequential scan */
+#define QO_SSCAN_FILTER_CPU_FACTOR             2.50
+
 /* MCV/hot-key join cardinality guard */
 #define QO_MCV_GUARD_MIN_FREQUENCY             0.1
 #define QO_MCV_GUARD_SMALL_CARD_ABS            5.0
-#define QO_MCV_GUARD_SINGLE_KEY_CARD_ABS       1.5
 #define QO_MCV_GUARD_SMALL_CARD_RATIO          0.0001
 #define QO_MCV_GUARD_MAX_BASE_SELECTIVITY      0.01
 #define QO_MCV_GUARD_MAX_SELECTIVITY_MULTIPLIER 5.0
@@ -97,6 +99,10 @@
 #define QO_BRIDGE_FANOUT_RATIO_FLOOR           4.0
 #define QO_BRIDGE_FANOUT_PENALTY_FACTOR        0.15
 #define QO_BRIDGE_FANOUT_PENALTY_MAX           2.0
+/* Skewed FK-like lookup uncertainty when the joined value is unknown */
+#define QO_SKEW_UNCERTAINTY_RATIO_FLOOR        4.0
+#define QO_SKEW_UNCERTAINTY_PENALTY_FACTOR     0.20
+#define QO_SKEW_UNCERTAINTY_PENALTY_MAX        1.0
 
 #define DEFAULT_NULL_SELECTIVITY (double) 0.01
 #define DEFAULT_EXISTS_SELECTIVITY (double) 0.1

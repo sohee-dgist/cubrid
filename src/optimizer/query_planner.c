@@ -185,6 +185,7 @@ static double qo_get_term_cost_weight (QO_TERM *);
 static bool qo_info_is_small_filtered_side (QO_INFO *);
 static double qo_apply_mcv_hotkey_join_guard (QO_TERM *, QO_INFO *, QO_INFO *, double, double);
 static double qo_get_delayed_sarg_lookup_penalty (QO_PLAN *, double);
+static double qo_get_skew_uncertainty_lookup_penalty (QO_PLAN *);
 
 static void qo_estimate_ngroups (QO_PLAN *, SORT_TYPE);
 static int qo_get_group_ndv (QO_PLAN *, SORT_TYPE);
@@ -1666,7 +1667,7 @@ qo_sscan_cost (QO_PLAN * planp)
 
   extra_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(QO_NODE_SARGS (nodep)));
 
-  planp->variable_cpu_cost += scan_rows * QO_CPU_WEIGHT * extra_weight;
+  planp->variable_cpu_cost += scan_rows * QO_CPU_WEIGHT * extra_weight * QO_SSCAN_FILTER_CPU_FACTOR;
   planp->variable_io_cost = (double) QO_NODE_TCARD (nodep);
 
 #if TEST_DUMP_PLAN_SCAN_COST
@@ -3451,13 +3452,17 @@ qo_nljoin_cost (QO_PLAN * planp)
 
   {
     double delayed_sarg_penalty;
+    double skew_uncertainty_penalty;
+    double lookup_penalty;
 
     delayed_sarg_penalty = qo_get_delayed_sarg_lookup_penalty (planp, guessed_result_cardinality);
+    skew_uncertainty_penalty = qo_get_skew_uncertainty_lookup_penalty (planp);
+    lookup_penalty = delayed_sarg_penalty * skew_uncertainty_penalty;
 
-    if (delayed_sarg_penalty > 1.0)
+    if (lookup_penalty > 1.0)
       {
-	inner_cpu_cost *= delayed_sarg_penalty;
-	inner_io_cost *= delayed_sarg_penalty;
+	inner_cpu_cost *= lookup_penalty;
+	inner_io_cost *= lookup_penalty;
       }
   }
   /* outer side CPU cost of nested-loop block join */
@@ -4197,45 +4202,6 @@ qo_info_is_small_filtered_side (QO_INFO * info)
   return false;
 }
 
-static bool
-qo_get_large_side_join_ndv (QO_TERM * term, QO_INFO * large_info, INT64 * out_ndv)
-{
-  const BITSET *term_segs;
-  BITSET_ITERATOR seg_iter;
-  int seg_idx;
-
-  if (term == NULL || large_info == NULL || out_ndv == NULL)
-    {
-      return false;
-    }
-
-  term_segs = (const BITSET *) &(QO_TERM_SEGS (term));
-  if (bitset_cardinality (term_segs) != 2)
-    {
-      return false;
-    }
-
-  for (seg_idx = bitset_iterate (term_segs, &seg_iter); seg_idx != -1; seg_idx = bitset_next_member (&seg_iter))
-    {
-      QO_SEGMENT *seg = QO_ENV_SEG (QO_TERM_ENV (term), seg_idx);
-      QO_NODE *node;
-
-      if (seg == NULL || QO_SEG_INFO (seg) == NULL || QO_SEG_INFO (seg)->ndv <= 0)
-	{
-	  continue;
-	}
-
-      node = QO_SEG_HEAD (seg);
-      if (node != NULL && BITSET_MEMBER (large_info->nodes, QO_NODE_IDX (node)))
-	{
-	  *out_ndv = QO_SEG_INFO (seg)->ndv;
-	  return true;
-	}
-    }
-
-  return false;
-}
-
 static double
 qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * tail_info,
 				double base_cardinality, double term_sel)
@@ -4243,7 +4209,6 @@ qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * t
   const double mcv_freq_floor = QO_MCV_GUARD_MIN_FREQUENCY;
   double effective_mcv_max_frequency;
   double head_card, tail_card, small_card, large_card;
-  QO_INFO *large_info;
   bool head_small, tail_small;
   double risk_fanout, risk_card, risk_sel;
 
@@ -4283,27 +4248,8 @@ qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * t
 
   small_card = head_small ? head_card : tail_card;
   large_card = head_small ? tail_card : head_card;
-//   large_info = head_small ? tail_info : head_info;
   effective_mcv_max_frequency =
     head_small ? QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) : QO_TERM_HEAD_MCV_MAX_FREQUENCY (term);
-
-//   /*
-//    * When a dimension side is reduced to a single key, max-MCV from the fact
-//    * side is not value-specific enough.  Cap the edge selectivity by the
-//    * large-side join NDV so a sparse key does not inherit an unrelated hot
-//    * key's frequency.
-//    */
-//   if (small_card <= QO_MCV_GUARD_SINGLE_KEY_CARD_ABS)
-//     {
-//       INT64 large_ndv = 0;
-
-//       if (qo_get_large_side_join_ndv (term, large_info, &large_ndv) && large_ndv > 0)
-// 	{
-// 	  term_sel = MIN (term_sel, 1.0 / (double) large_ndv);
-// 	}
-
-//       return MIN (term_sel, 1.0);
-//     }
 
   /*
    * For heavy fanout joins (e.g. movie_id chains), a hot key can still be meaningful
@@ -4441,12 +4387,12 @@ qo_get_delayed_sarg_lookup_penalty (QO_PLAN * planp, double guessed_outer_cardin
 	}
       if (BITSET_IS_VALID (&(planp->plan_un.join.during_join_terms)))
 	{
-	  join_term_weight += qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.during_join_terms));
+	  join_term_weight +=
+	    qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.during_join_terms));
 	}
 
       join_term_weight = MAX (1.0, join_term_weight);
-      bridge_fanout_component =
-	log10 (read_before_filter_ratio) * join_term_weight * QO_BRIDGE_FANOUT_PENALTY_FACTOR;
+      bridge_fanout_component = log10 (read_before_filter_ratio) * join_term_weight * QO_BRIDGE_FANOUT_PENALTY_FACTOR;
       bridge_fanout_component = MIN (QO_BRIDGE_FANOUT_PENALTY_MAX, bridge_fanout_component);
     }
 
@@ -4456,6 +4402,118 @@ qo_get_delayed_sarg_lookup_penalty (QO_PLAN * planp, double guessed_outer_cardin
   penalty = 1.0 + capped_component;
 
   return penalty;
+}
+
+static double
+qo_get_skew_uncertainty_lookup_penalty (QO_PLAN * planp)
+{
+  BITSET_ITERATOR iter;
+  int t;
+  double component = 0.0;
+
+  if (planp == NULL || planp->plan_type != QO_PLANTYPE_JOIN)
+    {
+      return 1.0;
+    }
+
+  if (!QO_IS_NL_JOIN (planp) || !BITSET_IS_VALID (&(planp->plan_un.join.join_terms)))
+    {
+      return 1.0;
+    }
+
+  if (planp->plan_un.join.outer == NULL || planp->plan_un.join.inner == NULL)
+    {
+      return 1.0;
+    }
+  if (planp->plan_un.join.outer->info == NULL || planp->plan_un.join.inner->info == NULL)
+    {
+      return 1.0;
+    }
+
+  /*
+   * Do not penalize the first dimension-to-fact lookup itself.  Queries such as
+   * JOB 1a intentionally start from a selective dimension value.  The risk this
+   * models is the repeated lookup work after a skewed FK-like result has already
+   * entered a join prefix.
+   */
+  if (bitset_cardinality (&(planp->plan_un.join.outer->info->nodes)) <= 1)
+    {
+      return 1.0;
+    }
+
+  for (t = bitset_iterate (&(planp->plan_un.join.join_terms), &iter); t != -1; t = bitset_next_member (&iter))
+    {
+      QO_TERM *term = QO_ENV_TERM (planp->info->env, t);
+      QO_INFO *head_info, *tail_info;
+      double head_card, tail_card, small_card;
+      double large_mcv_freq;
+      double avg_freq;
+      double skew_ratio;
+      bool head_small, tail_small;
+
+      if (term == NULL || !QO_TERM_IS_FLAGED (term, QO_TERM_EQUAL_OP))
+	{
+	  continue;
+	}
+
+      if (QO_TERM_HEAD (term) == NULL || QO_TERM_TAIL (term) == NULL)
+	{
+	  continue;
+	}
+
+      if (BITSET_MEMBER (planp->plan_un.join.outer->info->nodes, QO_NODE_IDX (QO_TERM_HEAD (term))))
+	{
+	  head_info = planp->plan_un.join.outer->info;
+	  tail_info = planp->plan_un.join.inner->info;
+	}
+      else
+	{
+	  head_info = planp->plan_un.join.inner->info;
+	  tail_info = planp->plan_un.join.outer->info;
+	}
+
+      if (head_info == NULL || tail_info == NULL)
+	{
+	  continue;
+	}
+
+      head_card = MAX (1.0, head_info->cardinality);
+      tail_card = MAX (1.0, tail_info->cardinality);
+      head_small = qo_info_is_small_filtered_side (head_info);
+      tail_small = qo_info_is_small_filtered_side (tail_info);
+
+      if (head_small == tail_small)
+	{
+	  continue;
+	}
+
+      small_card = head_small ? head_card : tail_card;
+      if (small_card > QO_MCV_GUARD_SMALL_CARD_ABS)
+	{
+	  continue;
+	}
+
+      large_mcv_freq = head_small ? QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) : QO_TERM_HEAD_MCV_MAX_FREQUENCY (term);
+      avg_freq = QO_TERM_SELECTIVITY (term);
+      if (large_mcv_freq <= 0.0 || avg_freq <= 0.0)
+	{
+	  continue;
+	}
+
+      skew_ratio = large_mcv_freq / avg_freq;
+      if (skew_ratio > QO_SKEW_UNCERTAINTY_RATIO_FLOOR)
+	{
+	  component += log10 (skew_ratio) * QO_SKEW_UNCERTAINTY_PENALTY_FACTOR;
+	}
+    }
+
+  component = MIN (component, QO_SKEW_UNCERTAINTY_PENALTY_MAX);
+  if (component <= 0.0)
+    {
+      return 1.0;
+    }
+
+  return 1.0 + component;
 }
 
 /*
