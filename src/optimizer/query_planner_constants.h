@@ -80,6 +80,7 @@
 /* MCV/hot-key join cardinality guard */
 #define QO_MCV_GUARD_MIN_FREQUENCY             0.1
 #define QO_MCV_GUARD_SMALL_CARD_ABS            5.0
+#define QO_MCV_GUARD_SINGLE_KEY_CARD_ABS       1.5
 #define QO_MCV_GUARD_SMALL_CARD_RATIO          0.0001
 #define QO_MCV_GUARD_MAX_BASE_SELECTIVITY      0.01
 #define QO_MCV_GUARD_MAX_SELECTIVITY_MULTIPLIER 5.0

@@ -216,7 +216,8 @@ static double planner_nodeset_join_cost (QO_PLANNER *, BITSET *);
 static void planner_permutate (QO_PLANNER *, QO_PARTITION *, PT_HINT_ENUM, QO_NODE *, BITSET *, BITSET *, BITSET *,
 			       BITSET *, BITSET *, BITSET *, BITSET *, int, int *);
 
-static QO_PLAN *qo_find_best_nljoin_inner_plan_on_info (QO_PLAN *, QO_INFO *, JOIN_TYPE, int);
+static QO_PLAN *qo_find_best_nljoin_inner_plan_on_info (QO_PLAN *, QO_INFO *, JOIN_TYPE, BITSET *, BITSET *,
+							BITSET *, int);
 static QO_PLAN *qo_find_best_plan_on_info (QO_INFO *, QO_EQCLASS *, double);
 static bool qo_check_new_best_plan_on_info (QO_INFO *, QO_PLAN *);
 static int qo_check_plan_on_info (QO_INFO *, QO_PLAN *);
@@ -4196,6 +4197,45 @@ qo_info_is_small_filtered_side (QO_INFO * info)
   return false;
 }
 
+static bool
+qo_get_large_side_join_ndv (QO_TERM * term, QO_INFO * large_info, INT64 * out_ndv)
+{
+  const BITSET *term_segs;
+  BITSET_ITERATOR seg_iter;
+  int seg_idx;
+
+  if (term == NULL || large_info == NULL || out_ndv == NULL)
+    {
+      return false;
+    }
+
+  term_segs = (const BITSET *) &(QO_TERM_SEGS (term));
+  if (bitset_cardinality (term_segs) != 2)
+    {
+      return false;
+    }
+
+  for (seg_idx = bitset_iterate (term_segs, &seg_iter); seg_idx != -1; seg_idx = bitset_next_member (&seg_iter))
+    {
+      QO_SEGMENT *seg = QO_ENV_SEG (QO_TERM_ENV (term), seg_idx);
+      QO_NODE *node;
+
+      if (seg == NULL || QO_SEG_INFO (seg) == NULL || QO_SEG_INFO (seg)->ndv <= 0)
+	{
+	  continue;
+	}
+
+      node = QO_SEG_HEAD (seg);
+      if (node != NULL && BITSET_MEMBER (large_info->nodes, QO_NODE_IDX (node)))
+	{
+	  *out_ndv = QO_SEG_INFO (seg)->ndv;
+	  return true;
+	}
+    }
+
+  return false;
+}
+
 static double
 qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * tail_info,
 				double base_cardinality, double term_sel)
@@ -4203,6 +4243,7 @@ qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * t
   const double mcv_freq_floor = QO_MCV_GUARD_MIN_FREQUENCY;
   double effective_mcv_max_frequency;
   double head_card, tail_card, small_card, large_card;
+  QO_INFO *large_info;
   bool head_small, tail_small;
   double risk_fanout, risk_card, risk_sel;
 
@@ -4242,8 +4283,27 @@ qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * t
 
   small_card = head_small ? head_card : tail_card;
   large_card = head_small ? tail_card : head_card;
+//   large_info = head_small ? tail_info : head_info;
   effective_mcv_max_frequency =
     head_small ? QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) : QO_TERM_HEAD_MCV_MAX_FREQUENCY (term);
+
+//   /*
+//    * When a dimension side is reduced to a single key, max-MCV from the fact
+//    * side is not value-specific enough.  Cap the edge selectivity by the
+//    * large-side join NDV so a sparse key does not inherit an unrelated hot
+//    * key's frequency.
+//    */
+//   if (small_card <= QO_MCV_GUARD_SINGLE_KEY_CARD_ABS)
+//     {
+//       INT64 large_ndv = 0;
+
+//       if (qo_get_large_side_join_ndv (term, large_info, &large_ndv) && large_ndv > 0)
+// 	{
+// 	  term_sel = MIN (term_sel, 1.0 / (double) large_ndv);
+// 	}
+
+//       return MIN (term_sel, 1.0);
+//     }
 
   /*
    * For heavy fanout joins (e.g. movie_id chains), a hot key can still be meaningful
@@ -6427,7 +6487,8 @@ qo_check_plan_on_info (QO_INFO * info, QO_PLAN * plan)
  *   idx_join_plan_n(in):
  */
 static QO_PLAN *
-qo_find_best_nljoin_inner_plan_on_info (QO_PLAN * outer, QO_INFO * info, JOIN_TYPE join_type, int idx_join_plan_n)
+qo_find_best_nljoin_inner_plan_on_info (QO_PLAN * outer, QO_INFO * info, JOIN_TYPE join_type, BITSET * join_terms,
+					BITSET * duj_terms, BITSET * afj_terms, int idx_join_plan_n)
 {
   QO_PLANVEC *pv;
   QO_PLAN *temp, *best_plan, *inner;
@@ -6454,6 +6515,17 @@ qo_find_best_nljoin_inner_plan_on_info (QO_PLAN * outer, QO_INFO * info, JOIN_TY
   temp->plan_type = QO_PLANTYPE_JOIN;
   temp->plan_un.join.join_type = join_type;	/* set nl-join type */
   temp->plan_un.join.outer = outer;	/* set outer */
+
+  bitset_init (&(temp->plan_un.join.join_terms), info->env);
+  bitset_init (&(temp->plan_un.join.during_join_terms), info->env);
+  bitset_init (&(temp->plan_un.join.after_join_terms), info->env);
+
+  bitset_assign (&(temp->plan_un.join.join_terms), join_terms);
+  if (IS_OUTER_JOIN_TYPE (join_type))
+    {
+      bitset_assign (&(temp->plan_un.join.during_join_terms), duj_terms);
+      bitset_assign (&(temp->plan_un.join.after_join_terms), afj_terms);
+    }
 
   temp->multi_range_opt_use = PLAN_MULTI_RANGE_OPT_NO;
 
@@ -6484,6 +6556,9 @@ qo_find_best_nljoin_inner_plan_on_info (QO_PLAN * outer, QO_INFO * info, JOIN_TY
   /* free temp plan */
   temp->plan_un.join.outer = NULL;
   temp->plan_un.join.inner = NULL;
+  bitset_delset (&(temp->plan_un.join.join_terms));
+  bitset_delset (&(temp->plan_un.join.during_join_terms));
+  bitset_delset (&(temp->plan_un.join.after_join_terms));
 
   qo_plan_add_to_free_list (temp, NULL);
 
@@ -6685,7 +6760,9 @@ qo_examine_nl_join (QO_INFO * info, JOIN_TYPE join_type, QO_INFO * outer, QO_INF
 	{
 	  goto exit;
 	}
-      inner_plan = qo_find_best_nljoin_inner_plan_on_info (outer_plan, outer, join_type, idx_join_plan_n);
+      inner_plan =
+	qo_find_best_nljoin_inner_plan_on_info (outer_plan, outer, join_type, nl_join_terms, duj_terms, afj_terms,
+						idx_join_plan_n);
       if (inner_plan == NULL)
 	{
 	  goto exit;
@@ -6719,7 +6796,9 @@ qo_examine_nl_join (QO_INFO * info, JOIN_TYPE join_type, QO_INFO * outer, QO_INF
 	{
 	  goto exit;
 	}
-      inner_plan = qo_find_best_nljoin_inner_plan_on_info (outer_plan, inner, join_type, idx_join_plan_n);
+      inner_plan =
+	qo_find_best_nljoin_inner_plan_on_info (outer_plan, inner, join_type, nl_join_terms, duj_terms, afj_terms,
+						idx_join_plan_n);
       if (inner_plan == NULL)
 	{
 	  goto exit;
