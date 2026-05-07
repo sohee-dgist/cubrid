@@ -4277,11 +4277,12 @@ qo_apply_mcv_hotkey_join_guard (QO_TERM * term, QO_INFO * head_info, QO_INFO * t
   risk_sel = risk_card / base_cardinality;
   risk_sel = MIN (risk_sel, term_sel * QO_MCV_GUARD_MAX_SELECTIVITY_MULTIPLIER);
 
-  if (risk_sel > term_sel)
+  if (risk_sel < term_sel)
     {
-      term_sel = risk_sel;
+      risk_sel = MAX (risk_sel, term_sel * QO_MCV_GUARD_MIN_SELECTIVITY_MULTIPLIER);
     }
 
+  term_sel = risk_sel;
   term_sel = MIN (term_sel, 1.0);
 
   return term_sel;

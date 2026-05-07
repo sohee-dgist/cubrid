@@ -78,14 +78,15 @@
 #define QO_COST_WEIGHT_MAX                     5.00
 
 /* sequential scan */
-#define QO_SSCAN_FILTER_CPU_FACTOR             2.50
+#define QO_SSCAN_FILTER_CPU_FACTOR             5.00
 
 /* MCV/hot-key join cardinality guard */
 #define QO_MCV_GUARD_MIN_FREQUENCY             0.1
 #define QO_MCV_GUARD_SMALL_CARD_ABS            5.0
 #define QO_MCV_GUARD_SMALL_CARD_RATIO          0.0001
 #define QO_MCV_GUARD_MAX_BASE_SELECTIVITY      0.01
-#define QO_MCV_GUARD_MAX_SELECTIVITY_MULTIPLIER 5.0
+#define QO_MCV_GUARD_MAX_SELECTIVITY_MULTIPLIER 8.0
+#define QO_MCV_GUARD_MIN_SELECTIVITY_MULTIPLIER 0.5
 
 /* Delayed selective sarg repeated lookup penalty */
 #define QO_DELAYED_SARG_OUTER_CARD_THRESHOLD   1.0
