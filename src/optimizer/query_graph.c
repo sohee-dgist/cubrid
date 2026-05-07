@@ -520,7 +520,7 @@ qo_optimize_helper (QO_ENV * env)
 		}
 
 	      conj->next = next;
-	    }
+	    }			/* for (j = 0; ...) */
 	}
     }
 
@@ -2226,7 +2226,7 @@ qo_analyze_term (QO_TERM * term, int term_type)
 		    {
 		      lhs_indexable = false;
 		    }
-		  break;
+		  break;	/* give up */
 		default:
 		  lhs_indexable = false;
 		  break;
