@@ -525,7 +525,6 @@ CT_CLASS ct_Indexkey = {
   ct_indexkey_atts
 };
 
-
 CT_CLASS *ct_Classes[] = {
   &ct_Class,
   &ct_Attribute,
