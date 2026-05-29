@@ -68,10 +68,136 @@ static int qdata_aggregate_interpolation (cubthread::entry *thread_p, cubxasl::a
 
 static int qdata_group_concat_first_value (THREAD_ENTRY *thread_p, AGGREGATE_TYPE *agg_p, DB_VALUE *dbvalue);
 static int qdata_group_concat_value (THREAD_ENTRY *thread_p, AGGREGATE_TYPE *agg_p, DB_VALUE *dbvalue);
+static int qdata_count_distinct_runs_from_sorted_list (cubthread::entry *thread_p, QFILE_LIST_ID *list_id_p,
+    TP_DOMAIN *domain, INT64 *d_out, INT64 *f1_out);
 
 //
 // implementation
 //
+
+/*
+ * qdata_count_distinct_runs_from_sorted_list () - count sample distinct (d) and singletons (f1)
+ *
+ * The list must be sorted so equal values are adjacent (Q_ALL sort during UPDATE STATISTICS).
+ * A "run" is a maximal sequence of equal values; run length 1 contributes to f1, every run
+ * contributes one to d.
+ */
+static int
+qdata_count_distinct_runs_from_sorted_list (cubthread::entry *thread_p, QFILE_LIST_ID *list_id_p, TP_DOMAIN *domain,
+    INT64 *d_out, INT64 *f1_out)
+{
+  QFILE_LIST_SCAN_ID scan_id;
+  QFILE_TUPLE_RECORD tuple_record = { NULL, 0 };
+  SCAN_CODE scan_code;
+  const PR_TYPE *pr_type_p;
+  OR_BUF buf;
+  DB_VALUE dbval;
+  DB_VALUE prev_dbval;
+  INT64 d = 0;
+  INT64 f1 = 0;
+  INT64 run_len = 0;
+  int error = NO_ERROR;
+  int collation_id;
+  char *tuple_p;
+
+  *d_out = 0;
+  *f1_out = 0;
+
+  if (list_id_p == NULL || list_id_p->tuple_cnt <= 0 || domain == NULL)
+    {
+      return NO_ERROR;
+    }
+
+  pr_type_p = domain->type;
+  if (pr_type_p == NULL)
+    {
+      return ER_FAILED;
+    }
+
+  collation_id = TP_DOMAIN_COLLATION (domain);
+
+  db_make_null (&prev_dbval);
+  db_make_null (&dbval);
+
+  error = qfile_open_list_scan (list_id_p, &scan_id);
+  if (error != NO_ERROR)
+    {
+      return error;
+    }
+
+  while (true)
+    {
+      scan_code = qfile_scan_list_next (thread_p, &scan_id, &tuple_record, PEEK);
+
+      if (scan_code == S_ERROR && er_has_error ())
+	{
+	  ASSERT_ERROR_AND_SET (error);
+	  goto exit;
+	}
+
+      if (scan_code != S_SUCCESS)
+	{
+	  break;
+	}
+
+      tuple_p = ((char *) tuple_record.tpl + QFILE_TUPLE_LENGTH_SIZE);
+      if (QFILE_GET_TUPLE_VALUE_FLAG (tuple_p) == V_UNBOUND)
+	{
+	  continue;
+	}
+
+      or_init (&buf, (char *) tuple_p + QFILE_TUPLE_VALUE_HEADER_SIZE, QFILE_GET_TUPLE_VALUE_LENGTH (tuple_p));
+
+      (void) pr_clear_value (&dbval);
+      error = pr_type_p->data_readval (&buf, &dbval, domain, -1, true, NULL, 0);
+      if (error != NO_ERROR)
+	{
+	  ASSERT_ERROR ();
+	  goto exit;
+	}
+
+      if (run_len == 0)
+	{
+	  pr_clear_value (&prev_dbval);
+	  pr_clone_value (&dbval, &prev_dbval);
+	  run_len = 1;
+	}
+      else if (pr_type_p->cmpval (&prev_dbval, &dbval, 1, 1, NULL, collation_id) == 0)
+	{
+	  run_len++;
+	}
+      else
+	{
+	  if (run_len == 1)
+	    {
+	      f1++;
+	    }
+	  d++;
+	  run_len = 1;
+	  pr_clear_value (&prev_dbval);
+	  pr_clone_value (&dbval, &prev_dbval);
+	}
+    }
+
+  if (run_len == 1)
+    {
+      f1++;
+    }
+  if (run_len > 0)
+    {
+      d++;
+    }
+
+  *d_out = d;
+  *f1_out = f1;
+
+exit:
+  pr_clear_value (&prev_dbval);
+  pr_clear_value (&dbval);
+  qfile_close_scan (thread_p, &scan_id);
+
+  return error;
+}
 
 static int
 qdata_process_distinct_or_sort (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_p, QUERY_ID query_id)
@@ -1261,7 +1387,7 @@ cleanup:
  */
 int
 qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_list_p,
-			       bool keep_list_file, sampling_info *sampling)
+			       bool keep_list_file, sampling_info *sampling, bool update_stats_ndv)
 {
   int error = NO_ERROR;
   AGGREGATE_TYPE *agg_p;
@@ -1281,6 +1407,7 @@ qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
   double dbl;
   int sampling_weight = 1;
   int adjust_sam_weight = 1;
+  INT64 count_star_sample_rows = 0;
 
   db_make_null (&sqr_val);
   db_make_null (&dbval);
@@ -1296,6 +1423,22 @@ qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
     {
       assert (sampling->weight > 0);
       sampling_weight = sampling->weight;
+    }
+
+  /*
+   * UPDATE STATISTICS NDV query shape: SAMPLING_SCAN + COUNT(*) + COUNT(DISTINCT col)...
+   * COUNT(*) row count (before weight) is needed as sample_rows for the estimator.
+   */
+  if (update_stats_ndv)
+    {
+      for (agg_p = agg_list_p; agg_p != NULL; agg_p = agg_p->next)
+	{
+	  if (agg_p->function == PT_COUNT_STAR)
+	    {
+	      count_star_sample_rows = agg_p->accumulator.curr_cnt;
+	      break;
+	    }
+	}
     }
 
   for (agg_p = agg_list_p; agg_p != NULL; agg_p = agg_p->next)
@@ -1375,7 +1518,20 @@ qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 
 	  if (agg_p->flag.agg_optimized == false)
 	    {
-	      list_id_p = qfile_sort_list (thread_p, agg_p->list_id, agg_p->sort_list, agg_p->option, false);
+	      QUERY_OPTIONS sort_option = agg_p->option;
+	      INT64 n_nonnull = 0;
+
+	      /*
+	       * For NDV stats, sort all sampled values (Q_ALL), not DISTINCT-only rows,
+	       * so run lengths reflect true frequencies in the sample.
+	       */
+	      if (update_stats_ndv && agg_p->function == PT_COUNT)
+		{
+		  n_nonnull = agg_p->list_id->tuple_cnt;
+		  sort_option = Q_ALL;
+		}
+
+	      list_id_p = qfile_sort_list (thread_p, agg_p->list_id, agg_p->sort_list, sort_option, false);
 
 	      if (list_id_p != NULL && er_has_error ())
 		{
@@ -1402,8 +1558,48 @@ qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 
 	      if (agg_p->function == PT_COUNT)
 		{
-		  adjust_sam_weight = stats_adjust_sampling_weight (list_id_p->tuple_cnt, sampling_weight);
-		  db_make_bigint (agg_p->accumulator.value, list_id_p->tuple_cnt * adjust_sam_weight);
+		  if (update_stats_ndv)
+		    {
+		      INT64 d = 0;
+		      INT64 f1 = 0;
+		      STATS_NDV_SAMPLE_INPUT ndv_in;
+		      INT64 estimated_ndv;
+		      TP_DOMAIN *value_domain;
+
+		      value_domain = list_id_p->type_list.domp[0];
+
+		      if (n_nonnull > 0)
+			{
+			  error =
+				  qdata_count_distinct_runs_from_sorted_list (thread_p, list_id_p, value_domain, &d, &f1);
+			  if (error != NO_ERROR)
+			    {
+			      goto exit;
+			    }
+			}
+
+		      ndv_in.sample_rows = count_star_sample_rows;
+		      ndv_in.sample_nulls = count_star_sample_rows - n_nonnull;
+		      if (ndv_in.sample_nulls < 0)
+			{
+			  ndv_in.sample_nulls = 0;
+			}
+		      ndv_in.sample_distinct = d;
+		      ndv_in.sample_singleton = f1;
+		      ndv_in.sampling_weight = sampling_weight;
+
+		      estimated_ndv = stats_estimate_ndv_from_sample (&ndv_in);
+		      if (estimated_ndv < 1)
+			{
+			  estimated_ndv = 1;
+			}
+		      db_make_bigint (agg_p->accumulator.value, estimated_ndv);
+		    }
+		  else
+		    {
+		      adjust_sam_weight = stats_adjust_sampling_weight (list_id_p->tuple_cnt, sampling_weight);
+		      db_make_bigint (agg_p->accumulator.value, list_id_p->tuple_cnt * adjust_sam_weight);
+		    }
 		}
 	      else
 		{

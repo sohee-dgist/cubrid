@@ -132,6 +132,19 @@ struct class_attr_ndv
 };
 #define CLASS_ATTR_NDV_INITIALIZER	{0, NULL}
 
+/* Sample statistics passed from aggregate finalize to stats_estimate_ndv_from_sample (). */
+typedef struct stats_ndv_sample_input STATS_NDV_SAMPLE_INPUT;
+struct stats_ndv_sample_input
+{
+  INT64 sample_rows;		/* COUNT(*) in sample; includes null rows; weight not applied */
+  INT64 sample_nulls;		/* null rows in sample for this column */
+  INT64 sample_distinct;	/* d: distinct non-null values in sorted sample list */
+  INT64 sample_singleton;	/* f1: distinct values with run length 1 in sorted sample */
+  int sampling_weight;		/* SAMPLING_SCAN weight (1 means no row extrapolation) */
+};
+
+extern INT64 stats_estimate_ndv_from_sample (const STATS_NDV_SAMPLE_INPUT * in);
+
 #if !defined(SERVER_MODE)
 extern int stats_get_statistics (OID * classoid, unsigned int timestamp, CLASS_STATS ** stats_p);
 extern void stats_free_statistics (CLASS_STATS * stats);

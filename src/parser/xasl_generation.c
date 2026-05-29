@@ -436,6 +436,7 @@ static XASL_NODE *pt_gen_simple_plan (PARSER_CONTEXT * parser, PT_NODE * select_
 static XASL_NODE *pt_to_buildlist_proc (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN * qo_plan);
 static XASL_NODE *pt_to_buildschema_proc (PARSER_CONTEXT * parser, PT_NODE * select_node);
 static XASL_NODE *pt_to_buildvalue_proc (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN * qo_plan);
+static bool pt_is_update_statistics_ndv_agg_list (AGGREGATE_TYPE * agg_list);
 static bool pt_analytic_to_metadomain (ANALYTIC_TYPE * func_p, PT_NODE * sort_list, ANALYTIC_KEY_METADOMAIN * func_meta,
 				       PT_NODE ** index, int *index_size);
 static bool pt_metadomains_compatible (ANALYTIC_KEY_METADOMAIN * f1, ANALYTIC_KEY_METADOMAIN * f2,
@@ -12499,12 +12500,6 @@ pt_to_class_spec_list (PARSER_CONTEXT * parser, PT_NODE * spec, PT_NODE * where_
 					   NULL, where, NULL, NULL, regu_attributes_pred, regu_attributes_rest, NULL,
 					   output_val_list, regu_var_list, NULL, cache_pred, cache_rest,
 					   NULL, NO_SCHEMA, db_values_array_p, regu_attributes_reserved);
-
-	      if (access == NULL)
-		{
-		  return NULL;
-		}
-
 	      if (scan_type == TARGET_CLASS && prm_get_bool_value (PRM_ID_ENABLE_HEAP_FIXED_SCAN))
 		{
 		  ACCESS_SPEC_SET_FLAG (access, ACCESS_SPEC_FLAG_FORCE_FIXED_SCAN);
@@ -17266,6 +17261,35 @@ exit_on_error:
 }
 
 /*
+ * pt_is_update_statistics_ndv_agg_list () - recognize UPDATE STATISTICS NDV query shape
+ *
+ * True when the aggregate list is only COUNT(*) and COUNT(DISTINCT ...) under SAMPLING_SCAN,
+ * with no GROUP BY. Such queries set XASL_UPDATE_STATS_NDV so finalize uses sample-based
+ * NDV estimation instead of tuple_cnt * adjust_sam_weight.
+ */
+static bool
+pt_is_update_statistics_ndv_agg_list (AGGREGATE_TYPE * agg_list)
+{
+  bool has_count_star = false;
+
+  for (; agg_list != NULL; agg_list = agg_list->next)
+    {
+      if (agg_list->function == PT_COUNT_STAR)
+	{
+	  has_count_star = true;
+	  continue;
+	}
+      if (agg_list->function == PT_COUNT && agg_list->option == Q_DISTINCT)
+	{
+	  continue;
+	}
+      return false;
+    }
+
+  return has_count_star;
+}
+
+/*
  * pt_to_buildvalue_proc () - Make a buildvalue xasl proc
  *   return:
  *   parser(in):
@@ -17411,6 +17435,12 @@ pt_to_buildvalue_proc (PARSER_CONTEXT * parser, PT_NODE * select_node, QO_PLAN *
   if (xasl->spec_list && xasl->spec_list->access == ACCESS_METHOD_SEQUENTIAL_SAMPLING_SCAN)
     {
       XASL_SET_FLAG (xasl, XASL_SAMPLING_SCAN);
+    }
+
+  if (XASL_IS_FLAGED (xasl, XASL_SAMPLING_SCAN) && select_node->info.query.q.select.group_by == NULL
+      && pt_is_update_statistics_ndv_agg_list (aggregate))
+    {
+      XASL_SET_FLAG (xasl, XASL_UPDATE_STATS_NDV);
     }
 
   /* save info for derived table size estimation */

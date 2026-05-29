@@ -529,6 +529,7 @@ set(STORAGE_SOURCES
   ${STORAGE_DIR}/slotted_page.c
   ${STORAGE_DIR}/statistics_cl.c
   ${STORAGE_DIR}/statistics_sr.c
+  ${STORAGE_DIR}/statistics_ndv.c
   ${STORAGE_DIR}/storage_common.c
   ${STORAGE_DIR}/system_catalog.c
   ${STORAGE_DIR}/tde.c

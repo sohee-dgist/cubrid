@@ -130,7 +130,8 @@ int qdata_evaluate_aggregate_hierarchy (cubthread::entry *thread_p, cubxasl::agg
 					HFID *root_hfid, BTID *root_btid,
 					cubquery::hierarchy_aggregate_helper *helper);
 int qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_list,
-				   bool keep_list_file, sampling_info *sampling);
+				   bool keep_list_file, sampling_info *sampling,
+				   bool update_stats_ndv);	/* true: stats_estimate_ndv_from_sample for COUNT DISTINCT */
 
 cubquery::aggregate_hash_key *qdata_alloc_agg_hkey (cubthread::entry *thread_p, int val_cnt, bool alloc_vals);
 void qdata_free_agg_hkey (cubthread::entry *thread_p, cubquery::aggregate_hash_key *key);

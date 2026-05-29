@@ -516,6 +516,7 @@ struct cte_proc_node
 #define XASL_INCLUDES_TDE_CLASS	       (0x1 << 16)	/* is any tde class related */
 #define XASL_SAMPLING_SCAN	       (0x1 << 17)	/* is sampling scan */
 #define XASL_USES_SQ_CACHE	       (0x1 << 18)	/* subquery uses result cache */
+#define XASL_UPDATE_STATS_NDV	       (0x1 << 23)	/* UPDATE STATISTICS NDV sampling aggregate finalize */
 #define XASL_NO_PARALLEL_SUBQUERY       (0x1 << 19)	/* disable parallel subquery */
 #define XASL_ANALYTIC_USES_LIMIT_OPT (0x1 << 20)	/* analytic uses limit optimization */
 #define XASL_ANALYTIC_SKIP_SORT (0x1 << 21)	/* analytic skip sort optimization */
