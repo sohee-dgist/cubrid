@@ -40,8 +40,11 @@
  * stats_ndv_enable_row_bernoulli_sample () - NDV page + row sampling setup
  *
  * After scan_open_heap_scan () sets page weight, divide it by STATS_NDV_PAGE_WEIGHT_DIVISOR
- * so more pages are read. Rows on those pages are kept with Bernoulli probability
- * STATS_NDV_ROW_BERNOULLI_P (1/12).
+ * so more pages are read.
+ *
+ * Bernoulli row thinning (STATS_NDV_ROW_BERNOULLI_P) is enabled only when page sampling
+ * still skips pages (weight > 1). Small tables already use weight 1 (every page visited);
+ * row sampling on top of that would double-thin without matching the estimator assumptions.
  */
 void
 stats_ndv_enable_row_bernoulli_sample (SAMPLING_INFO * sampling)
@@ -51,12 +54,17 @@ stats_ndv_enable_row_bernoulli_sample (SAMPLING_INFO * sampling)
       return;
     }
 
+  sampling->ndv_row_sample_p = 0.0f;
+
   if (sampling->weight > 0)
     {
       sampling->weight = MAX (1, sampling->weight / STATS_NDV_PAGE_WEIGHT_DIVISOR);
     }
 
-  sampling->ndv_row_sample_p = STATS_NDV_ROW_BERNOULLI_P;
+  if (sampling->weight > 1)
+    {
+      sampling->ndv_row_sample_p = STATS_NDV_ROW_BERNOULLI_P;
+    }
 }
 
  /*
