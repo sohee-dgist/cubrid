@@ -2428,6 +2428,13 @@ qdump_print_xasl (xasl_node * xasl_p)
 	  nflag++;
 	}
 
+      if (XASL_IS_FLAGED (xasl_p, XASL_UPDATE_STATS_NDV))
+	{
+	  XASL_CLEAR_FLAG (xasl_p, XASL_UPDATE_STATS_NDV);
+	  fprintf (foutput, "%sXASL_UPDATE_STATS_NDV", (nflag ? "|" : ""));
+	  nflag++;
+	}
+
       if (xasl_p->flag)
 	{
 	  fprintf (foutput, "%d%s", xasl_p->flag, (nflag ? "|" : ""));

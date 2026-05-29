@@ -160,7 +160,12 @@ qdata_count_distinct_runs_from_sorted_list (cubthread::entry *thread_p, QFILE_LI
       if (run_len == 0)
 	{
 	  pr_clear_value (&prev_dbval);
-	  pr_clone_value (&dbval, &prev_dbval);
+	  error = pr_clone_value (&dbval, &prev_dbval);
+	  if (error != NO_ERROR)
+	    {
+	      ASSERT_ERROR ();
+	      goto exit;
+	    }
 	  run_len = 1;
 	}
       else if (pr_type_p->cmpval (&prev_dbval, &dbval, 1, 1, NULL, collation_id) == 0)
@@ -176,7 +181,12 @@ qdata_count_distinct_runs_from_sorted_list (cubthread::entry *thread_p, QFILE_LI
 	  d++;
 	  run_len = 1;
 	  pr_clear_value (&prev_dbval);
-	  pr_clone_value (&dbval, &prev_dbval);
+	  error = pr_clone_value (&dbval, &prev_dbval);
+	  if (error != NO_ERROR)
+	    {
+	      ASSERT_ERROR ();
+	      goto exit;
+	    }
 	}
     }
 
