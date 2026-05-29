@@ -7880,28 +7880,59 @@ heap_get_record_data_when_all_ready (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT *
   return S_ERROR;
 }
 
+static
+  std::mt19937 &
+heap_sampling_rng (void)
+{
+  static thread_local std::mt19937 rng;
+  return rng;
+}
+
+static void
+heap_sampling_init_rng (sampling_info * sampling)
+{
+  if (sampling != NULL && !sampling->random_seeded)
+    {
+      heap_sampling_rng ().seed (123456789u);
+      sampling->random_seeded = true;
+    }
+}
+
 static int
 random_poisson_weight (int weight, sampling_info * sampling)
 {
-// *INDENT-OFF*
-  static thread_local std::mt19937 rng;
-// *INDENT-ON*
   if (weight < 1)
     {
       assert (false);
       return 1;
     }
 
-  if (!sampling->random_seeded)
-    {
-      rng.seed (123456789u);
-      sampling->random_seeded = true;
-    }
+  heap_sampling_init_rng (sampling);
 
 /* shifted version of random_poisson_weight */
   const int lambda = weight - 1;	// E[1 + Poisson(lambda)] = weight
   std::poisson_distribution < int >dist (lambda);
-  return dist (rng) + 1;	// always >= 1
+  return dist (heap_sampling_rng ()) + 1;	// always >= 1
+}
+
+static bool
+heap_sampling_bernoulli_keep (sampling_info * sampling)
+{
+  if (sampling == NULL || sampling->ndv_row_sample_p <= 0.0f)
+    {
+      return true;
+    }
+
+  if (sampling->ndv_row_sample_p >= 1.0f)
+    {
+      return true;
+    }
+
+  heap_sampling_init_rng (sampling);
+
+  std::uniform_real_distribution < double >dist (0.0, 1.0);
+
+  return dist (heap_sampling_rng ()) < (double) sampling->ndv_row_sample_p;
 }
 
 
@@ -8204,6 +8235,16 @@ heap_next_internal (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid,
 	   */
 	  if (class_oid == NULL || OID_ISNULL (class_oid) || !OID_IS_ROOTOID (&oid))
 	    {
+	      if (!heap_sampling_bernoulli_keep (sampling))
+		{
+		  if (is_null_recdata)
+		    {
+		      /* reset recdes->data before getting next record */
+		      recdes->data = NULL;
+		    }
+		  continue;
+		}
+
 	      /* stop */
 	      *next_oid = oid;
 	      break;

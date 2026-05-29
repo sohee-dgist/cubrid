@@ -385,8 +385,10 @@ struct heap_get_context
 typedef struct sampling_info SAMPLING_INFO;
 struct sampling_info
 {
-  int weight;			/* for sampling statistics */
+  int weight;			/* page-based sampling scale hint (legacy COUNT(*) scaling) */
+  INT64 table_num_rows;		/* heap object count at scan open; 0 if unknown */
   bool random_seeded;		/* true once the deterministic sampler seed is initialized */
+  float ndv_row_sample_p;	/* UPDATE STATISTICS NDV: Bernoulli row inclusion on block-sampled rows; 0 = off */
 };
 
 /* Forward definition. */

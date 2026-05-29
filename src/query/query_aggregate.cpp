@@ -39,6 +39,8 @@
 #include "xasl.h"                           // QPROC_IS_INTERPOLATION_FUNC
 #include "xasl_aggregate.hpp"
 #include "statistics.h"
+#include "heap_file.h"
+#include "memory_hash.h"
 
 #include <cmath>
 // XXX: SHOULD BE THE LAST INCLUDE HEADER
@@ -70,7 +72,6 @@ static int qdata_group_concat_first_value (THREAD_ENTRY *thread_p, AGGREGATE_TYP
 static int qdata_group_concat_value (THREAD_ENTRY *thread_p, AGGREGATE_TYPE *agg_p, DB_VALUE *dbvalue);
 static int qdata_count_distinct_runs_from_sorted_list (cubthread::entry *thread_p, QFILE_LIST_ID *list_id_p,
     TP_DOMAIN *domain, INT64 *d_out, INT64 *f1_out);
-
 //
 // implementation
 //
@@ -722,7 +723,8 @@ qdata_aggregate_multiple_values_to_accumulator (cubthread::entry *thread_p, cubx
  */
 int
 qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_list_p,
-			       val_descr *val_desc_p, cubxasl::aggregate_accumulator *alt_acc_list, bool use_desc_index)
+			       val_descr *val_desc_p, cubxasl::aggregate_accumulator *alt_acc_list, bool use_desc_index,
+			       sampling_info *sampling)
 {
   cubxasl::aggregate_list_node *agg_p;
   cubxasl::aggregate_accumulator *accumulator;
@@ -1427,7 +1429,7 @@ qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 
   /*
    * UPDATE STATISTICS NDV query shape: SAMPLING_SCAN + COUNT(*) + COUNT(DISTINCT col)...
-   * COUNT(*) row count (before weight) is needed as sample_rows for the estimator.
+   * COUNT(*) row count (before weight) is sample_rows; N_nn = sample_rows * sampling_weight in the estimator.
    */
   if (update_stats_ndv)
     {
@@ -1454,7 +1456,16 @@ qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
       /* set count-star aggregate values */
       if (agg_p->function == PT_COUNT_STAR)
 	{
-	  db_make_bigint (agg_p->accumulator.value, agg_p->accumulator.curr_cnt * sampling_weight);
+	  int count_star_weight = sampling_weight;
+
+	  if (update_stats_ndv && sampling != NULL && sampling->ndv_row_sample_p > 0.0f
+	      && sampling->ndv_row_sample_p < 1.0f)
+	    {
+	      count_star_weight =
+		      stats_ndv_effective_sampling_weight (sampling_weight, sampling->ndv_row_sample_p);
+	    }
+
+	  db_make_bigint (agg_p->accumulator.value, agg_p->accumulator.curr_cnt * count_star_weight);
 	}
 
       /* the value of groupby_num() remains unchanged; it will be changed while evaluating groupby_num predicates
@@ -1587,6 +1598,11 @@ qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 		      ndv_in.sample_distinct = d;
 		      ndv_in.sample_singleton = f1;
 		      ndv_in.sampling_weight = sampling_weight;
+		      if (sampling != NULL && sampling->ndv_row_sample_p > 0.0f && sampling->ndv_row_sample_p < 1.0f)
+			{
+			  ndv_in.sampling_weight =
+				  stats_ndv_effective_sampling_weight (sampling_weight, sampling->ndv_row_sample_p);
+			}
 
 		      estimated_ndv = stats_estimate_ndv_from_sample (&ndv_in);
 		      if (estimated_ndv < 1)

@@ -20,36 +20,99 @@
  * statistics_ndv.c - NDV (number of distinct values) estimation from a heap sample
  *
  * Used by UPDATE STATISTICS when SAMPLING_SCAN collects COUNT(DISTINCT col) and COUNT(*).
- * The executor passes sample-level statistics (d, f1, row counts, weight); this module
- * extrapolates to the full table NDV stored in disk_attr.ndv.
+ * The executor passes sample-level statistics; this module extrapolates to the full
+ * table NDV stored in disk_attr.ndv.
  */
 
 #ident "$Id$"
 
 #include "statistics.h"
 
+#include "heap_file.h"
+
 #include <math.h>
 
+/* NDV: visit ~6x more heap pages (lower page skip weight) and ~1/12 row inclusion. */
+#define STATS_NDV_PAGE_WEIGHT_DIVISOR	6
+#define STATS_NDV_ROW_BERNOULLI_P	(1.0f / 12.0f)
+
 /*
- * stats_estimate_ndv_from_sample () - estimate table NDV from sample statistics
+ * stats_ndv_enable_row_bernoulli_sample () - NDV page + row sampling setup
  *
- *   return: estimated NDV for non-null values (at least 1 when the sample has data)
- *
- * Notation (all counts refer to the sample unless noted):
- *   n           - non-null rows in the sample
- *   d           - distinct non-null values in the sample (sample_distinct)
- *   f1          - values that appear exactly once in the sample (sample_singleton)
- *   N_nn        - estimated non-null rows in the table (sample_rows * weight * (1 - null_frac))
- *
- * Estimation pipeline (sampling_weight > 1 only uses extrapolation beyond d):
- *   1. Fast paths for full scan, all-unique sample, or no singletons in sample.
- *   2. Base estimator: n*d / (n - f1 + f1*n/N_nn)  (duplicate-aware extrapolation).
- *   3. Singleton boost: d + f1 * (N_nn/n - 1) when base estimate is too low for
- *      heavy-skew columns where almost every sample distinct is a singleton.
- *   4. Density boost: d * (N_nn/n) when sample has many multi-occurrence distincts
- *      (mixed frequency) and a large fraction of table distincts were not seen.
- *   5. Clamp to [d, N_nn].
+ * After scan_open_heap_scan () sets page weight, divide it by STATS_NDV_PAGE_WEIGHT_DIVISOR
+ * so more pages are read. Rows on those pages are kept with Bernoulli probability
+ * STATS_NDV_ROW_BERNOULLI_P (1/12).
  */
+void
+stats_ndv_enable_row_bernoulli_sample (SAMPLING_INFO * sampling)
+{
+  if (sampling == NULL)
+    {
+      return;
+    }
+
+  if (sampling->weight > 0)
+    {
+      sampling->weight = MAX (1, sampling->weight / STATS_NDV_PAGE_WEIGHT_DIVISOR);
+    }
+
+  sampling->ndv_row_sample_p = STATS_NDV_ROW_BERNOULLI_P;
+}
+
+ /*
+  * stats_ndv_effective_sampling_weight () - adjust sampling weight for row sampling
+  *
+  * If page sampling keeps about 1 / sampling_weight of the table and row sampling
+  * keeps row_sample_p of those rows, the total sampling probability is:
+  *
+  *   row_sample_p / sampling_weight
+  *
+  * Therefore, the effective expansion weight is:
+  *
+  *   sampling_weight / row_sample_p
+  *
+  * This function is used when building STATS_NDV_SAMPLE_INPUT.
+  */
+int
+stats_ndv_effective_sampling_weight (int sampling_weight, float row_sample_p)
+{
+  int weight;
+  int effective;
+
+  weight = (sampling_weight > 0) ? sampling_weight : 1;
+
+  if (row_sample_p <= 0.0f || row_sample_p >= 1.0f)
+    {
+      return weight;
+    }
+
+  effective = (int) ((double) weight / (double) row_sample_p + 0.5);
+
+  return (effective < 1) ? 1 : effective;
+}
+
+ /*
+  * stats_estimate_ndv_from_sample () - estimate table NDV from sample statistics
+  *
+  *   return: estimated NDV for non-null values
+  *
+  * Notation:
+  *   n      - non-null rows in the sample
+  *   d      - distinct non-null values in the sample
+  *   f1     - values that appear exactly once in the sample
+  *   N_nn   - estimated non-null rows in the table
+  *
+  * Estimation pipeline:
+  *   1. If the sample has no repeated non-null value, treat the column as
+  *      unique-like and return N_nn.
+  *   2. If every sample distinct value is repeated, treat the column as a
+  *      fixed-domain column and return d.
+  *   3. Otherwise use the duplicate-aware estimator:
+  *
+  *        n * d / (n - f1 + f1 * n / N_nn)
+  *
+  *   4. Clamp the estimate to [d, N_nn].
+  */
 INT64
 stats_estimate_ndv_from_sample (const STATS_NDV_SAMPLE_INPUT * in)
 {
@@ -76,7 +139,12 @@ stats_estimate_ndv_from_sample (const STATS_NDV_SAMPLE_INPUT * in)
       return 1;
     }
 
-  /* Table row estimate before null adjustment (COUNT(*) * SAMPLING_SCAN weight). */
+  /*
+   * Estimate table rows before null adjustment.
+   *
+   * If Bernoulli row sampling is enabled, in->sampling_weight should already be
+   * adjusted by stats_ndv_effective_sampling_weight().
+   */
   total_rows = (double) in->sample_rows * (double) weight;
   if (total_rows < 1.0)
     {
@@ -95,103 +163,88 @@ stats_estimate_ndv_from_sample (const STATS_NDV_SAMPLE_INPUT * in)
 
   n_nn_total = total_rows * (1.0 - null_frac);
 
+  n = (double) (in->sample_rows - in->sample_nulls);
   d = (double) in->sample_distinct;
   f1 = (double) in->sample_singleton;
-  n = (double) (in->sample_rows - in->sample_nulls);
 
-  if (n <= 0.0 || d <= 0.0)
+  if (n <= 0.0 || d <= 0.0 || n_nn_total <= 0.0)
     {
       return 1;
     }
 
-  /* Full scan or sample already contains one row per distinct (non-null). */
+  /*
+   * Sanitize inconsistent input.
+   */
+  if (d > n)
+    {
+      d = n;
+    }
+
+  if (f1 < 0.0)
+    {
+      f1 = 0.0;
+    }
+  else if (f1 > d)
+    {
+      f1 = d;
+    }
+
+  /*
+   * Full scan or sample already covers the estimated non-null table rows.
+   */
   if (weight <= 1 && d >= n_nn_total - 0.5)
     {
-      ndv = (INT64) (n_nn_total + 0.5);
-      return ndv;
+      ndv = (INT64) floor (n_nn_total + 0.5);
+      return (ndv < 1) ? 1 : ndv;
     }
 
   nmultiple = d - f1;
 
   /*
-   * Sample has no within-value duplicates (f1 == d): every sampled row is a distinct
-   * value, so table NDV cannot exceed the scaled sample size.
+   * No repeated non-null value was found in the sample.
+   * Treat the column as unique-like.
    */
   if (nmultiple <= 0.0)
     {
-      ndv = (INT64) (n_nn_total + 0.5);
-      if (ndv < 1)
-	{
-	  ndv = 1;
-	}
-      return ndv;
+      ndv = (INT64) floor (n_nn_total + 0.5);
+      return (ndv < 1) ? 1 : ndv;
     }
 
   /*
-   * Every distinct value in the sample appears at least twice: no singleton signal.
-   * Use sample distinct count as the estimate (bounded by N_nn).
+   * Every distinct value in the sample appeared at least twice.
+   * There is no singleton signal suggesting unseen distinct values, so use
+   * the observed sample distinct count as the estimate.
    */
   if (f1 <= 0.0)
     {
-      ndv = (INT64) (d + 0.5);
+      ndv = (INT64) floor (d + 0.5);
+
       if (ndv < 1)
 	{
 	  ndv = 1;
 	}
-      if (ndv > (INT64) (n_nn_total + 0.5))
+
+      if (ndv > (INT64) floor (n_nn_total + 0.5))
 	{
-	  ndv = (INT64) (n_nn_total + 0.5);
+	  ndv = (INT64) floor (n_nn_total + 0.5);
 	}
+
       return ndv;
     }
 
-  if (n_nn_total <= 0.0)
-    {
-      ndv = (INT64) (d + 0.5);
-      return ndv;
-    }
-
-  /* Base duplicate-aware extrapolation. */
+  /*
+   * Duplicate-aware NDV extrapolation.
+   */
   est = (n * d) / ((n - f1) + (f1 * n / n_nn_total));
 
   /*
-   * Singleton boost (skew / long-tail):
-   * When f1 is a large fraction of d but d << N_nn, the base formula often falls below d
-   * after clamping. Each sample singleton represents roughly (N_nn/n) additional singleton
-   * values in the table that were not observed in the sample.
+   * Clamp to sane bounds.
    */
-  if (weight > 1 && f1 > 0.0 && n > 0.0 && d < n_nn_total)
-    {
-      double singleton_boost = d + f1 * ((n_nn_total / n) - 1.0);
-
-      if (singleton_boost > est)
-	{
-	  est = singleton_boost;
-	}
-    }
-
-  /*
-   * Density boost (mixed frequency):
-   * When many distinct values in the sample appear more than once (f1 << d) but a large
-   * share of table distincts never appear in the sample, scale observed distinct count
-   * linearly to table size. Skipped when f1 ~ d (skew) or d/n is very small (low NDV).
-   */
-  if (weight > 1 && f1 > 0.0 && n > 0.0 && d < n_nn_total)
-    {
-      double f1_ratio = f1 / d;
-      double d_ratio = d / n;
-      double density_boost = d * (n_nn_total / n);
-
-      if (f1_ratio < 0.95 && d_ratio > 0.1 && density_boost > est)
-	{
-	  est = density_boost;
-	}
-    }
-
   if (est < d)
     {
       est = d;
     }
+
   if (est > n_nn_total)
     {
       est = n_nn_total;

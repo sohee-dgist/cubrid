@@ -2914,7 +2914,18 @@ scan_open_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   /* for sampling statistics. */
   if (scan_type == S_HEAP_SAMPLING_SCAN)
     {
+      int npages = 0;
+      int nobjs = 0;
+      int avg_length = 0;
+
       hsidp->sampling.random_seeded = false;
+      hsidp->sampling.table_num_rows = 0;
+      hsidp->sampling.ndv_row_sample_p = 0.0f;
+
+      if (heap_get_num_objects (thread_p, hfid, &npages, &nobjs, &avg_length) == NO_ERROR && nobjs > 0)
+	{
+	  hsidp->sampling.table_num_rows = (INT64) nobjs;
+	}
     }
 
   if (scan_type == S_HEAP_SAMPLING_SCAN && !is_partition_table)

@@ -31,6 +31,8 @@
 #include "storage_common.h"
 #include "object_domain.h"
 
+typedef struct sampling_info SAMPLING_INFO;
+
 #define STATS_WITH_FULLSCAN  true
 #define STATS_WITH_SAMPLING  false
 
@@ -140,10 +142,12 @@ struct stats_ndv_sample_input
   INT64 sample_nulls;		/* null rows in sample for this column */
   INT64 sample_distinct;	/* d: distinct non-null values in sorted sample list */
   INT64 sample_singleton;	/* f1: distinct values with run length 1 in sorted sample */
-  int sampling_weight;		/* SAMPLING_SCAN weight (1 means no row extrapolation) */
+  int sampling_weight;		/* page weight (× 1/row_sample_p when Bernoulli is enabled at finalize) */
 };
 
 extern INT64 stats_estimate_ndv_from_sample (const STATS_NDV_SAMPLE_INPUT * in);
+extern void stats_ndv_enable_row_bernoulli_sample (SAMPLING_INFO * sampling);
+extern int stats_ndv_effective_sampling_weight (int sampling_weight, float row_sample_p);
 
 #if !defined(SERVER_MODE)
 extern int stats_get_statistics (OID * classoid, unsigned int timestamp, CLASS_STATS ** stats_p);
