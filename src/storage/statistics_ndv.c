@@ -42,9 +42,8 @@
  * After scan_open_heap_scan () sets page weight, divide it by STATS_NDV_PAGE_WEIGHT_DIVISOR
  * so more pages are read.
  *
- * Bernoulli row thinning (STATS_NDV_ROW_BERNOULLI_P) is enabled only when page sampling
- * still skips pages (weight > 1). Small tables already use weight 1 (every page visited);
- * row sampling on top of that would double-thin without matching the estimator assumptions.
+ * Bernoulli row thinning is skipped when the heap has fewer than MIN_HEAP_SAMPLING_PAGES
+ * user pages (scan_open already visits every page in that case).
  */
 void
 stats_ndv_enable_row_bernoulli_sample (SAMPLING_INFO * sampling)
@@ -61,7 +60,7 @@ stats_ndv_enable_row_bernoulli_sample (SAMPLING_INFO * sampling)
       sampling->weight = MAX (1, sampling->weight / STATS_NDV_PAGE_WEIGHT_DIVISOR);
     }
 
-  if (sampling->weight > 1)
+  if (sampling->total_user_pages >= MIN_HEAP_SAMPLING_PAGES)
     {
       sampling->ndv_row_sample_p = STATS_NDV_ROW_BERNOULLI_P;
     }

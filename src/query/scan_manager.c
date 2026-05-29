@@ -2920,6 +2920,7 @@ scan_open_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
 
       hsidp->sampling.random_seeded = false;
       hsidp->sampling.table_num_rows = 0;
+      hsidp->sampling.total_user_pages = 0;
       hsidp->sampling.ndv_row_sample_p = 0.0f;
 
       if (heap_get_num_objects (thread_p, hfid, &npages, &nobjs, &avg_length) == NO_ERROR && nobjs > 0)
@@ -2944,6 +2945,7 @@ scan_open_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
 
       /* select the smaller value between base_weight and min_weight, and greater than max_weight */
       hsidp->sampling.weight = MAX (MIN (base_weight, min_weight), MAX (max_weight, 1));
+      hsidp->sampling.total_user_pages = total_pages;
     }
 
   return NO_ERROR;
