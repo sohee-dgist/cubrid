@@ -32,18 +32,20 @@
 
 #include <math.h>
 
-/* NDV: visit ~6x more heap pages (lower page skip weight) and ~1/12 row inclusion. */
-#define STATS_NDV_PAGE_WEIGHT_DIVISOR	6
+/* NDV: ~1/12 row inclusion (Bernoulli) on top of the strided page picks. */
 #define STATS_NDV_ROW_BERNOULLI_P	(1.0f / 12.0f)
 
 /*
- * stats_ndv_enable_row_bernoulli_sample () - NDV page + row sampling setup
+ * stats_ndv_enable_row_bernoulli_sample () - NDV row sampling setup
  *
- * After scan_open_heap_scan () sets page weight, divide it by STATS_NDV_PAGE_WEIGHT_DIVISOR
- * so more pages are read.
+ * Page selection is owned by qexec_prepare_table_sampling () (strided VPID picks);
+ * the heap is read page by page from sampling->picked_vpids, so the page set is fixed
+ * by the time we get here and must not be re-scaled.
  *
- * Bernoulli row thinning is skipped when the heap has fewer than MIN_HEAP_SAMPLING_PAGES
- * user pages (scan_open already visits every page in that case).
+ * On top of the picked pages we apply a Bernoulli row thinning to spread the sample.
+ * It is enabled only when weight > 1, i.e. when the heap is large enough that pages are
+ * sub-sampled (~33%). weight == 1 means a small heap that is effectively full-scanned,
+ * where row thinning would only shrink an already-small sample, so it is left off.
  */
 void
 stats_ndv_enable_row_bernoulli_sample (SAMPLING_INFO * sampling)
@@ -55,12 +57,7 @@ stats_ndv_enable_row_bernoulli_sample (SAMPLING_INFO * sampling)
 
   sampling->ndv_row_sample_p = 0.0f;
 
-  if (sampling->weight > 0)
-    {
-      sampling->weight = MAX (1, sampling->weight / STATS_NDV_PAGE_WEIGHT_DIVISOR);
-    }
-
-  if (sampling->total_user_pages >= MIN_HEAP_SAMPLING_PAGES)
+  if (sampling->weight > 1)
     {
       sampling->ndv_row_sample_p = STATS_NDV_ROW_BERNOULLI_P;
     }

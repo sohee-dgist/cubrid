@@ -385,10 +385,18 @@ struct heap_get_context
 typedef struct sampling_info SAMPLING_INFO;
 struct sampling_info
 {
-  int weight;			/* page-based sampling scale hint (legacy COUNT(*) scaling) */
-  int total_user_pages;		/* heap user pages at scan open; 0 if unknown */
-  bool random_seeded;		/* true once the deterministic sampler seed is initialized */
-  float ndv_row_sample_p;	/* UPDATE STATISTICS NDV: Bernoulli row inclusion on block-sampled rows; 0 = off */
+  bool prepared;		/* set once; gates re-pick/clobber */
+  int weight;			/* sampling stride (Poisson gap mean); bucketed from total user pages */
+  VPID *picked_vpids;		/* all partitions, pruned order; owned (db_private_alloc) */
+  int picked_count;		/* total = part_offsets[n_parts] */
+  int picked_cursor;		/* read index into picked_vpids */
+  int slice_end;		/* cached part_offsets[pc+1]; hot-path bound */
+  int *part_offsets;		/* prefix-sum, len n_parts+1; slice pc = [off[pc], off[pc+1]) */
+  int n_parts;			/* pruned partitions; 1 if non-partitioned */
+  int partition_cursor;		/* current partition index; written only by qexec_init_next_partition */
+  /* UPDATE STATISTICS NDV: row-level Bernoulli thinning layered on top of the strided page picks */
+  bool random_seeded;		/* true once the deterministic row-sampler RNG is seeded (reset per scan open) */
+  float ndv_row_sample_p;	/* Bernoulli row inclusion probability on picked pages; 0 = off */
 };
 
 /* Forward definition. */
@@ -633,9 +641,6 @@ extern SCAN_CODE heap_page_prev (THREAD_ENTRY * thread_p, const OID * class_oid,
 extern SCAN_CODE heap_page_next (THREAD_ENTRY * thread_p, const OID * class_oid, const HFID * hfid, VPID * next_vpid,
 				 DB_VALUE ** cache_pageinfo);
 extern int heap_vpid_next (THREAD_ENTRY * thread_p, const HFID * hfid, PAGE_PTR pgptr, VPID * next_vpid);
-extern int heap_vpid_skip_next (THREAD_ENTRY * thread_p, const HFID * hfid, PGBUF_WATCHER * curr_page_watcher,
-				PGBUF_WATCHER * old_page_watcher, int skip_cnt, VPID * vpid,
-				HEAP_SCANCACHE * scan_cache);
 extern int heap_vpid_prev (THREAD_ENTRY * thread_p, const HFID * hfid, PAGE_PTR pgptr, VPID * prev_vpid);
 extern SCAN_CODE heap_get_mvcc_header (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT * context,
 				       MVCC_REC_HEADER * mvcc_header);
