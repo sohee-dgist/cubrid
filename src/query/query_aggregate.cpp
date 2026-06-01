@@ -733,8 +733,7 @@ qdata_aggregate_multiple_values_to_accumulator (cubthread::entry *thread_p, cubx
  */
 int
 qdata_evaluate_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_list_node *agg_list_p,
-			       val_descr *val_desc_p, cubxasl::aggregate_accumulator *alt_acc_list, bool use_desc_index,
-			       sampling_info *sampling)
+			       val_descr *val_desc_p, cubxasl::aggregate_accumulator *alt_acc_list, bool use_desc_index)
 {
   cubxasl::aggregate_list_node *agg_p;
   cubxasl::aggregate_accumulator *accumulator;

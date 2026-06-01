@@ -1328,17 +1328,9 @@ qexec_end_one_iteration (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE *
 
 	  bool is_desc_index = (xasl->curr_spec
 				&& xasl->curr_spec->indexptr) ? xasl->curr_spec->indexptr->use_desc_index : false;
-	  sampling_info *ndv_sampling = NULL;
-
-	  if (XASL_IS_FLAGED (xasl, XASL_SAMPLING_SCAN) && xasl->spec_list != NULL
-	      && xasl->spec_list->s_id.type == S_HEAP_SAMPLING_SCAN)
-	    {
-	      ndv_sampling = &xasl->spec_list->s_id.s.hsid.sampling;
-	    }
 
 	  if (qdata_evaluate_aggregate_list
-	      (thread_p, xasl->proc.buildvalue.agg_list, &xasl_state->vd, NULL, is_desc_index,
-	       ndv_sampling) != NO_ERROR)
+	      (thread_p, xasl->proc.buildvalue.agg_list, &xasl_state->vd, NULL, is_desc_index) != NO_ERROR)
 	    {
 	      GOTO_EXIT_ON_ERROR;
 	    }
@@ -4612,8 +4604,8 @@ qexec_gby_agg_tuple (THREAD_ENTRY * thread_p, GROUPBY_STATE * gbstate, QFILE_TUP
     {
       assert (gbstate->g_dim[i].d_flag != GROUPBY_DIM_FLAG_NONE);
 
-      if (qdata_evaluate_aggregate_list (thread_p, gbstate->g_dim[i].d_agg_list, &gbstate->xasl_state->vd, NULL, false,
-					 NULL) != NO_ERROR)
+      if (qdata_evaluate_aggregate_list (thread_p, gbstate->g_dim[i].d_agg_list, &gbstate->xasl_state->vd, NULL, false)
+	  != NO_ERROR)
 	{
 	  GOTO_EXIT_ON_ERROR;
 	}
@@ -4799,8 +4791,7 @@ qexec_hash_gby_agg_tuple (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE 
       /* eval aggregate functions */
       if (rc == NO_ERROR)
 	{
-	  rc = qdata_evaluate_aggregate_list (thread_p, proc->g_agg_list, &xasl_state->vd, value->accumulators, false,
-					      NULL);
+	  rc = qdata_evaluate_aggregate_list (thread_p, proc->g_agg_list, &xasl_state->vd, value->accumulators, false);
 	}
 
       /* compute size */
