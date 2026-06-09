@@ -40,7 +40,6 @@
 #include "xasl_aggregate.hpp"
 #include "statistics.h"
 #include "heap_file.h"
-#include "memory_hash.h"
 
 #include <cmath>
 // XXX: SHOULD BE THE LAST INCLUDE HEADER
@@ -1540,13 +1539,19 @@ qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 	    {
 	      QUERY_OPTIONS sort_option = agg_p->option;
 	      INT64 n_nonnull = 0;
+	      bool ndv_runlen = false;	/* use the run-length NDV estimator for this aggregate */
 
 	      /*
-	       * For NDV stats, sort all sampled values (Q_ALL), not DISTINCT-only rows,
-	       * so run lengths reflect true frequencies in the sample.
+	       * For NDV stats on a scalar column, sort all sampled values (Q_ALL), not DISTINCT-only
+	       * rows, so run lengths reflect true frequencies. Collection (SET/MULTISET/SEQUENCE)
+	       * columns are not handled by the run-length reader, so fall back to the plain distinct
+	       * count below (develop behavior), keeping the DISTINCT sort.
 	       */
-	      if (update_stats_ndv && agg_p->function == PT_COUNT)
+	      if (update_stats_ndv && agg_p->function == PT_COUNT && agg_p->list_id->type_list.type_cnt > 0
+		  && agg_p->list_id->type_list.domp[0] != NULL
+		  && !TP_IS_SET_TYPE (TP_DOMAIN_TYPE (agg_p->list_id->type_list.domp[0])))
 		{
+		  ndv_runlen = true;
 		  n_nonnull = agg_p->list_id->tuple_cnt;
 		  sort_option = Q_ALL;
 		}
@@ -1578,7 +1583,7 @@ qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 
 	      if (agg_p->function == PT_COUNT)
 		{
-		  if (update_stats_ndv)
+		  if (ndv_runlen)
 		    {
 		      INT64 d = 0;
 		      INT64 f1 = 0;
