@@ -7844,12 +7844,17 @@ heap_sampling_rng (void)
   return rng;
 }
 
+/* Fixed RNG seed for NDV row sampling: re-seeded per scan open so that re-running (or
+ * re-testing) UPDATE STATISTICS over the same data yields the same sample and therefore
+ * stable, reproducible statistics. This determinism is intentional. */
+#define HEAP_SAMPLING_RNG_SEED 123456789u
+
 static void
 heap_sampling_init_rng (sampling_info * sampling)
 {
   if (sampling != NULL && !sampling->random_seeded)
     {
-      heap_sampling_rng ().seed (123456789u);
+      heap_sampling_rng ().seed (HEAP_SAMPLING_RNG_SEED);
       sampling->random_seeded = true;
     }
 }
