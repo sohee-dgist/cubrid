@@ -7453,8 +7453,16 @@ qexec_prepare_table_sampling (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * curr_s
     {
       int npages = 0, nobjs = 0, avg_len = 0;
 
-      /* heap_get_num_objects returns the object count (>= 0), or ER_FAILED (-1) on error. */
-      if (heap_get_num_objects (thread_p, &hfids[i], &npages, &nobjs, &avg_len) != ER_FAILED && nobjs > 0)
+      /* heap_get_num_objects returns the object count (>= 0), or ER_FAILED (-1) on error. The NDV
+       * row-thinning target depends on this count, so a heap-header fix/sync failure must propagate
+       * (otherwise the COUNT(DISTINCT) sort would silently fall back to an unbounded input). The
+       * already-picked VPIDs are released by scan_free_sampling on the caller's error path. */
+      if (heap_get_num_objects (thread_p, &hfids[i], &npages, &nobjs, &avg_len) == ER_FAILED)
+	{
+	  ASSERT_ERROR_AND_SET (error_code);
+	  return error_code;
+	}
+      if (nobjs > 0)
 	{
 	  sampling->ndv_total_rows += nobjs;
 	}

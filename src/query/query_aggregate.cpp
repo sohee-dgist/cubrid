@@ -1627,7 +1627,18 @@ qdata_finalize_aggregate_list (cubthread::entry *thread_p, cubxasl::aggregate_li
 		    }
 		  else
 		    {
-		      adjust_sam_weight = stats_adjust_sampling_weight (list_id_p->tuple_cnt, sampling_weight);
+		      int eff_weight = sampling_weight;
+
+		      /* For the NDV collection fallback the rows were also Bernoulli-thinned, so expand by
+		       * the effective weight (page weight / row keep prob), not the page weight alone -
+		       * otherwise a large unique-like collection column is stored row_sample_p times too small. */
+		      if (update_stats_ndv && sampling != NULL && sampling->ndv_row_sample_p > 0.0f
+			  && sampling->ndv_row_sample_p < 1.0f)
+			{
+			  eff_weight = stats_ndv_effective_sampling_weight (sampling_weight, sampling->ndv_row_sample_p);
+			}
+
+		      adjust_sam_weight = stats_adjust_sampling_weight (list_id_p->tuple_cnt, eff_weight);
 		      db_make_bigint (agg_p->accumulator.value, list_id_p->tuple_cnt * adjust_sam_weight);
 		    }
 		}
