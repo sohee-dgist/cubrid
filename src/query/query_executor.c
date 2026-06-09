@@ -7446,6 +7446,20 @@ qexec_prepare_table_sampling (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * curr_s
   /* non-partitioned slice_end; partitioned reset by qexec_init_next_partition */
   sampling->slice_end = (part_offsets != NULL) ? part_offsets[1] : 0;
   sampling->weight = weight;
+
+  /* total heap object count (all partitions); used to target a fixed NDV row-sample size */
+  sampling->ndv_total_rows = 0;
+  for (int i = 0; i < n_parts; i++)
+    {
+      int npages = 0, nobjs = 0, avg_len = 0;
+
+      /* heap_get_num_objects returns the object count (>= 0), or ER_FAILED (-1) on error. */
+      if (heap_get_num_objects (thread_p, &hfids[i], &npages, &nobjs, &avg_len) != ER_FAILED && nobjs > 0)
+	{
+	  sampling->ndv_total_rows += nobjs;
+	}
+    }
+
   sampling->prepared = true;
 
   return NO_ERROR;
@@ -9195,6 +9209,13 @@ qexec_init_next_partition (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * spec, XAS
 	      if (error != NO_ERROR)
 		{
 		  return S_ERROR;
+		}
+
+	      /* scan_open_heap_scan reset the row sampler (ndv_row_sample_p = 0); re-enable it for this
+	       * partition, otherwise a partitioned table would be scanned with thinning off. */
+	      if (scan_type == S_HEAP_SAMPLING_SCAN && xasl != NULL && XASL_IS_FLAGED (xasl, XASL_UPDATE_STATS_NDV))
+		{
+		  stats_ndv_enable_row_bernoulli_sample (&spec->s_id.s.hsid.sampling);
 		}
 
 	      break;

@@ -397,6 +397,7 @@ struct sampling_info
   /* UPDATE STATISTICS NDV: row-level Bernoulli thinning layered on top of the strided page picks */
   bool random_seeded;		/* true once the deterministic row-sampler RNG is seeded (reset per scan open) */
   float ndv_row_sample_p;	/* Bernoulli row inclusion probability on picked pages; 0 = off */
+  INT64 ndv_total_rows;		/* heap object count (all parts); used to target a fixed row-sample size */
 };
 
 /* Forward definition. */

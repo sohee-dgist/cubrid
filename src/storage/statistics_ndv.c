@@ -35,8 +35,16 @@
 // XXX: SHOULD BE THE LAST INCLUDE HEADER
 #include "memory_wrapper.hpp"
 
-/* NDV: ~1/12 row inclusion (Bernoulli) on top of the strided page picks. */
-#define STATS_NDV_ROW_BERNOULLI_P	(1.0f / 12.0f)
+/*
+ * NDV: target number of rows to keep after row-level thinning.
+ *
+ * Thinning the rows actually read down to a fixed target keeps the COUNT(DISTINCT) sort
+ * input bounded regardless of table size, and makes the row sample (approximately) a
+ * uniform random sample, which decorrelates physically-clustered values so the singleton
+ * count (f1) reflects the population. Chosen in the spirit of PostgreSQL's
+ * 300 * default_statistics_target sample size.
+ */
+#define STATS_NDV_TARGET_SAMPLE_ROWS	30000
 
 /*
  * stats_ndv_enable_row_bernoulli_sample () - NDV row sampling setup
@@ -45,14 +53,18 @@
  * the heap is read page by page from sampling->picked_vpids, so the page set is fixed
  * by the time we get here and must not be re-scaled.
  *
- * On top of the picked pages we apply a Bernoulli row thinning to spread the sample.
- * It is enabled only when weight > 1, i.e. when the heap is large enough that pages are
- * sub-sampled (~33%). weight == 1 means a small heap that is effectively full-scanned,
- * where row thinning would only shrink an already-small sample, so it is left off.
+ * On top of the picked pages we apply a Bernoulli row thinning so that the number of rows
+ * fed into the COUNT(DISTINCT) sort is bounded to ~STATS_NDV_TARGET_SAMPLE_ROWS regardless of
+ * table size. The keep probability is derived from the actual heap row count so the thinning
+ * also applies to mid-size heaps (weight == 1) that would otherwise be fully sorted. When the
+ * rows that will be read already fit under the target, no thinning is applied (full scan).
  */
 void
 stats_ndv_enable_row_bernoulli_sample (SAMPLING_INFO * sampling)
 {
+  int weight;
+  double visited_rows;
+
   if (sampling == NULL)
     {
       return;
@@ -60,9 +72,21 @@ stats_ndv_enable_row_bernoulli_sample (SAMPLING_INFO * sampling)
 
   sampling->ndv_row_sample_p = 0.0f;
 
-  if (sampling->weight > 1)
+  if (sampling->ndv_total_rows <= 0)
     {
-      sampling->ndv_row_sample_p = STATS_NDV_ROW_BERNOULLI_P;
+      return;
+    }
+
+  /* Rows that will actually be read = total heap rows scaled down by the page stride. */
+  weight = (sampling->weight > 0) ? sampling->weight : 1;
+  visited_rows = (double) sampling->ndv_total_rows / (double) weight;
+
+  /* Thin down to STATS_NDV_TARGET_SAMPLE_ROWS so the COUNT(DISTINCT) sort input stays bounded
+   * regardless of table size, and the row sample is (approximately) uniform - which decorrelates
+   * physically-clustered values. When the read set is already at/under the target, keep them all. */
+  if (visited_rows > (double) STATS_NDV_TARGET_SAMPLE_ROWS)
+    {
+      sampling->ndv_row_sample_p = (float) ((double) STATS_NDV_TARGET_SAMPLE_ROWS / visited_rows);
     }
 }
 
