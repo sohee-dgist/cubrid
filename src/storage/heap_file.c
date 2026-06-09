@@ -7831,11 +7831,10 @@ heap_get_record_data_when_all_ready (THREAD_ENTRY * thread_p, HEAP_GET_CONTEXT *
 /*
  * UPDATE STATISTICS NDV row sampling.
  *
- * develop owns page selection in qexec_prepare_table_sampling (strided VPID picks),
- * so the old Poisson page-skip (random_poisson_weight) is gone. The NDV path keeps a
- * row-level Bernoulli thinning on top of the picked pages. The RNG is thread_local but
- * re-seeded per scan open (sampling->random_seeded is reset in scan_open_heap_scan), so
- * no state leaks across queries.
+ * Page selection is done by qexec_prepare_table_sampling () via strided VPID picks, so there is
+ * no page-skip in this scan. The NDV path keeps a row-level Bernoulli thinning on top of the
+ * picked pages. The RNG is thread_local but re-seeded per scan open (sampling->random_seeded is
+ * reset in scan_open_heap_scan), so no state leaks across queries.
  */
 static
   std::mt19937 &
