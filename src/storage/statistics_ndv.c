@@ -32,6 +32,9 @@
 
 #include <math.h>
 
+// XXX: SHOULD BE THE LAST INCLUDE HEADER
+#include "memory_wrapper.hpp"
+
 /* NDV: ~1/12 row inclusion (Bernoulli) on top of the strided page picks. */
 #define STATS_NDV_ROW_BERNOULLI_P	(1.0f / 12.0f)
 
