@@ -47,8 +47,13 @@
 
 #include "memory_wrapper.hpp"	// XXX: SHOULD BE THE LAST INCLUDE HEADER
 
-/* default reservoir capacity when the caller does not specify one */
-#define HISTOGRAM_DEFAULT_SAMPLE_SIZE 10000
+/* Row-based reservoir capacity, used when the caller does not specify a sample size.
+ * Sized proportionally to the bucket count (à la PostgreSQL's 300 * statistics_target,
+ * from the Chaudhuri-Motwani-Narasayya equi-depth error bound) and clamped to a sane
+ * row range. NOTE: this is a number of ROWS (values), not pages. */
+#define HISTOGRAM_SAMPLE_ROWS_PER_BUCKET 300
+#define HISTOGRAM_MIN_SAMPLE_ROWS 10000
+#define HISTOGRAM_MAX_SAMPLE_ROWS 300000
 
 namespace
 {
@@ -74,9 +79,7 @@ namespace
       case DB_TYPE_DOUBLE:
 	return value_category::real;
       case DB_TYPE_CHAR:
-      case DB_TYPE_VARCHAR:
-      case DB_TYPE_NCHAR:
-      case DB_TYPE_VARNCHAR:
+      case DB_TYPE_VARCHAR:	/* == DB_TYPE_STRING */
 	return value_category::string;
       default:
 	return value_category::unsupported;
@@ -321,13 +324,23 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
   *blob_length = 0;
   *null_frequency = 0.0;
 
-  if (sample_size <= 0)
-    {
-      sample_size = HISTOGRAM_DEFAULT_SAMPLE_SIZE;
-    }
   if (max_buckets < 1)
     {
       max_buckets = 1;
+    }
+  if (sample_size <= 0)
+    {
+      /* size the row reservoir to the bucket count, clamped to [MIN, MAX] rows */
+      std::int64_t s = (std::int64_t) HISTOGRAM_SAMPLE_ROWS_PER_BUCKET * max_buckets;
+      if (s < HISTOGRAM_MIN_SAMPLE_ROWS)
+	{
+	  s = HISTOGRAM_MIN_SAMPLE_ROWS;
+	}
+      if (s > HISTOGRAM_MAX_SAMPLE_ROWS)
+	{
+	  s = HISTOGRAM_MAX_SAMPLE_ROWS;
+	}
+      sample_size = (int) s;
     }
 
   value_category cat = category_of (attr_type);

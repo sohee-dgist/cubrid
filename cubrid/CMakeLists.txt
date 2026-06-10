@@ -666,6 +666,16 @@ set (CUBRID_LIB_SOURCES
   ${PARALLEL_QUERY_EXECUTE_SOURCES}
   )
 
+if(RESERVOIR_SAMPLING)
+  # server-safe histogram pieces needed for server-side full-scan reservoir sampling
+  # (histogram_cl.cpp is client-only and is intentionally NOT built here)
+  list(APPEND CUBRID_LIB_SOURCES
+    ${OPTIMIZER_HISTOGRAM_DIR}/histogram_builder.cpp
+    ${OPTIMIZER_HISTOGRAM_DIR}/histogram_reader.cpp
+    ${OPTIMIZER_HISTOGRAM_DIR}/histogram_sampler_sr.cpp
+    )
+endif(RESERVOIR_SAMPLING)
+
 set (CUBRID_LIB_HEADERS
   ${BASE_HEADERS}
   ${COMPAT_HEADERS}
