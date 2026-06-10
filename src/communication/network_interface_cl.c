@@ -60,6 +60,13 @@
 #include "transaction_cl.h"
 #include "language_support.h"
 #include "statistics.h"
+#if defined(RESERVOIR_SAMPLING)
+#include "histogram_sampler_sr.hpp"
+#if !defined(CS_MODE)
+/* heap_file.h is server-only; the SA path below needs it, CS path does not */
+#include "heap_file.h"
+#endif /* !CS_MODE */
+#endif /* RESERVOIR_SAMPLING */
 #include "system_parameter.h"
 #include "replication.h"
 #include "es.h"
@@ -5759,6 +5766,100 @@ stats_get_statistics_from_server (OID * classoid, unsigned int timestamp, int *l
   return NO_ERROR;
 #endif /* !CS_MODE */
 }
+
+#if defined(RESERVOIR_SAMPLING)
+/*
+ * histogram_build_by_reservoir_request () - ask the server to build a column histogram
+ *   by a single full heap scan + reservoir sampling. Returns the blob (malloc'd; caller
+ *   frees with free()) and the exact null frequency. No SQL query is issued.
+ */
+int
+histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_type, int max_buckets, int sample_size,
+				      double *null_frequency, char **blob, int *blob_length)
+{
+  *blob = NULL;
+  *blob_length = 0;
+  *null_frequency = 0.0;
+
+#if defined(CS_MODE)
+  int req_error;
+  int status = ER_FAILED;
+  int len = 0;
+  double nf = 0.0;
+  char *area = NULL;
+  int area_size = 0;
+  char *ptr;
+  OR_ALIGNED_BUF (OR_OID_SIZE + OR_INT_SIZE * 4) a_request;
+  char *request;
+  OR_ALIGNED_BUF (OR_INT_SIZE + OR_INT_SIZE + OR_DOUBLE_SIZE) a_reply;
+  char *reply;
+
+  request = OR_ALIGNED_BUF_START (a_request);
+  reply = OR_ALIGNED_BUF_START (a_reply);
+
+  ptr = or_pack_oid (request, class_oid);
+  ptr = or_pack_int (ptr, attr_id);
+  ptr = or_pack_int (ptr, attr_type);
+  ptr = or_pack_int (ptr, max_buckets);
+  ptr = or_pack_int (ptr, sample_size);
+
+  req_error =
+    net_client_request2 (NET_SERVER_QST_HISTOGRAM_BUILD_BY_RESERVOIR, request, OR_ALIGNED_BUF_SIZE (a_request),
+			 reply, OR_ALIGNED_BUF_SIZE (a_reply), NULL, 0, &area, &area_size);
+  if (!req_error)
+    {
+      ptr = or_unpack_int (reply, &status);
+      ptr = or_unpack_int (ptr, &len);
+      ptr = or_unpack_double (ptr, &nf);
+      *null_frequency = nf;
+      *blob_length = len;
+      *blob = area;		/* malloc'd by the network layer; caller frees */
+    }
+  else
+    {
+      if (area != NULL)
+	{
+	  free (area);
+	}
+      status = req_error;
+    }
+  return status;
+#else /* CS_MODE (i.e. SA_MODE) */
+  int status;
+  HFID hfid;
+  char *priv_blob = NULL;
+  THREAD_ENTRY *thread_p = enter_server ();
+
+  if (heap_get_class_info (thread_p, class_oid, &hfid, NULL, NULL) != NO_ERROR)
+    {
+      exit_server (*thread_p);
+      return ER_FAILED;
+    }
+  status =
+    xhistogram_build_by_fullscan_reservoir (thread_p, class_oid, &hfid, (ATTR_ID) attr_id, (DB_TYPE) attr_type,
+					    max_buckets, sample_size, null_frequency, &priv_blob, blob_length);
+  /* hand back a malloc'd copy so the caller can free() uniformly across CS/SA */
+  if (status == NO_ERROR && priv_blob != NULL && *blob_length > 0)
+    {
+      *blob = (char *) malloc ((size_t) *blob_length);
+      if (*blob != NULL)
+	{
+	  memcpy (*blob, priv_blob, (size_t) *blob_length);
+	}
+      else
+	{
+	  *blob_length = 0;
+	}
+    }
+  if (priv_blob != NULL)
+    {
+      db_private_free_and_init (thread_p, priv_blob);
+    }
+  exit_server (*thread_p);
+  return status;
+#endif /* !CS_MODE */
+}
+#endif /* RESERVOIR_SAMPLING */
 
 /*
  * stats_update_statistics -

@@ -25,6 +25,10 @@
 #include "histogram_cl.hpp"
 #include "db.h"
 #include "histogram_builder.hpp"
+#if defined(RESERVOIR_SAMPLING)
+#include "network_interface_cl.h"
+#include "work_space.h"
+#endif /* RESERVOIR_SAMPLING */
 #include "thread_compat.hpp"
 #include "db_query.h"
 #include "locator_cl.h"
@@ -107,6 +111,105 @@ analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_
   return analyze_classes_by_reservoir (thread_p, tbl_name, attr_name, max_number_of_buckets, classop);
 #endif /* RESERVOIR_SAMPLING */
 }
+
+#ifdef RESERVOIR_SAMPLING
+/*
+ * analyze_classes_by_reservoir () - server-side full-scan reservoir histogram collection.
+ *   Sends one server request that scans the heap, reservoir-samples the attribute, builds
+ *   the histogram blob and computes the exact null frequency; stores both in _db_histogram.
+ */
+int
+analyze_classes_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name,
+			      int max_number_of_buckets, MOP classop)
+{
+  int error = NO_ERROR;
+  OID *class_oid;
+  DB_ATTRIBUTE *att;
+  int attr_id;
+  DB_TYPE attr_type;
+  double null_frequency = 0.0;
+  char *histogram_blob = NULL;
+  int histogram_total_length = 0;
+  DB_OBJECT *histogram_obj = NULL, *edit_histogram_object = NULL;
+  DB_OTMPL *obj_tmpl = NULL;
+  DB_VALUE null_frequency_value;
+
+  att = db_get_attribute (classop, attr_name);
+  if (att == NULL)
+    {
+      ASSERT_ERROR ();
+      return er_errid ();
+    }
+  attr_id = db_attribute_id (att);
+  attr_type = db_attribute_type (att);
+
+  class_oid = ws_oid (classop);
+  if (class_oid == NULL || OID_ISNULL (class_oid))
+    {
+      return ER_FAILED;
+    }
+
+  /* server builds the histogram by full-scan reservoir sampling; sample_size 0 -> default */
+  error = histogram_build_by_reservoir_request (class_oid, attr_id, (int) attr_type, max_number_of_buckets, 0,
+						&null_frequency, &histogram_blob, &histogram_total_length);
+  if (error != NO_ERROR)
+    {
+      if (histogram_blob != NULL)
+	{
+	  free (histogram_blob);
+	}
+      return error;
+    }
+
+  /* store the exact null frequency in the _db_histogram catalog */
+  db_make_double (&null_frequency_value, null_frequency);
+  error = db_get_histogram (classop, attr_name, &histogram_obj);
+  if (error != NO_ERROR)
+    {
+      error = ER_FAILED;
+      goto end;
+    }
+  obj_tmpl = dbt_edit_object (histogram_obj);
+  if (obj_tmpl == NULL)
+    {
+      error = ER_FAILED;
+      goto end;
+    }
+  error = dbt_put (obj_tmpl, "null_frequency", &null_frequency_value);
+  if (error != NO_ERROR)
+    {
+      error = ER_FAILED;
+      dbt_abort_object (obj_tmpl);
+      goto end;
+    }
+  edit_histogram_object = dbt_finish_object (obj_tmpl);
+  if (edit_histogram_object == NULL)
+    {
+      ASSERT_ERROR_AND_SET (error);
+      dbt_abort_object (obj_tmpl);
+      goto end;
+    }
+  error = locator_flush_instance (edit_histogram_object);
+  if (error != NO_ERROR)
+    {
+      error = ER_FAILED;
+      goto end;
+    }
+
+  /* store the histogram blob via the existing catalog writer */
+  if (histogram_blob != NULL && histogram_total_length > 0)
+    {
+      error = set_histogram (thread_p, tbl_name, attr_name, histogram_blob, histogram_total_length, classop);
+    }
+
+end:
+  if (histogram_blob != NULL)
+    {
+      free (histogram_blob);
+    }
+  return error;
+}
+#endif /* RESERVOIR_SAMPLING */
 
 #ifndef RESERVOIR_SAMPLING
 /*

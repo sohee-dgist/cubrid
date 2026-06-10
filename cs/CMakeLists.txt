@@ -448,7 +448,8 @@ set (HISTOGRAM_SOURCES
   ${OPTIMIZER_HISTOGRAM_DIR}/histogram_cl.cpp
   ${OPTIMIZER_HISTOGRAM_DIR}/histogram_builder.cpp
   ${OPTIMIZER_HISTOGRAM_DIR}/histogram_reader.cpp
-  ${OPTIMIZER_HISTOGRAM_DIR}/histogram_sampler_sr.cpp
+  # histogram_sampler_sr.cpp is server-side (heap scan); CS clients reach it via
+  # NET_SERVER_QST_HISTOGRAM_BUILD_BY_RESERVOIR, so it is built in sa/cubrid only.
   )
 
 set (HISTOGRAM_HEADERS

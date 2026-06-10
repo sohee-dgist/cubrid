@@ -61,6 +61,7 @@
 #include "release_string.h"
 #include "critical_section.h"
 #include "statistics.h"
+#include "histogram_sampler_sr.hpp"
 #include "chartype.h"
 #include "heap_file.h"
 #include "pl_sr.h"
@@ -2070,6 +2071,83 @@ sqst_server_get_statistics (THREAD_ENTRY *thread_p, unsigned int rid, char *requ
   css_send_reply_and_data_to_client (thread_p->conn_entry, rid, reply, OR_ALIGNED_BUF_SIZE (a_reply), buffer,
 				     buffer_length, std::move (deleter));
 }
+
+#if defined(RESERVOIR_SAMPLING)
+/*
+ * sqst_histogram_build_by_reservoir - server handler: build a column histogram by a
+ *   single full heap scan + reservoir sampling, returning the blob + exact null frequency.
+ */
+void
+sqst_histogram_build_by_reservoir (THREAD_ENTRY *thread_p, unsigned int rid, char *request, int reqlen)
+{
+  OID class_oid;
+  HFID hfid;
+  int attr_id = 0, attr_type = 0, max_buckets = 0, sample_size = 0;
+  char *ptr;
+  char *blob = NULL;
+  char *send_buf = NULL;
+  int blob_length = 0;
+  double null_frequency = 0.0;
+  int status = NO_ERROR;
+  OR_ALIGNED_BUF (OR_INT_SIZE + OR_INT_SIZE + OR_DOUBLE_SIZE) a_reply;
+  char *reply = OR_ALIGNED_BUF_START (a_reply);
+
+  ptr = or_unpack_oid (request, &class_oid);
+  ptr = or_unpack_int (ptr, &attr_id);
+  ptr = or_unpack_int (ptr, &attr_type);
+  ptr = or_unpack_int (ptr, &max_buckets);
+  ptr = or_unpack_int (ptr, &sample_size);
+
+  if (heap_get_class_info (thread_p, &class_oid, &hfid, NULL, NULL) != NO_ERROR)
+    {
+      status = ER_FAILED;
+      (void) return_error_to_client (thread_p, rid);
+    }
+  else
+    {
+      status = xhistogram_build_by_fullscan_reservoir (thread_p, &class_oid, &hfid, (ATTR_ID) attr_id,
+						       (DB_TYPE) attr_type, max_buckets, sample_size, &null_frequency,
+						       &blob, &blob_length);
+      if (status != NO_ERROR)
+	{
+	  (void) return_error_to_client (thread_p, rid);
+	  blob_length = 0;
+	}
+    }
+
+  /* copy the db_private_alloc'd blob into a malloc'd buffer the network layer can free */
+  if (blob != NULL && blob_length > 0)
+    {
+      send_buf = (char *) malloc ((size_t) blob_length);
+      if (send_buf != NULL)
+	{
+	  memcpy (send_buf, blob, (size_t) blob_length);
+	}
+      else
+	{
+	  blob_length = 0;
+	}
+    }
+  if (blob != NULL)
+    {
+      db_private_free_and_init (thread_p, blob);
+    }
+
+  ptr = or_pack_int (reply, status);
+  ptr = or_pack_int (ptr, blob_length);
+  ptr = or_pack_double (ptr, null_frequency);
+
+  auto deleter = [send_buf]() noexcept
+  {
+    if (send_buf != NULL)
+      {
+	free (send_buf);
+      }
+  };
+  css_send_reply_and_data_to_client (thread_p->conn_entry, rid, reply, OR_ALIGNED_BUF_SIZE (a_reply), send_buf,
+				     blob_length, std::move (deleter));
+}
+#endif /* RESERVOIR_SAMPLING */
 
 /*
  * slog_checkpoint -
