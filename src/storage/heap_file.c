@@ -19439,6 +19439,7 @@ heap_next (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * ne
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL, NULL);
 }
 
+#if !defined(RESERVOIR_SAMPLING)
 /*
  * heap_next_sampling () - Retrieve or peek next object
  *   return: SCAN_CODE (Either of S_SUCCESS, S_DOESNT_FIT, S_END, S_ERROR)
@@ -19460,6 +19461,7 @@ heap_next_sampling (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid,
 {
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL, sampling);
 }
+#endif /* !RESERVOIR_SAMPLING */
 
 /*
  * heap_next_record_info () - Retrieve or peek next object.

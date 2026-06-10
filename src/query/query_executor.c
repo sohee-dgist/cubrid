@@ -602,7 +602,9 @@ static int qexec_process_partition_unique_stats (THREAD_ENTRY * thread_p, PRUNIN
 static int qexec_process_unique_stats (THREAD_ENTRY * thread_p, const OID * class_oid,
 				       UPDDEL_CLASS_INFO_INTERNAL * class_);
 static SCAN_CODE qexec_init_next_partition (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * spec, XASL_NODE * xasl);
+#if !defined(RESERVOIR_SAMPLING)
 static int qexec_prepare_table_sampling (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * curr_spec);
+#endif /* !RESERVOIR_SAMPLING */
 
 static int qexec_check_limit_clause (THREAD_ENTRY * thread_p, XASL_NODE * xasl, XASL_STATE * xasl_state,
 				     bool * empty_result);
@@ -1930,7 +1932,9 @@ qexec_clear_access_spec_list (THREAD_ENTRY * thread_p, XASL_NODE * xasl_p, ACCES
 	case S_HEAP_SCAN:
 	case S_HEAP_SCAN_RECORD_INFO:
 	case S_CLASS_ATTR_SCAN:
+#if !defined(RESERVOIR_SAMPLING)
 	case S_HEAP_SAMPLING_SCAN:
+#endif /* !RESERVOIR_SAMPLING */
 	case S_PARALLEL_HEAP_SCAN:
 	  pg_cnt +=
 	    qexec_clear_regu_list (thread_p, xasl_p, p->s_id.s.hsid.scan_pred.regu_list, is_final, for_parallel_aptr);
@@ -7389,6 +7393,7 @@ exit_on_error:
   return ER_FAILED;
 }
 
+#if !defined(RESERVOIR_SAMPLING)
 /* one-shot table-wide pick over all pruned-partition sectors -> picked_vpids + part_offsets + global weight */
 static int
 qexec_prepare_table_sampling (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * curr_spec)
@@ -7447,6 +7452,7 @@ qexec_prepare_table_sampling (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * curr_s
 
   return NO_ERROR;
 }
+#endif /* !RESERVOIR_SAMPLING */
 
 /*
  * Interpreter routines
@@ -7487,6 +7493,7 @@ qexec_open_scan (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * curr_spec, VAL_LIST
 	}
     }
 
+#if !defined(RESERVOIR_SAMPLING)
   /* table-wide pick once, after pruning and before parts[0] reopen */
   if (curr_spec->type == TARGET_CLASS && curr_spec->access == ACCESS_METHOD_SEQUENTIAL_SAMPLING_SCAN)
     {
@@ -7497,6 +7504,7 @@ qexec_open_scan (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * curr_spec, VAL_LIST
 	  goto exit_on_error;
 	}
     }
+#endif /* !RESERVOIR_SAMPLING */
 
   if (curr_spec->type == TARGET_CLASS && mvcc_is_mvcc_disabled_class (&ACCESS_SPEC_CLS_OID (curr_spec)))
     {
@@ -7577,7 +7585,9 @@ qexec_open_scan (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * curr_spec, VAL_LIST
 	    }			/* case ACCESS_METHOD_SEQUENTIAL */
 
 	  case ACCESS_METHOD_SEQUENTIAL_RECORD_INFO:	/* fall through */
+#if !defined(RESERVOIR_SAMPLING)
 	  case ACCESS_METHOD_SEQUENTIAL_SAMPLING_SCAN:
+#endif /* !RESERVOIR_SAMPLING */
 	    {
 	      SCAN_TYPE scan_type =
 		(curr_spec->access ==
@@ -9152,7 +9162,9 @@ qexec_init_next_partition (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * spec, XAS
 	    }			/* case ACCESS_METHOD_SEQUENTIAL */
 
 	  case ACCESS_METHOD_SEQUENTIAL_RECORD_INFO:	/* fall through */
+#if !defined(RESERVOIR_SAMPLING)
 	  case ACCESS_METHOD_SEQUENTIAL_SAMPLING_SCAN:
+#endif /* !RESERVOIR_SAMPLING */
 	    {
 	      HEAP_SCAN_ID *hsidp = &spec->s_id.s.hsid;
 	      SCAN_TYPE scan_type =

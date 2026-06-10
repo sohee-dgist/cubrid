@@ -41,6 +41,7 @@
 // XXX: SHOULD BE THE LAST INCLUDE HEADER
 #include "memory_wrapper.hpp"
 
+#if !defined(RESERVOIR_SAMPLING)
 int
 collect_strided_vpids_multi (THREAD_ENTRY *thread_p, const HFID *hfids, int n_hfids,
 			     VPID **out_picked, int *out_count, int **out_part_offsets, int *out_weight)
@@ -236,3 +237,4 @@ cleanup:
     }
   return error_code;
 }
+#endif /* !RESERVOIR_SAMPLING */
