@@ -132,6 +132,22 @@ struct class_attr_ndv
 };
 #define CLASS_ATTR_NDV_INITIALIZER	{0, NULL}
 
+/* Sample statistics fed to the NDV estimator (CBRD-26667). Population NDV is
+ * extrapolated from a uniform sample's distinct/singleton counts. */
+typedef struct stats_ndv_sample_input STATS_NDV_SAMPLE_INPUT;
+struct stats_ndv_sample_input
+{
+  INT64 sample_rows;		/* rows in sample; includes null rows; weight not applied */
+  INT64 sample_nulls;		/* null rows in sample for this column */
+  INT64 sample_distinct;	/* d: distinct non-null values in the sample */
+  INT64 sample_singleton;	/* f1: distinct values that appear exactly once in the sample */
+  int sampling_weight;		/* expansion factor: estimated population non-null rows / sample non-null rows */
+};
+
+/* NDV (number of distinct values) estimator from a sample (statistics_ndv.c). Pure
+ * math; usable on client and server. Deliberately NOT tied to the query path. */
+extern INT64 stats_estimate_ndv_from_sample (const STATS_NDV_SAMPLE_INPUT * in);
+
 #if !defined(SERVER_MODE)
 extern int stats_get_statistics (OID * classoid, unsigned int timestamp, CLASS_STATS ** stats_p);
 extern void stats_free_statistics (CLASS_STATS * stats);
