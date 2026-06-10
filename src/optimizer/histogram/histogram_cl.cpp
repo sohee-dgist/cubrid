@@ -56,6 +56,7 @@ int
 analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
 		 bool with_fullscan, MOP classop)
 {
+#ifndef RESERVOIR_SAMPLING
   int error = NO_ERROR;
   char *histogram_blob = NULL;
   int histogram_total_length = 0;
@@ -98,8 +99,16 @@ analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_
     }
 
   return NO_ERROR;
+#else /* RESERVOIR_SAMPLING */
+  /* New path: a single server request performs a full heap scan, draws a fixed-size
+   * reservoir sample, builds the histogram (and exact null frequency) server-side, and
+   * returns the blob. No client SQL query is executed. with_fullscan is ignored: the
+   * scan is always full, sampling is reservoir-based. (see histogram_sampler_sr) */
+  return analyze_classes_by_reservoir (thread_p, tbl_name, attr_name, max_number_of_buckets, classop);
+#endif /* RESERVOIR_SAMPLING */
 }
 
+#ifndef RESERVOIR_SAMPLING
 /*
  * get_null_frequency ()
  *
@@ -443,6 +452,7 @@ error_end:
   db_query_end (query_result);
   return error;
 }
+#endif /* RESERVOIR_SAMPLING */
 
 int
 set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, char *histogram_blob,

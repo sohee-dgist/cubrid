@@ -34,6 +34,7 @@ typedef struct parser_node PT_NODE;
 typedef struct hist_stats HIST_STATS;
 typedef struct db_value DB_VALUE;
 
+#ifndef RESERVOIR_SAMPLING
 /* null frequency query template */
 static const char *NULL_FREQUENCY_QUERY_TEMPLATE =
 	"SELECT SUM(CASE WHEN [%s] IS NULL THEN 1 ELSE 0 END) * 1.0 / NULLIF(COUNT(*), 0) AS null_frequency FROM [%s];";
@@ -251,6 +252,8 @@ static const char *HISTOGRAM_WITH_SAMPLING_SCAN_QUERY_TEMPLATE =
 	"FROM all_buckets "
 	"ORDER BY endpoint;";
 
+#endif /* RESERVOIR_SAMPLING */
+
 /* histogram key kind */
 namespace hist
 {
@@ -278,10 +281,16 @@ namespace hist
 /* histogram analysis functions */
 int analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
 		     bool with_fullscan, MOP classop);
+#ifndef RESERVOIR_SAMPLING
 int get_null_frequency (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, bool with_fullscan,
 			MOP classop);
 int get_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
 		   bool with_fullscan, char **histogram_blob, int *histogram_total_length);
+#else /* RESERVOIR_SAMPLING */
+/* server-side full-scan + reservoir sampling histogram collection (replaces the query-based path) */
+int analyze_classes_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name,
+				  int max_number_of_buckets, MOP classop);
+#endif /* RESERVOIR_SAMPLING */
 int set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, char *histogram_blob,
 		   int histogram_total_length, MOP classop);
 

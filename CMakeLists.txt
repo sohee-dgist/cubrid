@@ -75,6 +75,7 @@ option(WITH_JDBC "Build with JDBC driver" ON)
 option(WITH_CMSERVER "Build with Manager server" ON)
 option(UNIT_TESTS "Unit tests" OFF)
 option(WITH_CCI "Build with CCI driver" ON)
+option(RESERVOIR_SAMPLING "Use server-side full-scan reservoir sampling for statistics/histogram collection; deprecates the query-based (SAMPLING_SCAN) path" OFF)
 
 # Version info
 # TODO: remove BUILD_NUMBER file and replace with VERSION file
@@ -660,6 +661,11 @@ endif(CMAKE_SYSTEM_NAME MATCHES "Linux")
 set(COMMON_DEFS SYSV MAXPATHLEN=1024 -D_REENTRANT)
 
 # For systemtap options
+if(RESERVOIR_SAMPLING)
+  add_definitions(-DRESERVOIR_SAMPLING)
+  message(STATUS "RESERVOIR_SAMPLING enabled: query-based (SAMPLING_SCAN) statistics/histogram path is deprecated")
+endif(RESERVOIR_SAMPLING)
+
 if(ENABLE_SYSTEMTAP)
   find_program(DTRACE dtrace)
   if(NOT DTRACE)
