@@ -5808,8 +5808,10 @@ histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_typ
 			 reply, OR_ALIGNED_BUF_SIZE (a_reply), NULL, 0, &area, &area_size);
   if (!req_error)
     {
-      ptr = or_unpack_int (reply, &status);
-      ptr = or_unpack_int (ptr, &len);
+      /* reply layout: (data_length, status, null_frequency) — first int must be the
+       * variable data length (net_client_request2 protocol) */
+      ptr = or_unpack_int (reply, &len);
+      ptr = or_unpack_int (ptr, &status);
       ptr = or_unpack_double (ptr, &nf);
       *null_frequency = nf;
       *blob_length = len;

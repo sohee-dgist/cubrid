@@ -2133,8 +2133,10 @@ sqst_histogram_build_by_reservoir (THREAD_ENTRY *thread_p, unsigned int rid, cha
       db_private_free_and_init (thread_p, blob);
     }
 
-  ptr = or_pack_int (reply, status);
-  ptr = or_pack_int (ptr, blob_length);
+  /* protocol: net_client_request2 requires the FIRST int of the reply to be the
+   * length of the variable-length data block that follows */
+  ptr = or_pack_int (reply, blob_length);
+  ptr = or_pack_int (ptr, status);
   ptr = or_pack_double (ptr, null_frequency);
 
   auto deleter = [send_buf]() noexcept

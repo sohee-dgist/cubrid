@@ -358,8 +358,9 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
       std::vector<std::int64_t> samples;
       error = scan_and_collect<std::int64_t> (thread_p, class_oid, hfid, attr_id, sample_size, samples, &total_rows,
 	      &null_rows);
-      if (error == NO_ERROR && !samples.empty ())
+      if (error == NO_ERROR)
 	{
+	  /* always build: an empty sample yields a header-only blob (matches the old path) */
 	  *histogram_blob = build_blob<std::int64_t> (thread_p, samples, attr_type, max_buckets, blob_length);
 	}
       break;
@@ -369,7 +370,7 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
       std::vector<double> samples;
       error = scan_and_collect<double> (thread_p, class_oid, hfid, attr_id, sample_size, samples, &total_rows,
 					&null_rows);
-      if (error == NO_ERROR && !samples.empty ())
+      if (error == NO_ERROR)
 	{
 	  *histogram_blob = build_blob<double> (thread_p, samples, attr_type, max_buckets, blob_length);
 	}
@@ -380,7 +381,7 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
       std::vector<std::string> samples;
       error = scan_and_collect<std::string> (thread_p, class_oid, hfid, attr_id, sample_size, samples, &total_rows,
 	      &null_rows);
-      if (error == NO_ERROR && !samples.empty ())
+      if (error == NO_ERROR)
 	{
 	  *histogram_blob = build_blob<std::string> (thread_p, samples, attr_type, max_buckets, blob_length);
 	}
