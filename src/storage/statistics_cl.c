@@ -399,6 +399,7 @@ stats_ndv_dump (const char *class_name_p, FILE * file_p)
       return;
     }
 
+#if !defined(RESERVOIR_SAMPLING)
   /* get NDV by query */
   if (stats_get_ndv_by_query (class_mop, &class_attr_ndv, file_p, STATS_WITH_SAMPLING) != NO_ERROR)
     {
@@ -418,6 +419,15 @@ stats_ndv_dump (const char *class_name_p, FILE * file_p)
   fprintf (file_p, "\n");
 
 end:
+#else /* RESERVOIR_SAMPLING */
+  /* the on-demand NDV query is deprecated; NDV is collected server-side during
+   * UPDATE STATISTICS (full-scan reservoir) and stored in the catalog. */
+  (void) i;
+  fprintf (file_p, "\nNumber of Distinct Values\n");
+  fprintf (file_p, "****************\n");
+  fprintf (file_p, " Class name: %s\n", sm_get_ch_name (class_mop));
+  fprintf (file_p, "  (collected server-side at UPDATE STATISTICS; see class statistics dump)\n\n");
+#endif /* RESERVOIR_SAMPLING */
   if (class_attr_ndv.attr_ndv != NULL)
     {
       free_and_init (class_attr_ndv.attr_ndv);
@@ -425,11 +435,15 @@ end:
   return;
 }
 
+#if !defined(RESERVOIR_SAMPLING)
 /*
  * stats_get_ndv_by_query () - get NDV by query
  *   return:
  *   class_mop(in):
  *   attr_ndv(out):
+ *
+ * NOTE: deprecated under RESERVOIR_SAMPLING — NDV is collected by the dedicated
+ *   server-side full-scan reservoir collector, never by SQL.
  */
 int
 stats_get_ndv_by_query (const MOP class_mop, CLASS_ATTR_NDV * class_attr_ndv, FILE * file_p, int with_fullscan)
@@ -649,3 +663,4 @@ end:
     }
   return NULL;
 }
+#endif /* RESERVOIR_SAMPLING */

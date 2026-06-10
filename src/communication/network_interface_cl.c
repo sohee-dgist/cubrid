@@ -5884,12 +5884,26 @@ stats_update_statistics (MOP classop, int with_fullscan)
   int request_size;
   CLASS_ATTR_NDV class_attr_ndv = CLASS_ATTR_NDV_INITIALIZER;
 
+#if !defined(RESERVOIR_SAMPLING)
   /* get NDV by query */
   if (stats_get_ndv_by_query (classop, &class_attr_ndv, NULL, with_fullscan) != NO_ERROR)
     {
       error = ER_FAILED;
       goto end;
     }
+#else /* RESERVOIR_SAMPLING */
+  /* NDV is computed server-side by the dedicated full-scan reservoir collector;
+   * send an empty placeholder (the server ignores it). No SQL query is issued. */
+  class_attr_ndv.attr_cnt = 0;
+  class_attr_ndv.attr_ndv = (ATTR_NDV *) malloc (sizeof (ATTR_NDV));
+  if (class_attr_ndv.attr_ndv == NULL)
+    {
+      error = ER_OUT_OF_VIRTUAL_MEMORY;
+      goto end;
+    }
+  class_attr_ndv.attr_ndv[0].id = -1;
+  class_attr_ndv.attr_ndv[0].ndv = 0;
+#endif /* RESERVOIR_SAMPLING */
 
   request_size = OR_INT_SIZE + (sizeof (ATTR_NDV) * (class_attr_ndv.attr_cnt + 1)) + OR_INT_SIZE + OR_OID_SIZE;
   request = (char *) malloc (request_size);
@@ -5936,12 +5950,25 @@ end:
   CLASS_ATTR_NDV class_attr_ndv = CLASS_ATTR_NDV_INITIALIZER;
   THREAD_ENTRY *thread_p;
 
+#if !defined(RESERVOIR_SAMPLING)
   /* get NDV by query */
   if (stats_get_ndv_by_query (classop, &class_attr_ndv, NULL, with_fullscan) != NO_ERROR)
     {
       error = ER_FAILED;
       goto end;
     }
+#else /* RESERVOIR_SAMPLING */
+  /* NDV is computed server-side by the dedicated full-scan reservoir collector. */
+  class_attr_ndv.attr_cnt = 0;
+  class_attr_ndv.attr_ndv = (ATTR_NDV *) malloc (sizeof (ATTR_NDV));
+  if (class_attr_ndv.attr_ndv == NULL)
+    {
+      error = ER_OUT_OF_VIRTUAL_MEMORY;
+      goto end;
+    }
+  class_attr_ndv.attr_ndv[0].id = -1;
+  class_attr_ndv.attr_ndv[0].ndv = 0;
+#endif /* RESERVOIR_SAMPLING */
 
   thread_p = enter_server ();
   error = xstats_update_statistics (thread_p, WS_OID (classop), with_fullscan, &class_attr_ndv);

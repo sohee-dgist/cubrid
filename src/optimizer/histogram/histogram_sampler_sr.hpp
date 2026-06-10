@@ -50,5 +50,17 @@ extern int xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const
     ATTR_ID attr_id, DB_TYPE attr_type, int max_buckets, int sample_size, double *null_frequency,
     char **histogram_blob, int *blob_length);
 
+/*
+ * xstats_collect_ndv_by_fullscan_reservoir () - dedicated, query-free NDV collection.
+ *   One full heap scan; per column a row reservoir of canonical value keys; per-column
+ *   (n, d, f1) are fed to stats_estimate_ndv_from_sample () (statistics_ndv.c).
+ *
+ *   out_ndv[i]      : estimated NDV for attr_ids[i]; -1 when the type is not supported
+ *                     (caller keeps its existing value), 0 when the column is all-NULL.
+ *   out_total_rows  : exact row count of the class (from the same scan)
+ */
+extern int xstats_collect_ndv_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid,
+    const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt, INT64 *out_ndv, INT64 *out_total_rows);
+
 #endif /* RESERVOIR_SAMPLING */
 #endif /* _HISTOGRAM_SAMPLER_SR_HPP_ */

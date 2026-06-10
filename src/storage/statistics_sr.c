@@ -32,6 +32,9 @@
 
 #include "btree.h"
 #include "heap_file.h"
+#if defined(RESERVOIR_SAMPLING)
+#include "histogram_sampler_sr.hpp"
+#endif /* RESERVOIR_SAMPLING */
 #include "boot_sr.h"
 #include "partition_sr.h"
 #include "object_primitive.h"
@@ -122,6 +125,13 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
   int count = 0, error_code = NO_ERROR;
   int lk_grant_code = 0;
   CATALOG_ACCESS_INFO catalog_access_info = CATALOG_ACCESS_INFO_INITIALIZER;
+#if defined(RESERVOIR_SAMPLING)
+  ATTR_ID *rs_ndv_attr_ids = NULL;
+  DB_TYPE *rs_ndv_attr_types = NULL;
+  INT64 *rs_ndv_values = NULL;
+  INT64 rs_total_rows = 0;
+  int rs_n_attrs = 0;
+#endif /* RESERVOIR_SAMPLING */
 
   thread_p->push_resource_tracks ();
 
@@ -246,8 +256,49 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
   assert (npages > 0);
   cls_info_p->ci_tot_pages = MAX (npages, 0);
 
+#if !defined(RESERVOIR_SAMPLING)
   /* use value from "select --+ sampling count(*) ..." */
   cls_info_p->ci_tot_objects = class_attr_ndv->attr_ndv[class_attr_ndv->attr_cnt].ndv;
+#else /* RESERVOIR_SAMPLING */
+  /* Dedicated query-free NDV (CBRD-26667): one full heap scan with per-column reservoirs.
+   * The client-provided class_attr_ndv (query-based) is ignored; the same scan also
+   * yields the exact row count for ci_tot_objects. */
+  rs_n_attrs = disk_repr_p->n_fixed + disk_repr_p->n_variable;
+  if (rs_n_attrs > 0)
+    {
+      int rs_i;
+
+      rs_ndv_attr_ids = (ATTR_ID *) db_private_alloc (thread_p, rs_n_attrs * sizeof (ATTR_ID));
+      rs_ndv_attr_types = (DB_TYPE *) db_private_alloc (thread_p, rs_n_attrs * sizeof (DB_TYPE));
+      rs_ndv_values = (INT64 *) db_private_alloc (thread_p, rs_n_attrs * sizeof (INT64));
+      if (rs_ndv_attr_ids == NULL || rs_ndv_attr_types == NULL || rs_ndv_values == NULL)
+	{
+	  goto error;
+	}
+      for (rs_i = 0; rs_i < rs_n_attrs; rs_i++)
+	{
+	  DISK_ATTR *rs_attr;
+	  if (rs_i < disk_repr_p->n_fixed)
+	    {
+	      rs_attr = disk_repr_p->fixed + rs_i;
+	    }
+	  else
+	    {
+	      rs_attr = disk_repr_p->variable + (rs_i - disk_repr_p->n_fixed);
+	    }
+	  rs_ndv_attr_ids[rs_i] = rs_attr->id;
+	  rs_ndv_attr_types[rs_i] = (DB_TYPE) rs_attr->type;
+	}
+
+      if (xstats_collect_ndv_by_fullscan_reservoir (thread_p, class_id_p, &(cls_info_p->ci_hfid), rs_ndv_attr_ids,
+						    rs_ndv_attr_types, rs_n_attrs, rs_ndv_values,
+						    &rs_total_rows) != NO_ERROR)
+	{
+	  goto error;
+	}
+      cls_info_p->ci_tot_objects = (int) rs_total_rows;
+    }
+#endif /* RESERVOIR_SAMPLING */
 
   /* update the index statistics for each attribute */
 
@@ -277,6 +328,7 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
 	}			/* for (j = 0; ...) */
 
       /* put ndv of columns */
+#if !defined(RESERVOIR_SAMPLING)
       for (int k = 0; k < class_attr_ndv->attr_cnt; k++)
 	{
 	  if (disk_attr_p->id == class_attr_ndv->attr_ndv[k].id)
@@ -285,6 +337,20 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
 	      break;
 	    }
 	}
+#else /* RESERVOIR_SAMPLING */
+      for (int k = 0; k < rs_n_attrs; k++)
+	{
+	  if (disk_attr_p->id == rs_ndv_attr_ids[k])
+	    {
+	      if (rs_ndv_values[k] >= 0)
+		{
+		  /* dedicated full-scan reservoir estimate; -1 = unsupported type, keep as-is */
+		  disk_attr_p->ndv = rs_ndv_values[k];
+		}
+	      break;
+	    }
+	}
+#endif /* RESERVOIR_SAMPLING */
     }				/* for (i = 0; ...) */
 
   error_code = catalog_start_access_with_dir_oid (thread_p, &catalog_access_info, X_LOCK);
@@ -324,6 +390,21 @@ end:
   (void) catalog_end_access_with_dir_oid (thread_p, &catalog_access_info, error_code);
 
   lock_unlock_object (thread_p, class_id_p, oid_Root_class_oid, SCH_S_LOCK, false);
+
+#if defined(RESERVOIR_SAMPLING)
+  if (rs_ndv_attr_ids != NULL)
+    {
+      db_private_free_and_init (thread_p, rs_ndv_attr_ids);
+    }
+  if (rs_ndv_attr_types != NULL)
+    {
+      db_private_free_and_init (thread_p, rs_ndv_attr_types);
+    }
+  if (rs_ndv_values != NULL)
+    {
+      db_private_free_and_init (thread_p, rs_ndv_values);
+    }
+#endif /* RESERVOIR_SAMPLING */
 
   if (disk_repr_p)
     {
@@ -1066,6 +1147,10 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
   CATALOG_ACCESS_INFO part_catalog_access_info = CATALOG_ACCESS_INFO_INITIALIZER;
   OID dir_oid;
   OID part_dir_oid;
+#if defined(RESERVOIR_SAMPLING)
+  INT64 *rs_part_ndv = NULL;	/* per parent attr: sum of partition NDVs (upper bound) */
+  INT64 rs_part_total = 0;	/* sum of partition row counts */
+#endif /* RESERVOIR_SAMPLING */
 
   assert_release (class_id_p != NULL);
   assert_release (partitions != NULL);
@@ -1118,6 +1203,23 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
     }
 
   (void) catalog_end_access_with_dir_oid (thread_p, &catalog_access_info, NO_ERROR);
+
+#if defined(RESERVOIR_SAMPLING)
+  /* accumulator for the parent's per-attribute NDV, summed over partitions below */
+  {
+    int rs_pn_attrs = disk_repr_p->n_fixed + disk_repr_p->n_variable;
+    if (rs_pn_attrs > 0)
+      {
+	rs_part_ndv = (INT64 *) db_private_alloc (thread_p, rs_pn_attrs * sizeof (INT64));
+	if (rs_part_ndv == NULL)
+	  {
+	    error = ER_OUT_OF_VIRTUAL_MEMORY;
+	    goto cleanup;
+	  }
+	memset (rs_part_ndv, 0, rs_pn_attrs * sizeof (INT64));
+      }
+  }
+#endif /* RESERVOIR_SAMPLING */
 
   /* partitions_count number of btree_stats we will need to use */
   n_btrees = 0;
@@ -1233,7 +1335,12 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
 	  goto cleanup;
 	}
       cls_info_p->ci_tot_pages += subcls_info->ci_tot_pages;
+#if !defined(RESERVOIR_SAMPLING)
       cls_info_p->ci_tot_objects = class_attr_ndv->attr_ndv[class_attr_ndv->attr_cnt].ndv;;
+#else /* RESERVOIR_SAMPLING */
+      /* partition row counts were computed exactly by the per-partition full scan */
+      rs_part_total += subcls_info->ci_tot_objects;
+#endif /* RESERVOIR_SAMPLING */
 
       /* get disk repr for subclass */
       error = catalog_get_last_representation_id (thread_p, &partitions[i], &subcls_repr_id);
@@ -1285,6 +1392,14 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
 	  assert_release (subcls_attr_p->id == disk_attr_p->id);
 	  assert_release (subcls_attr_p->n_btstats == disk_attr_p->n_btstats);
 
+#if defined(RESERVOIR_SAMPLING)
+	  /* sum partition NDVs: exact for the (disjoint) partition key, upper bound otherwise */
+	  if (rs_part_ndv != NULL && subcls_attr_p->ndv > 0)
+	    {
+	      rs_part_ndv[j] += subcls_attr_p->ndv;
+	    }
+#endif /* RESERVOIR_SAMPLING */
+
 	  for (k = 0, btree_stats_p = disk_attr_p->bt_stats; k < disk_attr_p->n_btstats; k++, btree_stats_p++)
 	    {
 	      const BTREE_STATS *subcls_stats;
@@ -1322,6 +1437,11 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
       sum[btree_iter].height = ceil (sum[btree_iter].height / partitions_count);
     }
 
+#if defined(RESERVOIR_SAMPLING)
+  /* parent row count = exact sum of partition row counts */
+  cls_info_p->ci_tot_objects = (int) rs_part_total;
+#endif /* RESERVOIR_SAMPLING */
+
   /* put new statistics */
   btree_iter = 0;
   for (i = 0; i < disk_repr_p->n_fixed + disk_repr_p->n_variable; i++)
@@ -1336,6 +1456,7 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
 	}
 
       /* put ndv of columns */
+#if !defined(RESERVOIR_SAMPLING)
       for (int k = 0; k < class_attr_ndv->attr_cnt; k++)
 	{
 	  if (disk_attr_p->id == class_attr_ndv->attr_ndv[k].id)
@@ -1344,6 +1465,13 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
 	      break;
 	    }
 	}
+#else /* RESERVOIR_SAMPLING */
+      if (rs_part_ndv != NULL && rs_part_ndv[i] > 0)
+	{
+	  /* summed partition NDVs, clamped by the parent's exact row count */
+	  disk_attr_p->ndv = MIN (rs_part_ndv[i], rs_part_total);
+	}
+#endif /* RESERVOIR_SAMPLING */
       /* put btree stats */
       for (j = 0, btree_stats_p = disk_attr_p->bt_stats; j < disk_attr_p->n_btstats; j++, btree_stats_p++)
 	{
@@ -1390,6 +1518,13 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
 cleanup:
   (void) catalog_end_access_with_dir_oid (thread_p, &catalog_access_info, error);
   (void) catalog_end_access_with_dir_oid (thread_p, &part_catalog_access_info, error);
+
+#if defined(RESERVOIR_SAMPLING)
+  if (rs_part_ndv != NULL)
+    {
+      db_private_free_and_init (thread_p, rs_part_ndv);
+    }
+#endif /* RESERVOIR_SAMPLING */
 
   if (cls_rep != NULL)
     {

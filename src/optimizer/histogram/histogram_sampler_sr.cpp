@@ -44,6 +44,7 @@
 #include "log_impl.h"
 #include "object_representation.h"
 #include "reservoir_sampler.hpp"
+#include "statistics.h"
 
 #include "memory_wrapper.hpp"	// XXX: SHOULD BE THE LAST INCLUDE HEADER
 
@@ -406,6 +407,216 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
     }
 
   return NO_ERROR;
+}
+
+/* target rows per column for the NDV reservoir (cf. PR #7228 STATS_NDV_TARGET_SAMPLE_ROWS) */
+#define STATS_NDV_RESERVOIR_ROWS 30000
+
+namespace
+{
+  /* canonical byte-string key of a DB_VALUE for distinct counting; false on unsupported/NULL */
+  bool
+  ndv_canonical_key (const DB_VALUE *v, value_category cat, std::string &key)
+  {
+    switch (cat)
+      {
+      case value_category::integer:
+      {
+	std::int64_t out;
+	switch (DB_VALUE_TYPE (v))
+	  {
+	  case DB_TYPE_SHORT:
+	    out = db_get_short (v);
+	    break;
+	  case DB_TYPE_INTEGER:
+	    out = db_get_int (v);
+	    break;
+	  case DB_TYPE_BIGINT:
+	    out = db_get_bigint (v);
+	    break;
+	  default:
+	    return false;
+	  }
+	key.assign (reinterpret_cast<const char *> (&out), sizeof (out));
+	return true;
+      }
+      case value_category::real:
+      {
+	double out;
+	switch (DB_VALUE_TYPE (v))
+	  {
+	  case DB_TYPE_FLOAT:
+	    out = static_cast<double> (db_get_float (v));
+	    break;
+	  case DB_TYPE_DOUBLE:
+	    out = db_get_double (v);
+	    break;
+	  default:
+	    return false;
+	  }
+	key.assign (reinterpret_cast<const char *> (&out), sizeof (out));
+	return true;
+      }
+      case value_category::string:
+      {
+	const char *s = db_get_string (v);
+	int len = db_get_string_size (v);
+	if (s == NULL || len < 0)
+	  {
+	    return false;
+	  }
+	key.assign (s, static_cast<std::size_t> (len));
+	return true;
+      }
+      default:
+	return false;
+      }
+  }
+} // anonymous namespace
+
+int
+xstats_collect_ndv_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid,
+					  const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt,
+					  INT64 *out_ndv, INT64 *out_total_rows)
+{
+  HEAP_SCANCACHE scan_cache;
+  HEAP_CACHE_ATTRINFO attr_info;
+  RECDES recdes;
+  OID inst_oid;
+  OID scan_class_oid;
+  SCAN_CODE sc;
+  int error = NO_ERROR;
+  int i;
+  bool scancache_inited = false;
+  bool attrinfo_inited = false;
+  MVCC_SNAPSHOT *snapshot = logtb_get_mvcc_snapshot (thread_p);
+
+  *out_total_rows = 0;
+
+  std::vector<value_category> cats (attr_cnt);
+  std::vector<cubsampling::reservoir_sampler<std::string>> reservoirs;
+  reservoirs.reserve (attr_cnt);
+  for (i = 0; i < attr_cnt; i++)
+    {
+      cats[i] = category_of (attr_types[i]);
+      reservoirs.emplace_back (STATS_NDV_RESERVOIR_ROWS);
+      out_ndv[i] = -1;		/* unsupported / not computed by default */
+    }
+
+  error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */ , snapshot);
+  if (error != NO_ERROR)
+    {
+      ASSERT_ERROR ();
+      return error;
+    }
+  scancache_inited = true;
+
+  error = heap_attrinfo_start (thread_p, class_oid, attr_cnt, attr_ids, &attr_info);
+  if (error != NO_ERROR)
+    {
+      ASSERT_ERROR ();
+      goto cleanup;
+    }
+  attrinfo_inited = true;
+
+  OID_SET_NULL (&inst_oid);
+  recdes.data = NULL;
+  scan_class_oid = *class_oid;
+
+  while ((sc = heap_next (thread_p, hfid, &scan_class_oid, &inst_oid, &recdes, &scan_cache, PEEK)) == S_SUCCESS)
+    {
+      (*out_total_rows)++;
+
+      error = heap_attrinfo_read_dbvalues (thread_p, &inst_oid, &recdes, &attr_info);
+      if (error != NO_ERROR)
+	{
+	  ASSERT_ERROR ();
+	  goto cleanup;
+	}
+
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  if (cats[i] == value_category::unsupported)
+	    {
+	      continue;
+	    }
+	  DB_VALUE *v = heap_attrinfo_access (attr_ids[i], &attr_info);
+	  if (v == NULL || DB_IS_NULL (v))
+	    {
+	      continue;		/* NULLs do not feed the NDV reservoir */
+	    }
+	  std::string key;
+	  if (ndv_canonical_key (v, cats[i], key))
+	    {
+	      reservoirs[i].add (std::move (key));
+	    }
+	}
+    }
+
+  if (sc != S_END)
+    {
+      ASSERT_ERROR_AND_SET (error);
+      goto cleanup;
+    }
+
+  /* per-column: (n, d, f1) from the reservoir -> dedicated NDV estimator */
+  for (i = 0; i < attr_cnt; i++)
+    {
+      if (cats[i] == value_category::unsupported)
+	{
+	  continue;
+	}
+
+      std::vector<std::string> &samples = reservoirs[i].samples ();
+      INT64 n_nn = (INT64) reservoirs[i].seen ();	/* exact non-null rows of the column */
+
+      if (n_nn == 0)
+	{
+	  out_ndv[i] = 0;	/* all-NULL column */
+	  continue;
+	}
+
+      std::sort (samples.begin (), samples.end ());
+      INT64 d = 0, f1 = 0;
+      std::size_t j = 0;
+      while (j < samples.size ())
+	{
+	  std::size_t run = j + 1;
+	  while (run < samples.size () && samples[run] == samples[j])
+	    {
+	      run++;
+	    }
+	  d++;
+	  if (run - j == 1)
+	    {
+	      f1++;
+	    }
+	  j = run;
+	}
+
+      INT64 k = (INT64) samples.size ();
+      STATS_NDV_SAMPLE_INPUT in;
+      in.sample_rows = k;	/* reservoir holds non-null values only */
+      in.sample_nulls = 0;
+      in.sample_distinct = d;
+      in.sample_singleton = f1;
+      in.sampling_weight = (int) MAX (1, (n_nn + k / 2) / k);	/* expansion to exact non-null rows */
+
+      out_ndv[i] = stats_estimate_ndv_from_sample (&in);
+    }
+
+  error = NO_ERROR;
+
+cleanup:
+  if (attrinfo_inited)
+    {
+      heap_attrinfo_end (thread_p, &attr_info);
+    }
+  if (scancache_inited)
+    {
+      (void) heap_scancache_end (thread_p, &scan_cache);
+    }
+  return error;
 }
 
 #endif /* RESERVOIR_SAMPLING */
