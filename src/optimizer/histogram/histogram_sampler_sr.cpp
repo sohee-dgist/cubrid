@@ -141,22 +141,77 @@ namespace
   /* build the histogram blob from a typed sample */
   template <typename T>
   char *
-  build_blob (THREAD_ENTRY *thread_p, std::vector<T> &samples, DB_TYPE attr_type, int max_buckets, int *blob_length)
+  build_blob (THREAD_ENTRY *thread_p, std::vector<T> &samples, DB_TYPE attr_type, int max_buckets,
+	      std::int64_t n_nn, int *blob_length)
   {
     std::vector<std::pair<T, std::int64_t>> vc = group_counts (samples);
     std::int64_t total_sample = 0;
+    std::int64_t f1_total = 0;
     for (const auto &p : vc)
       {
 	total_sample += p.second;
+	if (p.second == 1)
+	  {
+	    f1_total++;
+	  }
       }
     int num_mcv = count_mcv (vc, total_sample, max_buckets);
+    std::int64_t d_total = (std::int64_t) vc.size ();
 
     std::vector<hist::sample_bucket<T>> buckets = hist::bucketize_sample<T> (vc, max_buckets, num_mcv);
+
+    /* Per-bucket approx_ndv from bucketize_sample is a SAMPLE distinct count. Equality
+     * selectivity is (bucket_rows/total_rows)/approx_ndv: the row ratio is scale-invariant,
+     * so approx_ndv must be the POPULATION distinct count or selectivity is over-estimated.
+     * Scale the non-MCV buckets up by the estimated population/sample distinct ratio
+     * (MCVs map 1:1 to the population and keep ndv=1), clamped to the bucket's row count. */
+    double nonmcv_ratio = 1.0;
+    double rows_scale = 1.0;
+    if (total_sample > 0 && d_total > 0)
+      {
+	STATS_NDV_SAMPLE_INPUT in;
+	in.sample_rows = total_sample;
+	in.sample_nulls = 0;
+	in.sample_distinct = d_total;
+	in.sample_singleton = f1_total;
+	in.sampling_weight = 1;
+	in.total_nn_rows = n_nn;	/* exact population non-null (full reservoir scan) */
+	INT64 d_pop = stats_estimate_ndv_from_sample (&in);
+
+	double d_nonmcv_sample = (double) (d_total - num_mcv);
+	double d_nonmcv_pop = (double) d_pop - (double) num_mcv;
+	if (d_nonmcv_pop < d_nonmcv_sample)
+	  {
+	    d_nonmcv_pop = d_nonmcv_sample;	/* population non-mcv distinct >= sample's */
+	  }
+	if (d_nonmcv_sample > 0.0)
+	  {
+	    nonmcv_ratio = d_nonmcv_pop / d_nonmcv_sample;
+	  }
+	if (n_nn > 0)
+	  {
+	    rows_scale = (double) n_nn / (double) total_sample;	/* sample rows -> population rows */
+	  }
+      }
 
     hist::HistogramBuilder builder;
     for (const hist::sample_bucket<T> &b : buckets)
       {
-	builder.add (b.endpoint, b.cumulative, b.approx_ndv);
+	std::int64_t ndv = b.approx_ndv;
+	if (!b.is_mcv)
+	  {
+	    ndv = (std::int64_t) (b.approx_ndv * nonmcv_ratio + 0.5);
+	    std::int64_t bucket_pop_rows = (std::int64_t) (b.rows_in_bucket * rows_scale + 0.5);
+	    if (ndv < 1)
+	      {
+		ndv = 1;
+	      }
+	    if (bucket_pop_rows >= 1 && ndv > bucket_pop_rows)
+	      {
+		ndv = bucket_pop_rows;	/* distinct cannot exceed rows in the bucket */
+	      }
+	  }
+	builder.add (b.endpoint, b.cumulative, ndv);
       }
     return builder.build (thread_p, attr_type, blob_length);
   }
@@ -360,7 +415,7 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
       if (error == NO_ERROR)
 	{
 	  /* always build: an empty sample yields a header-only blob (matches the old path) */
-	  *histogram_blob = build_blob<std::int64_t> (thread_p, samples, attr_type, max_buckets, blob_length);
+	  *histogram_blob = build_blob<std::int64_t> (thread_p, samples, attr_type, max_buckets, total_rows - null_rows, blob_length);
 	}
       break;
     }
@@ -371,7 +426,7 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
 					&null_rows);
       if (error == NO_ERROR)
 	{
-	  *histogram_blob = build_blob<double> (thread_p, samples, attr_type, max_buckets, blob_length);
+	  *histogram_blob = build_blob<double> (thread_p, samples, attr_type, max_buckets, total_rows - null_rows, blob_length);
 	}
       break;
     }
@@ -382,7 +437,7 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
 	      &null_rows);
       if (error == NO_ERROR)
 	{
-	  *histogram_blob = build_blob<std::string> (thread_p, samples, attr_type, max_buckets, blob_length);
+	  *histogram_blob = build_blob<std::string> (thread_p, samples, attr_type, max_buckets, total_rows - null_rows, blob_length);
 	}
       break;
     }
@@ -600,7 +655,8 @@ xstats_collect_ndv_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *cla
       in.sample_nulls = 0;
       in.sample_distinct = d;
       in.sample_singleton = f1;
-      in.sampling_weight = (int) MAX (1, (n_nn + k / 2) / k);	/* expansion to exact non-null rows */
+      in.sampling_weight = (int) MAX (1, (n_nn + k / 2) / k);	/* >1 disables the full-scan short-circuit when sampled */
+      in.total_nn_rows = n_nn;	/* exact (full reservoir scan): N_nn used directly, no integer-weight rounding */
 
       out_ndv[i] = stats_estimate_ndv_from_sample (&in);
     }

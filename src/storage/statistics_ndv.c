@@ -100,6 +100,14 @@ stats_estimate_ndv_from_sample (const STATS_NDV_SAMPLE_INPUT * in)
 
   n_nn_total = total_rows * (1.0 - null_frac);
 
+  /* full reservoir scan knows the exact population non-null row count; prefer it over
+   * the lossy integer sampling_weight reconstruction (which over-estimates unique-like
+   * columns, e.g. 30000 * round(200000/30000) = 210000 != 200000). */
+  if (in->total_nn_rows > 0)
+    {
+      n_nn_total = (double) in->total_nn_rows;
+    }
+
   n = (double) (in->sample_rows - in->sample_nulls);
   d = (double) in->sample_distinct;
   f1 = (double) in->sample_singleton;

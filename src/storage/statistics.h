@@ -142,6 +142,9 @@ struct stats_ndv_sample_input
   INT64 sample_distinct;	/* d: distinct non-null values in the sample */
   INT64 sample_singleton;	/* f1: distinct values that appear exactly once in the sample */
   int sampling_weight;		/* expansion factor: estimated population non-null rows / sample non-null rows */
+  INT64 total_nn_rows;		/* exact population non-null rows; when > 0 it is used directly as N_nn
+				 * (full reservoir scan knows it exactly), bypassing the lossy integer-weight
+				 * reconstruction. 0 => fall back to sample_rows * sampling_weight. */
 };
 
 /* NDV (number of distinct values) estimator from a sample (statistics_ndv.c). Pure
