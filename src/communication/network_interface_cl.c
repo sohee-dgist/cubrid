@@ -60,13 +60,11 @@
 #include "transaction_cl.h"
 #include "language_support.h"
 #include "statistics.h"
-#if defined(RESERVOIR_SAMPLING)
 #include "histogram_sampler_sr.hpp"
 #if !defined(CS_MODE)
 /* heap_file.h is server-only; the SA path below needs it, CS path does not */
 #include "heap_file.h"
 #endif /* !CS_MODE */
-#endif /* RESERVOIR_SAMPLING */
 #include "system_parameter.h"
 #include "replication.h"
 #include "es.h"
@@ -5767,7 +5765,6 @@ stats_get_statistics_from_server (OID * classoid, unsigned int timestamp, int *l
 #endif /* !CS_MODE */
 }
 
-#if defined(RESERVOIR_SAMPLING)
 /*
  * histogram_build_by_reservoir_request () - ask the server to build a column histogram
  *   by a single full heap scan + reservoir sampling. Returns the blob (malloc'd; caller
@@ -5861,7 +5858,6 @@ histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_typ
   return status;
 #endif /* !CS_MODE */
 }
-#endif /* RESERVOIR_SAMPLING */
 
 /*
  * stats_update_statistics -
@@ -5886,14 +5882,6 @@ stats_update_statistics (MOP classop, int with_fullscan)
   int request_size;
   CLASS_ATTR_NDV class_attr_ndv = CLASS_ATTR_NDV_INITIALIZER;
 
-#if !defined(RESERVOIR_SAMPLING)
-  /* get NDV by query */
-  if (stats_get_ndv_by_query (classop, &class_attr_ndv, NULL, with_fullscan) != NO_ERROR)
-    {
-      error = ER_FAILED;
-      goto end;
-    }
-#else /* RESERVOIR_SAMPLING */
   /* NDV is computed server-side by the dedicated full-scan reservoir collector;
    * send an empty placeholder (the server ignores it). No SQL query is issued. */
   class_attr_ndv.attr_cnt = 0;
@@ -5905,7 +5893,6 @@ stats_update_statistics (MOP classop, int with_fullscan)
     }
   class_attr_ndv.attr_ndv[0].id = -1;
   class_attr_ndv.attr_ndv[0].ndv = 0;
-#endif /* RESERVOIR_SAMPLING */
 
   request_size = OR_INT_SIZE + (sizeof (ATTR_NDV) * (class_attr_ndv.attr_cnt + 1)) + OR_INT_SIZE + OR_OID_SIZE;
   request = (char *) malloc (request_size);
@@ -5952,14 +5939,6 @@ end:
   CLASS_ATTR_NDV class_attr_ndv = CLASS_ATTR_NDV_INITIALIZER;
   THREAD_ENTRY *thread_p;
 
-#if !defined(RESERVOIR_SAMPLING)
-  /* get NDV by query */
-  if (stats_get_ndv_by_query (classop, &class_attr_ndv, NULL, with_fullscan) != NO_ERROR)
-    {
-      error = ER_FAILED;
-      goto end;
-    }
-#else /* RESERVOIR_SAMPLING */
   /* NDV is computed server-side by the dedicated full-scan reservoir collector. */
   class_attr_ndv.attr_cnt = 0;
   class_attr_ndv.attr_ndv = (ATTR_NDV *) malloc (sizeof (ATTR_NDV));
@@ -5970,7 +5949,6 @@ end:
     }
   class_attr_ndv.attr_ndv[0].id = -1;
   class_attr_ndv.attr_ndv[0].ndv = 0;
-#endif /* RESERVOIR_SAMPLING */
 
   thread_p = enter_server ();
   error = xstats_update_statistics (thread_p, WS_OID (classop), with_fullscan, &class_attr_ndv);

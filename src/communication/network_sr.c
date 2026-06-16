@@ -452,11 +452,9 @@ net_server_init (void)
   req_p->action_attribute = IN_TRANSACTION;
   req_p->processing_function = sqst_server_get_statistics;
 
-#if defined(RESERVOIR_SAMPLING)
   req_p = &net_Requests[NET_SERVER_QST_HISTOGRAM_BUILD_BY_RESERVOIR];
   req_p->action_attribute = IN_TRANSACTION;
   req_p->processing_function = sqst_histogram_build_by_reservoir;
-#endif /* RESERVOIR_SAMPLING */
 
   req_p = &net_Requests[NET_SERVER_QST_UPDATE_STATISTICS];
   req_p->action_attribute = (CHECK_DB_MODIFICATION | IN_TRANSACTION);

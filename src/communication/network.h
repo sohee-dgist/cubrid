@@ -286,7 +286,7 @@
   NET_SERVER_REQUEST_ITEM(NET_SERVER_CLEANFILEDB_CLEAN_INVALID_FILE) \
   NET_SERVER_REQUEST_ITEM(NET_SERVER_CLEANFILEDB_DELETE_TARGET_FILE) /* Debug only: unsafe, may break DB consistency */ \
   \
-  /* server-side full-scan reservoir histogram build (RESERVOIR_SAMPLING) */ \
+  /* server-side full-scan reservoir histogram build */ \
   NET_SERVER_REQUEST_ITEM(NET_SERVER_QST_HISTOGRAM_BUILD_BY_RESERVOIR)
 
 enum net_server_request

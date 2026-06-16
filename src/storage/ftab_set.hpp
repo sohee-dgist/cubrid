@@ -142,15 +142,5 @@ class ftab_set
     }
 };
 
-#if !defined(RESERVOIR_SAMPLING)
-// table-wide pick over N partitions: one stride over merged sectors, per-partition offsets
-int collect_strided_vpids_multi (THREAD_ENTRY *thread_p,
-				 const HFID *hfids,
-				 int n_hfids,
-				 VPID **out_picked,
-				 int *out_count,
-				 int **out_part_offsets,
-				 int *out_weight);
-#endif /* !RESERVOIR_SAMPLING */
 
 #endif // _FTAB_SET_HPP_

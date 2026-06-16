@@ -19439,29 +19439,6 @@ heap_next (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * ne
   return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL, NULL);
 }
 
-#if !defined(RESERVOIR_SAMPLING)
-/*
- * heap_next_sampling () - Retrieve or peek next object
- *   return: SCAN_CODE (Either of S_SUCCESS, S_DOESNT_FIT, S_END, S_ERROR)
- *   hfid(in):
- *   class_oid(in):
- *   next_oid(in/out): Object identifier of current record.
- *                     Will be set to next available record or NULL_OID when
- *                     there is not one.
- *   recdes(in/out): Pointer to a record descriptor. Will be modified to
- *                   describe the new record.
- *   scan_cache(in/out): Scan cache or NULL
- *   ispeeking(in): PEEK when the object is peeked, scan_cache cannot be NULL
- *                  COPY when the object is copied
- *
- */
-SCAN_CODE
-heap_next_sampling (THREAD_ENTRY * thread_p, const HFID * hfid, OID * class_oid, OID * next_oid, RECDES * recdes,
-		    HEAP_SCANCACHE * scan_cache, int ispeeking, sampling_info * sampling)
-{
-  return heap_next_internal (thread_p, hfid, class_oid, next_oid, recdes, scan_cache, ispeeking, false, NULL, sampling);
-}
-#endif /* !RESERVOIR_SAMPLING */
 
 /*
  * heap_next_record_info () - Retrieve or peek next object.

@@ -28,7 +28,6 @@
 
 #include "config.h"
 
-#ifdef RESERVOIR_SAMPLING
 
 #include "histogram_sampler_sr.hpp"
 
@@ -620,4 +619,3 @@ cleanup:
   return error;
 }
 
-#endif /* RESERVOIR_SAMPLING */

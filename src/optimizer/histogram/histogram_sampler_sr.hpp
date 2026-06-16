@@ -23,7 +23,6 @@
 #ifndef _HISTOGRAM_SAMPLER_SR_HPP_
 #define _HISTOGRAM_SAMPLER_SR_HPP_
 
-#ifdef RESERVOIR_SAMPLING
 
 #include "dbtype_def.h"
 #include "storage_common.h"
@@ -62,5 +61,4 @@ extern int xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const
 extern int xstats_collect_ndv_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid,
     const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt, INT64 *out_ndv, INT64 *out_total_rows);
 
-#endif /* RESERVOIR_SAMPLING */
 #endif /* _HISTOGRAM_SAMPLER_SR_HPP_ */

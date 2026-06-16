@@ -2072,7 +2072,6 @@ sqst_server_get_statistics (THREAD_ENTRY *thread_p, unsigned int rid, char *requ
 				     buffer_length, std::move (deleter));
 }
 
-#if defined(RESERVOIR_SAMPLING)
 /*
  * sqst_histogram_build_by_reservoir - server handler: build a column histogram by a
  *   single full heap scan + reservoir sampling, returning the blob + exact null frequency.
@@ -2149,7 +2148,6 @@ sqst_histogram_build_by_reservoir (THREAD_ENTRY *thread_p, unsigned int rid, cha
   css_send_reply_and_data_to_client (thread_p->conn_entry, rid, reply, OR_ALIGNED_BUF_SIZE (a_reply), send_buf,
 				     blob_length, std::move (deleter));
 }
-#endif /* RESERVOIR_SAMPLING */
 
 /*
  * slog_checkpoint -
