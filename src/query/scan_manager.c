@@ -3254,7 +3254,7 @@ scan_open_heap_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id,
   DB_TYPE single_node_type = DB_TYPE_NULL;
 
   /* scan type is HEAP SCAN or HEAP SCAN RECORD INFO */
-  assert (scan_type == S_HEAP_SCAN || scan_type == S_HEAP_SCAN_RECORD_INFO || scan_type == S_HEAP_SAMPLING_SCAN);
+  assert (scan_type == S_HEAP_SCAN || scan_type == S_HEAP_SCAN_RECORD_INFO);
   scan_id->type = scan_type;
 
   /* initialize SCAN_ID structure */
@@ -5302,32 +5302,6 @@ scan_end_scan (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
     }
 
   scan_id->status = S_ENDED;
-}
-
-/* free table-wide sampling pick (picked_vpids + part_offsets) once; idempotent, type-gated */
-void
-scan_free_sampling (THREAD_ENTRY * thread_p, SCAN_ID * scan_id)
-{
-  if (scan_id == NULL || scan_id->type != S_HEAP_SAMPLING_SCAN)
-    {
-      return;
-    }
-
-  if (scan_id->s.hsid.sampling.picked_vpids != NULL)
-    {
-      db_private_free_and_init (thread_p, scan_id->s.hsid.sampling.picked_vpids);
-    }
-  if (scan_id->s.hsid.sampling.part_offsets != NULL)
-    {
-      db_private_free_and_init (thread_p, scan_id->s.hsid.sampling.part_offsets);
-    }
-  scan_id->s.hsid.sampling.prepared = false;
-  scan_id->s.hsid.sampling.weight = 0;
-  scan_id->s.hsid.sampling.picked_count = 0;
-  scan_id->s.hsid.sampling.picked_cursor = 0;
-  scan_id->s.hsid.sampling.slice_end = 0;
-  scan_id->s.hsid.sampling.n_parts = 0;
-  scan_id->s.hsid.sampling.partition_cursor = 0;
 }
 
 /*

@@ -92,8 +92,7 @@ typedef enum
   S_HEAP_PAGE_SCAN,		/* scans heap pages and queries for page information */
   S_INDX_KEY_INFO_SCAN,		/* scans b-tree and queries for key info */
   S_INDX_NODE_INFO_SCAN,	/* scans b-tree nodes for info */
-  S_DBLINK_SCAN,		/* scans dblink */
-  S_HEAP_SAMPLING_SCAN		/* scans sampling data */
+  S_DBLINK_SCAN			/* scans dblink */
 } SCAN_TYPE;
 
 typedef struct dblink_scan_id DBLINK_SCAN_ID;
@@ -637,7 +636,6 @@ extern int scan_start_scan (THREAD_ENTRY * thread_p, SCAN_ID * s_id);
 extern SCAN_CODE scan_reset_scan_block (THREAD_ENTRY * thread_p, SCAN_ID * s_id);
 extern SCAN_CODE scan_next_scan_block (THREAD_ENTRY * thread_p, SCAN_ID * s_id);
 extern void scan_end_scan (THREAD_ENTRY * thread_p, SCAN_ID * s_id);
-extern void scan_free_sampling (THREAD_ENTRY * thread_p, SCAN_ID * scan_id);
 extern void scan_close_scan (THREAD_ENTRY * thread_p, SCAN_ID * s_id);
 extern SCAN_CODE scan_next_scan (THREAD_ENTRY * thread_p, SCAN_ID * s_id);
 extern SCAN_CODE scan_prev_scan (THREAD_ENTRY * thread_p, SCAN_ID * s_id);

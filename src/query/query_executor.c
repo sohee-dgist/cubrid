@@ -1900,7 +1900,6 @@ qexec_clear_access_spec_list (THREAD_ENTRY * thread_p, XASL_NODE * xasl_p, ACCES
 	    }
 
 	  /* free table-wide sampling pick once (all paths); idempotent */
-	  scan_free_sampling (thread_p, &p->s_id);
 	}
 
       if (XASL_IS_FLAGED (xasl_p, XASL_DECACHE_CLONE))
@@ -7509,8 +7508,7 @@ qexec_open_scan (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * curr_spec, VAL_LIST
 	  case ACCESS_METHOD_SEQUENTIAL_RECORD_INFO:	/* fall through */
 	    {
 	      SCAN_TYPE scan_type =
-		(curr_spec->access ==
-		 ACCESS_METHOD_SEQUENTIAL_RECORD_INFO) ? S_HEAP_SCAN_RECORD_INFO : S_HEAP_SAMPLING_SCAN;
+		S_HEAP_SCAN_RECORD_INFO;
 
 	      error_code = scan_open_heap_scan (thread_p, s_id, mvcc_select_lock_needed, scan_op_type, fixed, grouped,
 						curr_spec->single_fetch, curr_spec->s_dbval, val_list, vd,
@@ -7820,7 +7818,6 @@ exit_on_error:
     }
 
   /* free sampling pick on early-error; idempotent vs clear backstop */
-  scan_free_sampling (thread_p, &curr_spec->s_id);
 
   ASSERT_ERROR_AND_SET (error_code);
   return error_code;
@@ -9084,7 +9081,7 @@ qexec_init_next_partition (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * spec, XAS
 	    {
 	      HEAP_SCAN_ID *hsidp = &spec->s_id.s.hsid;
 	      SCAN_TYPE scan_type =
-		(spec->access == ACCESS_METHOD_SEQUENTIAL_RECORD_INFO) ? S_HEAP_SCAN_RECORD_INFO : S_HEAP_SAMPLING_SCAN;
+		S_HEAP_SCAN_RECORD_INFO;
 
 	      /* clear caches */
 	      if (hsidp->caches_inited)
