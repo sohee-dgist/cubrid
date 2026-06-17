@@ -188,6 +188,7 @@ static void qo_follow_cost (QO_PLAN *);
 static void qo_worst_cost (QO_PLAN *);
 static void qo_zero_cost (QO_PLAN *);
 static double qo_get_term_cost_weight (QO_TERM *);
+static double qo_apply_unique_join_cardinality (QO_TERM *, QO_INFO *, QO_INFO *, double, double);
 
 static void qo_estimate_ngroups (QO_PLAN *, SORT_TYPE);
 static int qo_get_group_ndv (QO_PLAN *, SORT_TYPE);
@@ -8210,6 +8211,7 @@ planner_visit_node (QO_PLANNER * planner, QO_PARTITION * partition, PT_HINT_ENUM
 		{
 		  double term_sel = QO_TERM_SELECTIVITY (term);
 
+		  term_sel = qo_apply_unique_join_cardinality (term, head_info, tail_info, cardinality, term_sel);
 		  selectivity *= term_sel;
 		  selectivity = MAX (1.0 / MAX (cardinality, 1.0), selectivity);
 
@@ -10835,6 +10837,119 @@ qo_get_term_cost_weight (QO_TERM * term)
     }
 
   return total_weight;
+}
+
+static double
+qo_apply_unique_join_cardinality (QO_TERM * term, QO_INFO * head_info, QO_INFO * tail_info,
+				  double base_cardinality, double term_sel)
+{
+  PT_NODE *expr;
+  PT_NODE *lhs;
+  PT_NODE *rhs;
+  QO_NODE *lhs_node;
+  QO_NODE *rhs_node;
+  PT_NODE *dummy;
+  int lhs_unique_card;
+  int rhs_unique_card;
+  bool lhs_unique;
+  bool rhs_unique;
+  double head_card;
+  double tail_card;
+  double lhs_side_card;
+  double rhs_side_card;
+  double unique_base_card;
+  double unique_ratio;
+  double join_card;
+  double adjusted_sel;
+
+  if (term == NULL || head_info == NULL || tail_info == NULL || base_cardinality <= 0.0
+      || !QO_TERM_IS_FLAGED (term, QO_TERM_EQUAL_OP))
+    {
+      return term_sel;
+    }
+
+  expr = QO_TERM_PT_EXPR (term);
+  if (expr == NULL || expr->node_type != PT_EXPR || expr->info.expr.op != PT_EQ)
+    {
+      return term_sel;
+    }
+
+  lhs = expr->info.expr.arg1;
+  rhs = expr->info.expr.arg2;
+  if (lhs == NULL || rhs == NULL || qo_classify (lhs) != PC_ATTR || qo_classify (rhs) != PC_ATTR)
+    {
+      return term_sel;
+    }
+
+  lhs_unique_card = qo_unique_index_cardinality (QO_TERM_ENV (term), lhs);
+  rhs_unique_card = qo_unique_index_cardinality (QO_TERM_ENV (term), rhs);
+  lhs_unique = lhs_unique_card > 0;
+  rhs_unique = rhs_unique_card > 0;
+  if (lhs_unique == rhs_unique)
+    {
+      return term_sel;
+    }
+
+  lhs_node = lookup_node (lhs, QO_TERM_ENV (term), &dummy);
+  rhs_node = lookup_node (rhs, QO_TERM_ENV (term), &dummy);
+  if (lhs_node == NULL || rhs_node == NULL)
+    {
+      return term_sel;
+    }
+
+  head_card = MAX (1.0, head_info->cardinality);
+  tail_card = MAX (1.0, tail_info->cardinality);
+  base_cardinality = MAX (1.0, base_cardinality);
+
+  if (BITSET_MEMBER (head_info->nodes, QO_NODE_IDX (lhs_node)))
+    {
+      lhs_side_card = head_card;
+    }
+  else if (BITSET_MEMBER (tail_info->nodes, QO_NODE_IDX (lhs_node)))
+    {
+      lhs_side_card = tail_card;
+    }
+  else
+    {
+      return term_sel;
+    }
+
+  if (BITSET_MEMBER (head_info->nodes, QO_NODE_IDX (rhs_node)))
+    {
+      rhs_side_card = head_card;
+    }
+  else if (BITSET_MEMBER (tail_info->nodes, QO_NODE_IDX (rhs_node)))
+    {
+      rhs_side_card = tail_card;
+    }
+  else
+    {
+      return term_sel;
+    }
+
+  if (lhs_unique)
+    {
+      unique_base_card = MAX (1.0, (double) lhs_unique_card);
+      unique_ratio = MIN (1.0, lhs_side_card / unique_base_card);
+      join_card = rhs_side_card * unique_ratio;
+      join_card = MIN (join_card, rhs_side_card);
+    }
+  else
+    {
+      unique_base_card = MAX (1.0, (double) rhs_unique_card);
+      unique_ratio = MIN (1.0, rhs_side_card / unique_base_card);
+      join_card = lhs_side_card * unique_ratio;
+      join_card = MIN (join_card, lhs_side_card);
+    }
+
+  if (join_card <= 0.0)
+    {
+      return term_sel;
+    }
+
+  adjusted_sel = MIN (1.0, MAX (1.0 / base_cardinality, join_card / base_cardinality));
+
+  return MIN (term_sel, adjusted_sel);
 }
 
 /*
