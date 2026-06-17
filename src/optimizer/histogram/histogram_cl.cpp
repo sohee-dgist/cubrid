@@ -1152,44 +1152,74 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
 	}
     }
 
-  /* Non-MCV buckets: fraction of bucket boundary values (bucket_hi) matching the pattern.
-   * Applies the operator to each
-   * histogram entry and counts matches. */
+  /* Non-MCV buckets: LIKE is tested only against each bucket's boundary value (bucket_hi),
+   * so a bucket's evidence weakens as its distinct-value count (approx_ndv) grows. We accumulate
+   * a per-bucket confidence (min (1, 3/approx_ndv)) to discount wide buckets later. */
   double matched_non_mcv_buckets = 0.0;
   double non_mcv_buckets = 0.0;
+  double ndv_confidence_sum = 0.0;	/* sum of confidence that bucket_hi represents its bucket */
 
   for (int i = 0; i < static_cast<int> (histogram_reader.bucket_count ()); i++)
     {
+      const int approx_ndv = histogram_reader.bucket_approx_ndv (i);
       non_mcv_buckets += 1.0;
+
+      const double bucket_confidence = std::min (1.0, 3.0 / static_cast<double> (approx_ndv > 0 ? approx_ndv : 1));
+      ndv_confidence_sum += bucket_confidence;
+
       if (like_match_string (pattern, histogram_reader.bucket_hi<std::string> (i)))
 	{
 	  matched_non_mcv_buckets += 1.0;
 	}
     }
 
-  /* char-count heuristic; used only as a fallback for small histograms */
+  /* char-count heuristic; used as a prior and a fallback for small histograms */
   const double pattern_sel = pattern_heuristic_selectivity (pattern, '\0');
   assert_release (pattern_sel >= 0.0 && pattern_sel <= 1.0);
 
-  /* the histogram value-match fraction is the primary
-   * non-MCV estimate. Trust it fully once the histogram is large enough (>=100 entries);
-   * blend with the heuristic for 10..99 entries (weight = size/100); below 10 use the
-   * heuristic alone. */
-  double total_non_mcv_sel;
-  const int hist_size = static_cast<int> (non_mcv_buckets);
-  if (hist_size >= 100)
-    {
-      total_non_mcv_sel = matched_non_mcv_buckets / non_mcv_buckets;
-    }
-  else if (hist_size >= 10)
+  /* Blend the bucket-match fraction with the heuristic. The histogram is trusted in proportion to
+   * (a) how many non-MCV buckets exist, (b) how many of them matched, and (c) how representative
+   * bucket_hi is (avg confidence); when the two estimates disagree, lean further toward the
+   * histogram observation. */
+  double total_non_mcv_sel = pattern_sel;
+
+  if (non_mcv_buckets > 0.0)
     {
       const double matched_buckets_sel = matched_non_mcv_buckets / non_mcv_buckets;
-      const double w = static_cast<double> (hist_size) / 100.0;
-      total_non_mcv_sel = matched_buckets_sel * w + pattern_sel * (1.0 - w);
-    }
-  else
-    {
-      total_non_mcv_sel = pattern_sel;
+
+      /* (a) trust the histogram more as the non-MCV bucket count grows (baseline 64). */
+      const double bucket_count_weight = non_mcv_buckets / (non_mcv_buckets + 64.0);
+
+      /* (b) a single matched bucket is weak evidence; meaningful around 4..8 matches. */
+      const double matched_support_weight = matched_non_mcv_buckets / (matched_non_mcv_buckets + 4.0);
+
+      /* (c) trust bucket_hi less when buckets hold many distinct values. */
+      const double avg_ndv_confidence = ndv_confidence_sum / non_mcv_buckets;
+
+      double hist_weight = bucket_count_weight * matched_support_weight * avg_ndv_confidence;
+      if (hist_weight > 1.0)
+	{
+	  hist_weight = 1.0;
+	}
+      else if (hist_weight < 0.0)
+	{
+	  hist_weight = 0.0;
+	}
+
+      /* when histogram evidence and the heuristic disagree, bias further toward the histogram. */
+      const double eps = 1e-12;
+      const double a = std::max (matched_buckets_sel, eps);
+      const double b = std::max (pattern_sel, eps);
+      const double ratio = std::max (a, b) / std::min (a, b);
+      const double disagreement_boost = (ratio - 1.0) / ratio;
+
+      double boosted_weight = hist_weight + (1.0 - hist_weight) * disagreement_boost;
+      if (boosted_weight > 1.0)
+	{
+	  boosted_weight = 1.0;
+	}
+
+      total_non_mcv_sel = matched_buckets_sel * boosted_weight + pattern_sel * (1.0 - boosted_weight);
     }
 
   /* don't believe extremely small or large estimates for the histogram part. */
