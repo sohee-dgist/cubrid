@@ -617,6 +617,16 @@ histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *s
 	}
     }
 
+  /* The caller (qo_expr_selectivity) multiplies the returned selectivity by
+   * (1 - null_frequency). Our values above are fractions of ALL rows, so divide the
+   * null mass back out here to return a non-null-conditional selectivity; the caller's
+   * multiply then restores the correct all-rows fraction (avoids double-counting nulls). */
+  const double nonnull_frac = 1.0 - histogram_reader.null_frequency ();
+  if (nonnull_frac > 1e-9)
+    {
+      *selectivity /= nonnull_frac;
+    }
+
   if (*selectivity < 0.0)
     {
       *selectivity = 0.0;
@@ -710,6 +720,14 @@ histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge
   else
     {
       sel = include_equal ? f_le : f_lt;
+    }
+
+  /* return a non-null-conditional selectivity; the caller multiplies by (1 - nullfrac).
+   * (see histogram_get_equal_selectivity for the rationale) */
+  const double nonnull_frac = 1.0 - nullfrac;
+  if (nonnull_frac > 1e-9)
+    {
+      sel /= nonnull_frac;
     }
 
   if (sel < 0.0)
@@ -989,6 +1007,14 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
     }
 
   *selectivity = matched_mcv_freq + nonmcv_mass * total_non_mcv_sel;
+
+  /* return a non-null-conditional selectivity; the caller multiplies by (1 - nullfrac).
+   * (see histogram_get_equal_selectivity for the rationale) */
+  const double nonnull_frac = 1.0 - nullfrac;
+  if (nonnull_frac > 1e-9)
+    {
+      *selectivity /= nonnull_frac;
+    }
 
   *selectivity = std::max (1.0 / total_rows, *selectivity);
 
