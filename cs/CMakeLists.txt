@@ -245,6 +245,7 @@ set(OPTIMIZER_SOURCES
   ${OPTIMIZER_DIR}/query_bitset.c
   ${OPTIMIZER_DIR}/query_graph.c
   ${OPTIMIZER_DIR}/query_planner.c
+  ${OPTIMIZER_DIR}/query_planner_selectivity.c
   ${OPTIMIZER_DIR}/plan_generation.c
   )
 

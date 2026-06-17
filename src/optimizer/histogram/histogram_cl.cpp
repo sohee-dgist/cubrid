@@ -38,6 +38,10 @@
 #include "object_accessor.h"
 #include "authenticate.h"
 #include "query_planner.h"
+#include <cmath>
+#include <unordered_map>
+#include <unordered_set>
+
 
 static bool histogram_extract_key (const DB_VALUE *db_val, hist::histogram_key &key);
 
@@ -742,6 +746,11 @@ string_pos (const unsigned char *s, std::size_t len, std::size_t max_len = 16)
 static double
 string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::string &v)
 {
+  if (v <= lo)
+    {
+      return 0.0;
+    }
+
   if (hi <= v)
     {
       return 1.0;
@@ -760,16 +769,26 @@ string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::
 
   if (den <= 0.0)
     {
-      /* phi == plo: two bucket boundaries map to the same position. clamp01 is applied conservatively */
-      return clamp01 ((pv - plo));
+      return clamp01 (pv - plo);
     }
 
-  double t = (pv - plo) / den;
+  double t = clamp01 ((pv - plo) / den);
+
+  if (t > 0.0 && t < 1.0)
+    {
+      t = std::sqrt (t);
+    }
+
+  constexpr double min_interior = 0.01;
+  if (t > 0.0 && t < min_interior)
+    {
+      t = min_interior;
+    }
+
   return clamp01 (t);
 }
 
 /* histogram get selectivity functions */
-
 void
 histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success)
 {
@@ -841,7 +860,36 @@ histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *s
       return;
     }
 
-  *selectivity = (bucket_rows / total_rows) / approx_ndv;
+  *selectivity = std::max (0.5 / total_rows, (bucket_rows / total_rows) / approx_ndv);
+  *success = true;
+  return;
+}
+
+void
+histogram_get_default_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success)
+{
+  assert (selectivity != NULL);
+
+  if (rhs_db_value == NULL)
+    {
+      *success = false;
+      return;
+    }
+
+  hist::HistogramReader histogram_reader;
+  if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
+    {
+      *success = false;
+      return;
+    }
+
+  if (histogram_reader.total_rows () <= 0.0)
+    {
+      *success = false;
+      return;
+    }
+
+  *selectivity = 1.0 / (static_cast<double> (histogram_reader.bucket_count ()) * 64.0);
   *success = true;
   return;
 }
@@ -1162,207 +1210,6 @@ pattern_heuristic_selectivity (const std::string &pattern, char escape_char)
     }
 
   return sel;
-}
-
-static bool
-like_match_string (const std::string &pattern, const std::string &value)
-{
-  if (pattern.empty())
-    {
-      return false;
-    }
-
-  const char *p = pattern.c_str ();
-  const char *s = value.data ();
-
-  /* most recent '%' position in pattern */
-  const char *last_percent = nullptr;
-  /* position in string that corresponds to retry after '%' */
-  const char *last_match = nullptr;
-
-  while (*s != '\0')
-    {
-      if (*p == '%')
-	{
-	  /* '%' matches any sequence, including empty */
-	  last_percent = p;
-	  ++p;
-	  last_match = s;
-	}
-      else if (*p == '_' || *p == *s)
-	{
-	  /* '_' matches any single character */
-	  ++p;
-	  ++s;
-	}
-      else if (last_percent != nullptr)
-	{
-	  /* backtrack: let previous '%' absorb one more character */
-	  p = last_percent + 1;
-	  ++last_match;
-	  s = last_match;
-	}
-      else
-	{
-	  return false;
-	}
-    }
-
-  /* trailing '%' can match empty suffix */
-  while (*p == '%')
-    {
-      ++p;
-    }
-
-  return (*p == '\0');
-}
-
-void
-histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success)
-{
-  assert (selectivity != NULL);
-
-  if (rhs_db_value == NULL)
-    {
-      *success = false;
-      return;
-    }
-
-  hist::HistogramReader histogram_reader;
-  if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
-    {
-      *success = false;
-      return;
-    }
-
-  const double total_rows = histogram_reader.total_rows ();
-  if (total_rows <= 0.0)
-    {
-      *success = true;
-      *selectivity = 0.0;
-      return;
-    }
-
-  if (DB_VALUE_TYPE (rhs_db_value) != DB_TYPE_STRING
-      && DB_VALUE_TYPE (rhs_db_value) != DB_TYPE_CHAR)
-    {
-      *success = false;
-      return;
-    }
-
-  const std::string &pattern = db_get_string (rhs_db_value);
-  if (pattern.empty())
-    {
-      *success = false;
-      return;
-    }
-
-  double matched_rows = 0.0;
-  double mcv_rows = 0.0;
-
-  double matched_non_mcv_buckets = 0.0;
-  double non_mcv_buckets = 0.0;
-
-  /* Confidence that bucket_hi can represent the entire bucket. */
-  double ndv_confidence_sum = 0.0;
-
-  for (int i = 0; i < static_cast<int> (histogram_reader.bucket_count ()); i++)
-    {
-      const double bucket_rows = histogram_reader.bucket_rows (i);
-      const int approx_ndv = histogram_reader.bucket_approx_ndv (i);
-      const std::string &bucket_val = histogram_reader.bucket_hi<std::string> (i);
-
-      if (approx_ndv == 1)
-	{
-	  /* MCV bucket. */
-	  mcv_rows += bucket_rows;
-
-	  if (like_match_string (pattern, bucket_val))
-	    {
-	      matched_rows += bucket_rows;
-	    }
-
-	  continue;
-	}
-
-      /*
-       * Non-MCV bucket.
-       *
-       * Since LIKE matching is tested only against bucket_hi, the bucket
-       * becomes less reliable as approx_ndv grows.
-       */
-      non_mcv_buckets += 1.0;
-
-      const double bucket_confidence =
-	      std::min (1.0, 3.0 / static_cast<double> (approx_ndv));
-
-      ndv_confidence_sum += bucket_confidence;
-
-      if (like_match_string (pattern, bucket_val))
-	{
-	  matched_non_mcv_buckets += 1.0;
-	}
-    }
-
-  const double pattern_sel = pattern_heuristic_selectivity (pattern, '\0');
-  assert_release (pattern_sel >= 0.0 && pattern_sel <= 1.0);
-
-  double total_non_mcv_sel = pattern_sel;
-
-  if (non_mcv_buckets > 0.0)
-    {
-      const double matched_buckets_sel =
-	      matched_non_mcv_buckets / non_mcv_buckets;
-
-      /*
-       * 1. Trust the histogram more when there are more non-MCV buckets.
-       *
-       * If around 200 buckets should be considered reasonably reliable,
-       * a baseline value between 64 and 100 is usually a practical choice.
-       */
-      const double bucket_count_weight =
-	      non_mcv_buckets / (non_mcv_buckets + 64.0);
-
-      /*
-       * 2. Do not over-trust matched_buckets_sel when only a few buckets match.
-       *
-       * A single matched bucket is weak evidence. The observation becomes
-       * more meaningful once around 4 to 8 buckets match.
-       */
-      const double matched_support_weight =
-	      matched_non_mcv_buckets / (matched_non_mcv_buckets + 4.0);
-
-      /*
-       * 3. Trust bucket_hi less when each bucket contains many distinct values.
-       */
-      const double avg_ndv_confidence =
-	      ndv_confidence_sum / non_mcv_buckets;
-
-      double hist_weight =
-	      bucket_count_weight * matched_support_weight * avg_ndv_confidence;
-
-      if (hist_weight > 1.0)
-	{
-	  hist_weight = 1.0;
-	}
-      else if (hist_weight < 0.0)
-	{
-	  hist_weight = 0.0;
-	}
-
-      total_non_mcv_sel =
-	      matched_buckets_sel * hist_weight
-	      + pattern_sel * (1.0 - hist_weight);
-    }
-
-  *selectivity =
-	  (matched_rows / total_rows)
-	  + (1.0 - (mcv_rows / total_rows)) * total_non_mcv_sel;
-
-  *selectivity = std::max (1.0 / total_rows, *selectivity);
-
-  *success = true;
-  return;
 }
 
 int
@@ -1879,4 +1726,778 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   db_value_clear (&null_frequency_value);
 
   return NO_ERROR;
+}
+
+/*
+ * Helper: derive histogram key kind from a PT_NODE column.
+ * This is used for eq-join when both lhs and rhs are columns.
+ */
+static bool
+histogram_extract_key_kind_from_node (PT_NODE *node, hist::histogram_key_kind &kind)
+{
+  if (node == NULL)
+    {
+      return false;
+    }
+
+  DB_TYPE type = pt_type_enum_to_db (node->type_enum);
+
+  switch (type)
+    {
+    case DB_TYPE_INTEGER:
+    case DB_TYPE_SHORT:
+    case DB_TYPE_BIGINT:
+      kind = hist::histogram_key_kind::i64;
+      return true;
+
+    case DB_TYPE_FLOAT:
+    case DB_TYPE_DOUBLE:
+    case DB_TYPE_NUMERIC:
+      kind = hist::histogram_key_kind::dbl;
+      return true;
+
+    case DB_TYPE_BIT:
+    case DB_TYPE_VARBIT:
+    case DB_TYPE_CHAR:
+    case DB_TYPE_STRING:
+      kind = hist::histogram_key_kind::str;
+      return true;
+
+    case DB_TYPE_TIME:
+    case DB_TYPE_TIMESTAMP:
+    case DB_TYPE_TIMESTAMPLTZ:
+    case DB_TYPE_DATE:
+    case DB_TYPE_TIMESTAMPTZ:
+    case DB_TYPE_DATETIME:
+    case DB_TYPE_DATETIMETZ:
+    case DB_TYPE_DATETIMELTZ:
+      kind = hist::histogram_key_kind::u64;
+      return true;
+
+    default:
+      return false;
+    }
+}
+
+/*
+ * Helper: sum approximate NDV of all non-MCV buckets.
+ * In this file, approx_ndv == 1 means an exact value bucket (MCV-like).
+ */
+static double
+histogram_sum_non_mcv_ndv (const hist::HistogramReader &reader)
+{
+  double ndv_sum = 0.0;
+
+  for (std::size_t i = 0; i < reader.bucket_count (); ++i)
+    {
+      const int approx_ndv = reader.bucket_approx_ndv (i);
+      if (approx_ndv > 1)
+	{
+	  ndv_sum += static_cast<double> (approx_ndv);
+	}
+    }
+
+  return ndv_sum;
+}
+
+/*
+ * Helper: overlap fraction for numeric ordered domains.
+ * frac1 is the overlap width divided by width(bucket1),
+ * frac2 is the overlap width divided by width(bucket2).
+ */
+static bool
+histogram_bucket_overlap_fraction_i64 (std::int64_t lo1, std::int64_t hi1,
+				       std::int64_t lo2, std::int64_t hi2,
+				       double &frac1, double &frac2)
+{
+  frac1 = 0.0;
+  frac2 = 0.0;
+
+  if (hi1 <= lo1 || hi2 <= lo2)
+    {
+      return false;
+    }
+
+  const std::int64_t overlap_lo = (lo1 < lo2) ? lo2 : lo1;
+  const std::int64_t overlap_hi = (hi1 < hi2) ? hi1 : hi2;
+
+  if (overlap_hi <= overlap_lo)
+    {
+      return false;
+    }
+
+  const long double width1 = static_cast<long double> (hi1) - static_cast<long double> (lo1);
+  const long double width2 = static_cast<long double> (hi2) - static_cast<long double> (lo2);
+  const long double overlap_width = static_cast<long double> (overlap_hi) - static_cast<long double> (overlap_lo);
+
+  if (width1 <= 0.0L || width2 <= 0.0L)
+    {
+      return false;
+    }
+
+  frac1 = clamp01 (static_cast<double> (overlap_width / width1));
+  frac2 = clamp01 (static_cast<double> (overlap_width / width2));
+  return true;
+}
+
+static bool
+histogram_bucket_overlap_fraction_u64 (std::uint64_t lo1, std::uint64_t hi1,
+				       std::uint64_t lo2, std::uint64_t hi2,
+				       double &frac1, double &frac2)
+{
+  frac1 = 0.0;
+  frac2 = 0.0;
+
+  if (hi1 <= lo1 || hi2 <= lo2)
+    {
+      return false;
+    }
+
+  const std::uint64_t overlap_lo = (lo1 < lo2) ? lo2 : lo1;
+  const std::uint64_t overlap_hi = (hi1 < hi2) ? hi1 : hi2;
+
+  if (overlap_hi <= overlap_lo)
+    {
+      return false;
+    }
+
+  const long double width1 = static_cast<long double> (hi1) - static_cast<long double> (lo1);
+  const long double width2 = static_cast<long double> (hi2) - static_cast<long double> (lo2);
+  const long double overlap_width = static_cast<long double> (overlap_hi) - static_cast<long double> (overlap_lo);
+
+  if (width1 <= 0.0L || width2 <= 0.0L)
+    {
+      return false;
+    }
+
+  frac1 = clamp01 (static_cast<double> (overlap_width / width1));
+  frac2 = clamp01 (static_cast<double> (overlap_width / width2));
+  return true;
+}
+
+static bool
+histogram_bucket_overlap_fraction_dbl (double lo1, double hi1,
+				       double lo2, double hi2,
+				       double &frac1, double &frac2)
+{
+  frac1 = 0.0;
+  frac2 = 0.0;
+
+  if (hi1 <= lo1 || hi2 <= lo2)
+    {
+      return false;
+    }
+
+  const double overlap_lo = (lo1 < lo2) ? lo2 : lo1;
+  const double overlap_hi = (hi1 < hi2) ? hi1 : hi2;
+
+  if (overlap_hi <= overlap_lo)
+    {
+      return false;
+    }
+
+  const long double width1 = static_cast<long double> (hi1) - static_cast<long double> (lo1);
+  const long double width2 = static_cast<long double> (hi2) - static_cast<long double> (lo2);
+  const long double overlap_width = static_cast<long double> (overlap_hi) - static_cast<long double> (overlap_lo);
+
+  if (width1 <= 0.0L || width2 <= 0.0L)
+    {
+      return false;
+    }
+
+  frac1 = clamp01 (static_cast<double> (overlap_width / width1));
+  frac2 = clamp01 (static_cast<double> (overlap_width / width2));
+  return true;
+}
+
+/*
+ * String overlap fraction uses the existing string_domain_frac_lt() mapping.
+ * This is only a heuristic, but it is still useful as weak overlap evidence.
+ */
+static bool
+histogram_bucket_overlap_fraction_str (const std::string &lo1, const std::string &hi1,
+				       const std::string &lo2, const std::string &hi2,
+				       double &frac1, double &frac2)
+{
+  frac1 = 0.0;
+  frac2 = 0.0;
+
+  if (hi1 <= lo1 || hi2 <= lo2)
+    {
+      return false;
+    }
+
+  const std::string overlap_lo = (lo1 < lo2) ? lo2 : lo1;
+  const std::string overlap_hi = (hi1 < hi2) ? hi1 : hi2;
+
+  if (overlap_hi <= overlap_lo)
+    {
+      return false;
+    }
+
+  frac1 = clamp01 (string_domain_frac_lt (lo1, hi1, overlap_hi)
+		   - string_domain_frac_lt (lo1, hi1, overlap_lo));
+  frac2 = clamp01 (string_domain_frac_lt (lo2, hi2, overlap_hi)
+		   - string_domain_frac_lt (lo2, hi2, overlap_lo));
+
+  return (frac1 > 0.0 || frac2 > 0.0);
+}
+/*
+ * Stage 2:
+ * Match exact-value buckets (approx_ndv == 1) across lhs and rhs.
+ *
+ * This is the highest-confidence component of eq-join estimation.  Keep
+ * matched and unmatched MCV frequencies separately so the caller can account
+ * for the remaining population in the same spirit as PostgreSQL's
+ * eqjoinsel_inner().
+ *
+ * Implementation note:
+ * Use a hash table for rhs exact buckets to avoid O(lhs_bucket_count * rhs_bucket_count)
+ * pair comparison. This also makes repeated join selectivity estimation less expensive.
+ */
+template <typename T>
+static double
+histogram_eqjoin_exact_mcv_mass_t (const hist::HistogramReader &lhs_reader,
+				   const hist::HistogramReader &rhs_reader,
+				   double lhs_total_rows, double rhs_total_rows,
+				   double &lhs_mcv_rows, double &rhs_mcv_rows,
+				   double &lhs_matched_mcv_frac, double &rhs_matched_mcv_frac,
+				   double &lhs_unmatched_mcv_frac, double &rhs_unmatched_mcv_frac,
+				   int &matched_mcv_count, int &lhs_mcv_count, int &rhs_mcv_count)
+{
+  lhs_mcv_rows = 0.0;
+  rhs_mcv_rows = 0.0;
+  lhs_matched_mcv_frac = 0.0;
+  rhs_matched_mcv_frac = 0.0;
+  lhs_unmatched_mcv_frac = 0.0;
+  rhs_unmatched_mcv_frac = 0.0;
+  matched_mcv_count = 0;
+  lhs_mcv_count = 0;
+  rhs_mcv_count = 0;
+
+  if (lhs_total_rows <= 0.0 || rhs_total_rows <= 0.0)
+    {
+      return 0.0;
+    }
+
+  std::unordered_map<T, double> rhs_prob_by_value;
+  std::unordered_set<T> matched_rhs_values;
+
+  for (std::size_t j = 0; j < rhs_reader.bucket_count (); ++j)
+    {
+      if (rhs_reader.bucket_approx_ndv (j) != 1)
+	{
+	  continue;
+	}
+
+      const double rhs_rows = static_cast<double> (rhs_reader.bucket_rows (j));
+      if (rhs_rows <= 0.0)
+	{
+	  continue;
+	}
+
+      rhs_mcv_rows += rhs_rows;
+      rhs_mcv_count++;
+
+      const T &rhs_val = rhs_reader.bucket_hi<T> (j);
+      rhs_prob_by_value[rhs_val] += rhs_rows / rhs_total_rows;
+    }
+
+  double exact_mass = 0.0;
+
+  for (std::size_t i = 0; i < lhs_reader.bucket_count (); ++i)
+    {
+      if (lhs_reader.bucket_approx_ndv (i) != 1)
+	{
+	  continue;
+	}
+
+      const double lhs_rows = static_cast<double> (lhs_reader.bucket_rows (i));
+      if (lhs_rows <= 0.0)
+	{
+	  continue;
+	}
+
+      lhs_mcv_rows += lhs_rows;
+      lhs_mcv_count++;
+
+      const T &lhs_val = lhs_reader.bucket_hi<T> (i);
+      typename std::unordered_map<T, double>::const_iterator it = rhs_prob_by_value.find (lhs_val);
+      if (it != rhs_prob_by_value.end ())
+	{
+	  const double lhs_prob = lhs_rows / lhs_total_rows;
+	  exact_mass += lhs_prob * it->second;
+	  lhs_matched_mcv_frac += lhs_prob;
+	  matched_rhs_values.insert (lhs_val);
+	  matched_mcv_count++;
+	}
+    }
+
+  for (typename std::unordered_set<T>::const_iterator it = matched_rhs_values.begin ();
+       it != matched_rhs_values.end (); ++it)
+    {
+      typename std::unordered_map<T, double>::const_iterator rhs_it = rhs_prob_by_value.find (*it);
+      if (rhs_it != rhs_prob_by_value.end ())
+	{
+	  rhs_matched_mcv_frac += rhs_it->second;
+	}
+    }
+
+  lhs_unmatched_mcv_frac = clamp01 ((lhs_mcv_rows / lhs_total_rows) - lhs_matched_mcv_frac);
+  rhs_unmatched_mcv_frac = clamp01 ((rhs_mcv_rows / rhs_total_rows) - rhs_matched_mcv_frac);
+
+  return clamp01 (exact_mass);
+}
+
+/*
+ * Stage 3b:
+ * Refine residual non-MCV overlap by scanning bucket pairs and using bucket
+ * overlap as weak evidence of common value-domain coverage.
+ *
+ * Only non-MCV buckets (approx_ndv > 1) are considered here.
+ * For each overlapping bucket pair:
+ *
+ *   local_mass = lhs_overlap_prob * rhs_overlap_prob / max(lhs_overlap_ndv, rhs_overlap_ndv)
+ *
+ * This keeps the estimate conservative while still letting histograms influence
+ * join cardinality beyond simple NDV fallback.
+ */
+template <typename T, typename OverlapFunc>
+static double
+histogram_eqjoin_residual_overlap_mass_t (const hist::HistogramReader &lhs_reader,
+    const hist::HistogramReader &rhs_reader,
+    double lhs_total_rows, double rhs_total_rows,
+    OverlapFunc overlap_func)
+{
+  double residual_mass = 0.0;
+
+  /*
+   * We require i >= 1 and j >= 1 because a non-MCV bucket needs a lower
+   * boundary from the previous bucket's endpoint.
+   */
+  for (std::size_t i = 1; i < lhs_reader.bucket_count (); ++i)
+    {
+      const int lhs_ndv_i = lhs_reader.bucket_approx_ndv (i);
+      if (lhs_ndv_i <= 1)
+	{
+	  continue;
+	}
+
+      const double lhs_bucket_rows = static_cast<double> (lhs_reader.bucket_rows (i));
+      if (lhs_bucket_rows <= 0.0)
+	{
+	  continue;
+	}
+
+      const T &lhs_lo = lhs_reader.bucket_hi<T> (i - 1);
+      const T &lhs_hi = lhs_reader.bucket_hi<T> (i);
+
+      for (std::size_t j = 1; j < rhs_reader.bucket_count (); ++j)
+	{
+	  const int rhs_ndv_j = rhs_reader.bucket_approx_ndv (j);
+	  if (rhs_ndv_j <= 1)
+	    {
+	      continue;
+	    }
+
+	  const double rhs_bucket_rows = static_cast<double> (rhs_reader.bucket_rows (j));
+	  if (rhs_bucket_rows <= 0.0)
+	    {
+	      continue;
+	    }
+
+	  const T &rhs_lo = rhs_reader.bucket_hi<T> (j - 1);
+	  const T &rhs_hi = rhs_reader.bucket_hi<T> (j);
+
+	  double lhs_overlap_frac = 0.0;
+	  double rhs_overlap_frac = 0.0;
+
+	  if (!overlap_func (lhs_lo, lhs_hi, rhs_lo, rhs_hi, lhs_overlap_frac, rhs_overlap_frac))
+	    {
+	      continue;
+	    }
+
+	  if (lhs_overlap_frac <= 0.0 || rhs_overlap_frac <= 0.0)
+	    {
+	      continue;
+	    }
+
+	  double lhs_overlap_ndv = static_cast<double> (lhs_ndv_i) * lhs_overlap_frac;
+	  double rhs_overlap_ndv = static_cast<double> (rhs_ndv_j) * rhs_overlap_frac;
+
+	  if (lhs_overlap_ndv < 1.0)
+	    {
+	      lhs_overlap_ndv = 1.0;
+	    }
+	  if (rhs_overlap_ndv < 1.0)
+	    {
+	      rhs_overlap_ndv = 1.0;
+	    }
+
+	  const double lhs_overlap_prob = (lhs_bucket_rows / lhs_total_rows) * lhs_overlap_frac;
+	  const double rhs_overlap_prob = (rhs_bucket_rows / rhs_total_rows) * rhs_overlap_frac;
+
+	  const double local_join_sel = 1.0 / ((lhs_overlap_ndv > rhs_overlap_ndv) ? lhs_overlap_ndv : rhs_overlap_ndv);
+
+	  residual_mass += lhs_overlap_prob * rhs_overlap_prob * local_join_sel;
+	}
+    }
+
+  return clamp01 (residual_mass);
+}
+
+/*
+ * Stage 3a:
+ * Conservative residual fallback using non-MCV NDV only.
+ */
+static double
+histogram_eqjoin_residual_fallback_mass (const hist::HistogramReader &lhs_reader,
+    const hist::HistogramReader &rhs_reader,
+    double lhs_non_mcv_frac, double rhs_non_mcv_frac)
+{
+  const double lhs_residual_ndv = histogram_sum_non_mcv_ndv (lhs_reader);
+  const double rhs_residual_ndv = histogram_sum_non_mcv_ndv (rhs_reader);
+
+  if (lhs_residual_ndv <= 0.0 || rhs_residual_ndv <= 0.0)
+    {
+      return 0.0;
+    }
+
+  const double residual_sel = 1.0 / ((lhs_residual_ndv > rhs_residual_ndv)
+				     ? lhs_residual_ndv : rhs_residual_ndv);
+
+  return clamp01 (lhs_non_mcv_frac * rhs_non_mcv_frac * residual_sel);
+}
+
+/*
+ * PostgreSQL-style residual estimate for the part not covered by exact MCV
+ * matches.  This accounts for unmatched MCVs against the opposite non-MCV
+ * population, plus non-MCV values against unmatched MCVs/non-MCV values.
+ */
+static double
+histogram_eqjoin_pg_mcv_residual_mass (double exact_mcv_mass,
+				       double lhs_unmatched_mcv_frac, double rhs_unmatched_mcv_frac,
+				       double lhs_other_frac, double rhs_other_frac,
+				       double lhs_total_ndv, double rhs_total_ndv,
+				       int lhs_mcv_count, int rhs_mcv_count, int matched_mcv_count)
+{
+  double lhs_view = exact_mcv_mass;
+  double rhs_view = exact_mcv_mass;
+  double rhs_unmatched_denom;
+  double lhs_unmatched_denom;
+  double rhs_remaining_denom;
+  double lhs_remaining_denom;
+
+  lhs_other_frac = clamp01 (lhs_other_frac);
+  rhs_other_frac = clamp01 (rhs_other_frac);
+  lhs_unmatched_mcv_frac = clamp01 (lhs_unmatched_mcv_frac);
+  rhs_unmatched_mcv_frac = clamp01 (rhs_unmatched_mcv_frac);
+
+  rhs_unmatched_denom = rhs_total_ndv - (double) rhs_mcv_count;
+  if (rhs_unmatched_denom > 0.0)
+    {
+      lhs_view += lhs_unmatched_mcv_frac * rhs_other_frac / rhs_unmatched_denom;
+    }
+
+  rhs_remaining_denom = rhs_total_ndv - (double) matched_mcv_count;
+  if (rhs_remaining_denom > 0.0)
+    {
+      lhs_view += lhs_other_frac * (rhs_other_frac + rhs_unmatched_mcv_frac) / rhs_remaining_denom;
+    }
+
+  lhs_unmatched_denom = lhs_total_ndv - (double) lhs_mcv_count;
+  if (lhs_unmatched_denom > 0.0)
+    {
+      rhs_view += rhs_unmatched_mcv_frac * lhs_other_frac / lhs_unmatched_denom;
+    }
+
+  lhs_remaining_denom = lhs_total_ndv - (double) matched_mcv_count;
+  if (lhs_remaining_denom > 0.0)
+    {
+      rhs_view += rhs_other_frac * (lhs_other_frac + lhs_unmatched_mcv_frac) / lhs_remaining_denom;
+    }
+
+  return clamp01 ((lhs_view < rhs_view) ? lhs_view : rhs_view);
+}
+
+/*
+ * histogram_get_eqjoin_selectivity () - Estimate equality join selectivity
+ *                                       when both lhs and rhs are columns.
+ *
+ * This function implements the 3-stage design:
+ *
+ *   Stage 1. Establish a safe baseline using residual NDV logic.
+ *   Stage 2. Add exact mass from exact-value buckets (MCV buckets).
+ *   Stage 3. Estimate the remaining non-MCV overlap, preferably with
+ *            bucket overlap refinement, and fall back to residual NDV
+ *            when no overlap signal is available.
+ */
+void
+histogram_get_eqjoin_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity, bool *success)
+{
+  assert (selectivity != NULL);
+  assert (success != NULL);
+
+  *selectivity = 0.0;
+  *success = false;
+
+  if (lhs == NULL || rhs == NULL)
+    {
+      return;
+    }
+
+  hist::HistogramReader lhs_reader;
+  hist::HistogramReader rhs_reader;
+
+  if (!histogram_init_reader_from_lhs (lhs, lhs_reader)
+      || !histogram_init_reader_from_lhs (rhs, rhs_reader))
+    {
+      return;
+    }
+
+  hist::histogram_key_kind lhs_kind = hist::histogram_key_kind::invalid;
+  hist::histogram_key_kind rhs_kind = hist::histogram_key_kind::invalid;
+
+  if (!histogram_extract_key_kind_from_node (lhs, lhs_kind)
+      || !histogram_extract_key_kind_from_node (rhs, rhs_kind))
+    {
+      return;
+    }
+
+  /*
+   * For now, require both sides to share the same histogram domain kind.
+   * Mixed numeric kinds (e.g. i64 vs dbl) can be added later if needed.
+   */
+  if (lhs_kind != rhs_kind)
+    {
+      return;
+    }
+
+  const double lhs_total_rows = static_cast<double> (lhs_reader.total_rows ());
+  const double rhs_total_rows = static_cast<double> (rhs_reader.total_rows ());
+
+  if (lhs_total_rows <= 0.0 || rhs_total_rows <= 0.0)
+    {
+      *selectivity = 0.0;
+      *success = true;
+      return;
+    }
+
+  double lhs_mcv_rows = 0.0;
+  double rhs_mcv_rows = 0.0;
+  double exact_mcv_mass = 0.0;
+  double overlap_residual_mass = 0.0;
+  double lhs_matched_mcv_frac = 0.0;
+  double rhs_matched_mcv_frac = 0.0;
+  double lhs_unmatched_mcv_frac = 0.0;
+  double rhs_unmatched_mcv_frac = 0.0;
+  int matched_mcv_count = 0;
+  int lhs_mcv_count = 0;
+  int rhs_mcv_count = 0;
+
+  switch (lhs_kind)
+    {
+    case hist::histogram_key_kind::i64:
+      exact_mcv_mass =
+	      histogram_eqjoin_exact_mcv_mass_t<std::int64_t> (lhs_reader, rhs_reader,
+		  lhs_total_rows, rhs_total_rows,
+		  lhs_mcv_rows, rhs_mcv_rows,
+		  lhs_matched_mcv_frac, rhs_matched_mcv_frac,
+		  lhs_unmatched_mcv_frac, rhs_unmatched_mcv_frac,
+		  matched_mcv_count, lhs_mcv_count, rhs_mcv_count);
+
+      overlap_residual_mass =
+	      histogram_eqjoin_residual_overlap_mass_t<std::int64_t> (lhs_reader, rhs_reader,
+		  lhs_total_rows, rhs_total_rows,
+		  histogram_bucket_overlap_fraction_i64);
+      break;
+
+    case hist::histogram_key_kind::dbl:
+      exact_mcv_mass =
+	      histogram_eqjoin_exact_mcv_mass_t<double> (lhs_reader, rhs_reader,
+		  lhs_total_rows, rhs_total_rows,
+		  lhs_mcv_rows, rhs_mcv_rows,
+		  lhs_matched_mcv_frac, rhs_matched_mcv_frac,
+		  lhs_unmatched_mcv_frac, rhs_unmatched_mcv_frac,
+		  matched_mcv_count, lhs_mcv_count, rhs_mcv_count);
+
+      overlap_residual_mass =
+	      histogram_eqjoin_residual_overlap_mass_t<double> (lhs_reader, rhs_reader,
+		  lhs_total_rows, rhs_total_rows,
+		  histogram_bucket_overlap_fraction_dbl);
+      break;
+
+    case hist::histogram_key_kind::str:
+      exact_mcv_mass =
+	      histogram_eqjoin_exact_mcv_mass_t<std::string> (lhs_reader, rhs_reader,
+		  lhs_total_rows, rhs_total_rows,
+		  lhs_mcv_rows, rhs_mcv_rows,
+		  lhs_matched_mcv_frac, rhs_matched_mcv_frac,
+		  lhs_unmatched_mcv_frac, rhs_unmatched_mcv_frac,
+		  matched_mcv_count, lhs_mcv_count, rhs_mcv_count);
+
+      overlap_residual_mass =
+	      histogram_eqjoin_residual_overlap_mass_t<std::string> (lhs_reader, rhs_reader,
+		  lhs_total_rows, rhs_total_rows,
+		  histogram_bucket_overlap_fraction_str);
+      break;
+
+    case hist::histogram_key_kind::u64:
+      exact_mcv_mass =
+	      histogram_eqjoin_exact_mcv_mass_t<std::uint64_t> (lhs_reader, rhs_reader,
+		  lhs_total_rows, rhs_total_rows,
+		  lhs_mcv_rows, rhs_mcv_rows,
+		  lhs_matched_mcv_frac, rhs_matched_mcv_frac,
+		  lhs_unmatched_mcv_frac, rhs_unmatched_mcv_frac,
+		  matched_mcv_count, lhs_mcv_count, rhs_mcv_count);
+
+      overlap_residual_mass =
+	      histogram_eqjoin_residual_overlap_mass_t<std::uint64_t> (lhs_reader, rhs_reader,
+		  lhs_total_rows, rhs_total_rows,
+		  histogram_bucket_overlap_fraction_u64);
+      break;
+
+    case hist::histogram_key_kind::invalid:
+    default:
+      return;
+    }
+
+  /*
+   * Stage 1 baseline:
+   * Derive the residual non-MCV mass cap from remaining row fractions,
+   * then compute the NDV-based fallback for that region.
+   */
+  double lhs_non_mcv_frac = (lhs_total_rows - lhs_mcv_rows) / lhs_total_rows;
+  double rhs_non_mcv_frac = (rhs_total_rows - rhs_mcv_rows) / rhs_total_rows;
+
+  lhs_non_mcv_frac = clamp01 (lhs_non_mcv_frac);
+  rhs_non_mcv_frac = clamp01 (rhs_non_mcv_frac);
+
+  const double lhs_total_ndv = histogram_sum_non_mcv_ndv (lhs_reader) + (double) lhs_mcv_count;
+  const double rhs_total_ndv = histogram_sum_non_mcv_ndv (rhs_reader) + (double) rhs_mcv_count;
+  const double fallback_residual_mass =
+	  histogram_eqjoin_residual_fallback_mass (lhs_reader, rhs_reader,
+	      lhs_non_mcv_frac, rhs_non_mcv_frac);
+  const double pg_mcv_mass =
+	  histogram_eqjoin_pg_mcv_residual_mass (exact_mcv_mass,
+	      lhs_unmatched_mcv_frac, rhs_unmatched_mcv_frac,
+	      lhs_non_mcv_frac, rhs_non_mcv_frac,
+	      lhs_total_ndv, rhs_total_ndv,
+	      lhs_mcv_count, rhs_mcv_count, matched_mcv_count);
+
+  /*
+   * Stage 3 final residual choice:
+   *
+   * Start from the PG-style MCV/non-MCV decomposition when MCVs are available.
+   * If MCV decomposition is unavailable, use the global non-MCV NDV fallback.
+   * Bucket overlap is only a reducing signal. It must not increase residual
+   * equality join selectivity above the chosen statistical baseline.
+   *
+   * This is important for join ordering because range overlap between histogram
+   * buckets is weak evidence. If we let overlap_residual_mass replace the
+   * fallback whenever it is positive, common id-like domains can make joins look
+   * much less selective than they should be.
+   */
+  const bool has_both_mcv_lists = (lhs_mcv_count > 0 && rhs_mcv_count > 0);
+  double selectivity_mass = has_both_mcv_lists ? pg_mcv_mass : exact_mcv_mass + fallback_residual_mass;
+
+  if (!has_both_mcv_lists && overlap_residual_mass > 0.0)
+    {
+      double overlap_mass = exact_mcv_mass + overlap_residual_mass;
+
+      if (overlap_mass < selectivity_mass)
+	{
+	  selectivity_mass = overlap_mass;
+	}
+    }
+
+  /*
+   * Final join selectivity:
+   *
+   *   exact MCV contribution
+   * + matched/unmatched MCV and non-MCV contribution
+   */
+  *selectivity = clamp01 (selectivity_mass);
+
+  const double lhs_non_null_frac = clamp01 (1.0 - lhs->info.name.null_frequency);
+  const double rhs_non_null_frac = clamp01 (1.0 - rhs->info.name.null_frequency);
+
+  *selectivity = clamp01 (*selectivity * lhs_non_null_frac * rhs_non_null_frac);
+
+  *success = true;
+}
+
+/*
+ * histogram_get_max_mcv_frequency () - get the largest single MCV frequency
+ *
+ * max_mcv_frequency = max(rows of one bucket whose approx_ndv == 1) / total histogram rows
+ *
+ * In this histogram format, approx_ndv == 1 means exact-value bucket,
+ * which is treated as an MCV bucket.
+ */
+void
+histogram_get_max_mcv_frequency (PT_NODE *pt_col, double *out_max_mcv_frequency, bool *out_success)
+{
+  hist::HistogramReader reader;
+  double total_rows = 0.0;
+  double max_mcv_rows = 0.0;
+
+  if (out_max_mcv_frequency != NULL)
+    {
+      *out_max_mcv_frequency = 0.0;
+    }
+
+  if (out_success != NULL)
+    {
+      *out_success = false;
+    }
+
+  if (pt_col == NULL || out_max_mcv_frequency == NULL || out_success == NULL)
+    {
+      return;
+    }
+
+  if (!histogram_init_reader_from_lhs (pt_col, reader))
+    {
+      return;
+    }
+
+  total_rows = static_cast<double> (reader.total_rows ());
+  if (total_rows <= 0.0)
+    {
+      return;
+    }
+
+  for (std::size_t i = 0; i < reader.bucket_count (); i++)
+    {
+      const int approx_ndv = reader.bucket_approx_ndv (i);
+
+      if (approx_ndv != 1)
+	{
+	  continue;
+	}
+
+      const double bucket_rows = static_cast<double> (reader.bucket_rows (i));
+      if (bucket_rows <= 0.0)
+	{
+	  continue;
+	}
+
+      if (bucket_rows > max_mcv_rows)
+	{
+	  max_mcv_rows = bucket_rows;
+	}
+    }
+
+  if (max_mcv_rows < 0.0)
+    {
+      max_mcv_rows = 0.0;
+    }
+  else if (max_mcv_rows > total_rows)
+    {
+      max_mcv_rows = total_rows;
+    }
+
+  *out_max_mcv_frequency = clamp01 (max_mcv_rows / total_rows);
+  *out_success = true;
 }
