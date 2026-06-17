@@ -51,6 +51,8 @@
 #include "network_interface_cl.h"
 #include "dbtype.h"
 #include "regu_var.hpp"
+#include "query_planner_internal.h"
+#include "query_planner_constants.h"
 #include "histogram_cl.hpp"
 
 #define TEST_DUMP_PLAN_SCAN_COST 0
@@ -167,19 +169,30 @@ static void qo_follow_walk (QO_PLAN *, void (*)(QO_PLAN *, void *), void *, void
 
 static void qo_plan_compute_cost (QO_PLAN *);
 static void qo_plan_compute_subquery_cost (PT_NODE *, double *, double *);
+static double qo_sum_bitset_term_cost_weights (QO_ENV *, BITSET *);
 static void qo_sscan_cost (QO_PLAN *);
+static void qo_apply_scan_term_cpu_overhead (QO_PLAN *);
 static void qo_iscan_cost (QO_PLAN *);
 static void qo_sort_cost (QO_PLAN *);
+static bool qo_can_apply_limit_card (QO_ENV *);
+static double qo_estimate_ndv (double N, double p, double n);
+static double qo_get_join_term_cost_weight (QO_TERM *);
+static double qo_sum_join_term_cost_weights (QO_ENV *, BITSET *);
+static double qo_get_nljoin_term_cpu_overhead (QO_PLAN *, double);
+static void qo_accumulate_memoize_outer_distinct_keys (QO_PLAN *, BITSET *, double, double *);
+static double qo_estimate_memoize_outer_distinct_keys (QO_PLAN *, double);
+static bool qo_is_memoize_favorable_plan (QO_PLAN *, double, double *);
+static void qo_get_non_unique_residual_lookup_costs (QO_PLAN *, double, double *, double *);
 static void qo_mjoin_cost (QO_PLAN *);
 static void qo_nljoin_cost (QO_PLAN *);
 static void qo_hjoin_cost (QO_PLAN *);
 static void qo_follow_cost (QO_PLAN *);
 static void qo_worst_cost (QO_PLAN *);
 static void qo_zero_cost (QO_PLAN *);
+static double qo_get_term_cost_weight (QO_TERM *);
 
 static void qo_estimate_ngroups (QO_PLAN *, SORT_TYPE);
 static int qo_get_group_ndv (QO_PLAN *, SORT_TYPE);
-static double qo_estimate_ndv (double N, double p, double n);
 
 static QO_PLAN *qo_top_plan_new (QO_PLAN *);
 
@@ -207,7 +220,8 @@ static double planner_nodeset_join_cost (QO_PLANNER *, BITSET *);
 static void planner_permutate (QO_PLANNER *, QO_PARTITION *, PT_HINT_ENUM, QO_NODE *, BITSET *, BITSET *, BITSET *,
 			       BITSET *, BITSET *, BITSET *, BITSET *, int, int *);
 
-static QO_PLAN *qo_find_best_nljoin_inner_plan_on_info (QO_PLAN *, QO_INFO *, JOIN_TYPE, int);
+static QO_PLAN *qo_find_best_nljoin_inner_plan_on_info (QO_PLAN *, QO_INFO *, JOIN_TYPE, BITSET *, BITSET *,
+							BITSET *, int);
 static QO_PLAN *qo_find_best_plan_on_info (QO_INFO *, QO_EQCLASS *, double);
 static bool qo_check_new_best_plan_on_info (QO_INFO *, QO_PLAN *);
 static int qo_check_plan_on_info (QO_INFO *, QO_PLAN *);
@@ -428,32 +442,8 @@ QO_PLAN_VTBL *all_vtbls[] = {
   &qo_worst_plan_vtbl
 };
 
-static double qo_or_selectivity (QO_ENV * env, double lhs_sel, double rhs_sel);
-
-static double qo_and_selectivity (QO_ENV * env, double lhs_sel, double rhs_sel);
-
-static double qo_not_selectivity (QO_ENV * env, double sel);
-
-static double qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr);
-
-static double qo_comp_selectivity (QO_ENV * env, PT_NODE * pt_expr);
-
-static double qo_between_selectivity (QO_ENV * env, PT_NODE * pt_expr);
-
-static double qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr);
-
-static double qo_all_some_in_selectivity (QO_ENV * env, PT_NODE * pt_expr);
-
-static double qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr);
-
-static int qo_index_cardinality (QO_ENV * env, PT_NODE * attr);
 static int qo_index_cardinality_with_dedup (QO_ENV * env, PT_NODE * attr, BITSET * seg_bitset);
 
-/*
- * log3 () -
- *   return:
- *   n(in):
- */
 static double
 log3 (double n)
 {
@@ -840,6 +830,22 @@ qo_plan_compute_subquery_cost (PT_NODE * subquery, double *subq_cpu_cost, double
     }
 
   return;
+}
+
+static double
+qo_sum_bitset_term_cost_weights (QO_ENV * env, BITSET * terms)
+{
+  BITSET_ITERATOR iter;
+  int t;
+  double sum = 0.0;
+
+  for (t = bitset_iterate (terms, &iter); t != -1; t = bitset_next_member (&iter))
+    {
+      QO_TERM *term = QO_ENV_TERM (env, t);
+      sum += qo_get_term_cost_weight (term);
+    }
+
+  return sum;
 }
 
 /*
@@ -1683,7 +1689,6 @@ qo_seq_scan_new (QO_INFO * info, QO_NODE * node)
   return plan;
 }
 
-
 /*
  * qo_sscan_cost () -
  *   return:
@@ -1693,10 +1698,16 @@ static void
 qo_sscan_cost (QO_PLAN * planp)
 {
   QO_NODE *nodep;
+  double extra_weight = 0.0;
+  double scan_rows;
 
   nodep = planp->plan_un.scan.node;
   planp->fixed_cpu_cost = 0.0;
   planp->fixed_io_cost = 0.0;
+
+  scan_rows = MAX (1, QO_NODE_NCARD (nodep));
+  planp->info->scan_rows = scan_rows;
+
   if (QO_NODE_NCARD (nodep) == 0)
     {
       planp->variable_cpu_cost = 1.0 * (double) QO_CPU_WEIGHT;
@@ -1705,8 +1716,11 @@ qo_sscan_cost (QO_PLAN * planp)
     {
       planp->variable_cpu_cost = (double) QO_NODE_NCARD (nodep) * (double) QO_CPU_WEIGHT;
     }
+
+  extra_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(QO_NODE_SARGS (nodep)));
+
+  planp->variable_cpu_cost += scan_rows * QO_CPU_WEIGHT * extra_weight * QO_SSCAN_FILTER_CPU_FACTOR;
   planp->variable_io_cost = (double) QO_NODE_TCARD (nodep);
-  planp->info->scan_rows = MAX (1, QO_NODE_NCARD (nodep));
 
 #if TEST_DUMP_PLAN_SCAN_COST
   fprintf (stdout, "\nSequential Scan Cost: \n");
@@ -1724,6 +1738,24 @@ qo_sscan_cost (QO_PLAN * planp)
     }
   fprintf (stdout, "\n");
 #endif /* TEST_DUMP_PLAN_SCAN_COST */
+}
+
+static void
+qo_apply_scan_term_cpu_overhead (QO_PLAN * planp)
+{
+  double scan_rows = MAX (1.0, planp->info->scan_rows);
+  double range_weight = 0.0;
+  double key_filter_weight = 0.0;
+  double data_filter_weight = 0.0;
+
+  range_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->plan_un.scan.terms));
+
+  key_filter_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->plan_un.scan.kf_terms));
+
+  data_filter_weight = qo_sum_bitset_term_cost_weights (planp->info->env, &(planp->sarged_terms));
+
+  planp->variable_cpu_cost +=
+    scan_rows * QO_CPU_WEIGHT * (1.2 * range_weight + 1.0 * key_filter_weight + 0.8 * data_filter_weight);
 }
 
 /*
@@ -2233,6 +2265,7 @@ qo_iscan_cost (QO_PLAN * planp)
   planp->variable_cpu_cost = (leaf_access + heap_access) * (double) QO_CPU_WEIGHT;
   planp->variable_io_cost = object_IO;
   planp->info->scan_rows = MAX (1, (double) QO_NODE_NCARD (nodep) * sel * filter_sel);
+  qo_apply_scan_term_cpu_overhead (planp);
 
 #if TEST_DUMP_PLAN_SCAN_COST
   fprintf (stdout, "\nIndex Scan Cost: \n");
@@ -3287,6 +3320,336 @@ qo_can_apply_limit_card (QO_ENV * env)
   return true;
 }
 
+static double
+qo_get_join_term_cost_weight (QO_TERM * term)
+{
+  PT_NODE *expr;
+
+  if (term == NULL)
+    {
+      return QO_COST_WEIGHT_JOIN_DEFAULT;
+    }
+
+  expr = QO_TERM_PT_EXPR (term);
+  if (expr == NULL || expr->node_type != PT_EXPR)
+    {
+      return QO_COST_WEIGHT_JOIN_DEFAULT;
+    }
+
+  switch (expr->info.expr.op)
+    {
+    case PT_EQ:
+    case PT_NULLSAFE_EQ:
+      {
+	PT_NODE *lhs = expr->info.expr.arg1;
+
+	if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	  {
+	    return QO_COST_WEIGHT_JOIN_STRING_EQUAL;
+	  }
+	return QO_COST_WEIGHT_JOIN_DEFAULT;
+      }
+
+    case PT_LT:
+    case PT_LE:
+    case PT_GT:
+    case PT_GE:
+    case PT_BETWEEN:
+    case PT_RANGE:
+      {
+	PT_NODE *lhs = expr->info.expr.arg1;
+
+	if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	  {
+	    return QO_COST_WEIGHT_JOIN_STRING_RANGE;
+	  }
+	return QO_COST_WEIGHT_JOIN_DEFAULT;
+      }
+
+    default:
+      return QO_COST_WEIGHT_JOIN_DEFAULT;
+    }
+}
+
+static double
+qo_sum_join_term_cost_weights (QO_ENV * env, BITSET * terms)
+{
+  BITSET_ITERATOR iter;
+  int t;
+  double sum = 0.0;
+
+  if (env == NULL || terms == NULL)
+    {
+      return 0.0;
+    }
+
+  for (t = bitset_iterate (terms, &iter); t != -1; t = bitset_next_member (&iter))
+    {
+      QO_TERM *term = QO_ENV_TERM (env, t);
+      sum += qo_get_join_term_cost_weight (term);
+    }
+
+  return sum;
+}
+
+static double
+qo_get_nljoin_term_cpu_overhead (QO_PLAN * planp, double guessed_result_cardinality)
+{
+  double join_term_weight_sum = 0.0;
+
+  if (planp == NULL || planp->plan_type != QO_PLANTYPE_JOIN || planp->info == NULL || planp->info->env == NULL)
+    {
+      return 0.0;
+    }
+
+  if (guessed_result_cardinality <= 0.0)
+    {
+      return 0.0;
+    }
+
+  /*
+   * For temporary nl-join plans used only for inner-plan search,
+   * join-term bitsets may be empty even after explicit init.
+   * That is fine; the summed overhead will become 0.
+   */
+
+  if (BITSET_IS_VALID (&(planp->plan_un.join.join_terms)))
+    {
+      join_term_weight_sum += qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.join_terms));
+    }
+  if (BITSET_IS_VALID (&(planp->plan_un.join.during_join_terms)))
+    {
+      join_term_weight_sum +=
+	qo_sum_join_term_cost_weights (planp->info->env, &(planp->plan_un.join.during_join_terms));
+    }
+
+  if (join_term_weight_sum <= 0.0)
+    {
+      return 0.0;
+    }
+
+  return guessed_result_cardinality * QO_CPU_WEIGHT * 0.5 * join_term_weight_sum;
+}
+
+static void
+qo_accumulate_memoize_outer_distinct_keys (QO_PLAN * planp, BITSET * terms, double guessed_outer_cardinality,
+					   double *best_ndvp)
+{
+  QO_PLAN *inner;
+  BITSET_ITERATOR iter;
+  int t;
+
+  if (planp == NULL || planp->plan_type != QO_PLANTYPE_JOIN || !QO_IS_NL_JOIN (planp)
+      || terms == NULL || best_ndvp == NULL || !BITSET_IS_VALID (terms))
+    {
+      return;
+    }
+
+  inner = planp->plan_un.join.inner;
+  if (inner == NULL || inner->info == NULL || !qo_is_iscan (inner))
+    {
+      return;
+    }
+
+  for (t = bitset_iterate (terms, &iter); t != -1; t = bitset_next_member (&iter))
+    {
+      QO_TERM *term = QO_ENV_TERM (planp->info->env, t);
+      PT_NODE *expr, *lhs, *rhs, *outer_attr;
+      QO_NODE *lhs_node, *rhs_node;
+      PT_NODE *dummy;
+      int ndv;
+
+      if (term == NULL || !QO_TERM_IS_FLAGED (term, QO_TERM_EQUAL_OP))
+	{
+	  continue;
+	}
+
+      expr = QO_TERM_PT_EXPR (term);
+      if (expr == NULL || expr->node_type != PT_EXPR || expr->info.expr.op != PT_EQ)
+	{
+	  continue;
+	}
+
+      lhs = expr->info.expr.arg1;
+      rhs = expr->info.expr.arg2;
+      if (lhs == NULL || rhs == NULL || qo_classify (lhs) != PC_ATTR || qo_classify (rhs) != PC_ATTR)
+	{
+	  continue;
+	}
+
+      lhs_node = lookup_node (lhs, QO_TERM_ENV (term), &dummy);
+      rhs_node = lookup_node (rhs, QO_TERM_ENV (term), &dummy);
+      if (lhs_node == NULL || rhs_node == NULL)
+	{
+	  continue;
+	}
+
+      if (BITSET_MEMBER (inner->info->nodes, QO_NODE_IDX (lhs_node)))
+	{
+	  outer_attr = rhs;
+	}
+      else if (BITSET_MEMBER (inner->info->nodes, QO_NODE_IDX (rhs_node)))
+	{
+	  outer_attr = lhs;
+	}
+      else
+	{
+	  continue;
+	}
+
+      ndv = qo_index_cardinality (QO_TERM_ENV (term), outer_attr);
+      if (ndv > 0)
+	{
+	  double clamped_ndv = MIN (guessed_outer_cardinality, (double) ndv);
+	  *best_ndvp = (*best_ndvp <= 0.0) ? clamped_ndv : MIN (guessed_outer_cardinality, *best_ndvp * clamped_ndv);
+	}
+    }
+}
+
+static double
+qo_estimate_memoize_outer_distinct_keys (QO_PLAN * planp, double guessed_outer_cardinality)
+{
+  double best_ndv = 0.0;
+
+  if (planp == NULL || planp->plan_type != QO_PLANTYPE_JOIN || !QO_IS_NL_JOIN (planp))
+    {
+      return guessed_outer_cardinality;
+    }
+
+  qo_accumulate_memoize_outer_distinct_keys (planp, &(planp->plan_un.join.join_terms), guessed_outer_cardinality,
+					     &best_ndv);
+  qo_accumulate_memoize_outer_distinct_keys (planp, &(planp->plan_un.join.during_join_terms),
+					     guessed_outer_cardinality, &best_ndv);
+
+  return (best_ndv > 0.0) ? MAX (1.0, best_ndv) : guessed_outer_cardinality;
+}
+
+static bool
+qo_is_memoize_favorable_plan (QO_PLAN * planp, double guessed_outer_cardinality, double *effective_outer_cardinality)
+{
+  QO_PLAN *inner;
+  QO_INDEX_ENTRY *index_entryp;
+  double inner_cardinality;
+  double miss_cardinality;
+  double outer_distinct_keys;
+  bool unique_lookup;
+
+  if (effective_outer_cardinality != NULL)
+    {
+      *effective_outer_cardinality = guessed_outer_cardinality;
+    }
+
+  if (planp == NULL || planp->plan_type != QO_PLANTYPE_JOIN || !QO_IS_NL_JOIN (planp))
+    {
+      return false;
+    }
+
+  inner = planp->plan_un.join.inner;
+  if (inner == NULL || inner->info == NULL || !qo_is_iscan (inner) || inner->plan_un.scan.index == NULL
+      || inner->plan_un.scan.index->head == NULL)
+    {
+      return false;
+    }
+
+  index_entryp = inner->plan_un.scan.index->head;
+  unique_lookup =
+    qo_is_all_unique_index_columns_are_equi_terms (inner)
+    || (index_entryp->constraints != NULL && SM_IS_CONSTRAINT_UNIQUE_FAMILY (index_entryp->constraints->type)
+	&& (BITSET_IS_VALID (&(planp->plan_un.join.join_terms))
+	    || BITSET_IS_VALID (&(planp->plan_un.join.during_join_terms))));
+
+  if (!unique_lookup)
+    {
+      return false;
+    }
+
+  inner_cardinality = MAX (1.0, inner->info->cardinality);
+  if (guessed_outer_cardinality <= inner_cardinality)
+    {
+      return false;
+    }
+
+  if (effective_outer_cardinality != NULL)
+    {
+      outer_distinct_keys = qo_estimate_memoize_outer_distinct_keys (planp, guessed_outer_cardinality);
+      miss_cardinality = MIN (guessed_outer_cardinality, outer_distinct_keys);
+      *effective_outer_cardinality =
+	miss_cardinality + (guessed_outer_cardinality - miss_cardinality) * QO_NLJOIN_MEMOIZE_HIT_COST_RATIO;
+    }
+
+  return true;
+}
+
+static void
+qo_get_non_unique_residual_lookup_costs (QO_PLAN * planp, double outer_cardinality, double *cpu_costp, double *io_costp)
+{
+  QO_PLAN *inner;
+  QO_INDEX_ENTRY *index_entryp;
+  QO_ATTR_CUM_STATS *cum_statsp;
+  double rows_per_lookup;
+  double residual_weight;
+  double heap_io_per_lookup;
+  int pkeys_num;
+
+  if (cpu_costp != NULL)
+    {
+      *cpu_costp = 0.0;
+    }
+  if (io_costp != NULL)
+    {
+      *io_costp = 0.0;
+    }
+
+  if (planp == NULL || planp->plan_type != QO_PLANTYPE_JOIN || !QO_IS_NL_JOIN (planp))
+    {
+      return;
+    }
+
+  inner = planp->plan_un.join.inner;
+  if (inner == NULL || inner->info == NULL || !qo_is_iscan (inner) || inner->plan_un.scan.index == NULL
+      || inner->plan_un.scan.index->head == NULL || bitset_is_empty (&(inner->sarged_terms)))
+    {
+      return;
+    }
+
+  index_entryp = inner->plan_un.scan.index->head;
+  if (index_entryp->constraints != NULL && SM_IS_CONSTRAINT_UNIQUE_FAMILY (index_entryp->constraints->type))
+    {
+      return;
+    }
+
+  cum_statsp = &(inner->plan_un.scan.index->cum_stats);
+  pkeys_num = MIN (index_entryp->col_num, cum_statsp->pkeys_size);
+  if (pkeys_num <= 0 || cum_statsp->pkeys == NULL || cum_statsp->pkeys[0] <= 0)
+    {
+      return;
+    }
+
+  rows_per_lookup = (double) QO_NODE_NCARD (inner->plan_un.scan.node) / (double) cum_statsp->pkeys[0];
+  if (rows_per_lookup <= 1.0)
+    {
+      return;
+    }
+
+  residual_weight = qo_sum_bitset_term_cost_weights (inner->info->env, &(inner->sarged_terms));
+  if (cpu_costp != NULL && residual_weight > 0.0)
+    {
+      /*
+       * A non-unique lookup reads candidate tuples before residual predicates
+       * can discard them. Charge both tuple visitation and residual predicate
+       * evaluation per candidate row.
+       */
+      *cpu_costp =
+	outer_cardinality * rows_per_lookup * (QO_COST_WEIGHT_PRED_DEFAULT + residual_weight) * QO_CPU_WEIGHT;
+    }
+
+  if (io_costp != NULL && !qo_is_index_covering_scan (inner))
+    {
+      heap_io_per_lookup = rows_per_lookup / (double) ISCAN_OID_ACCESS_OVERHEAD;
+      *io_costp = outer_cardinality * heap_io_per_lookup * (1 - ISCAN_IO_HIT_RATIO);
+    }
+}
+
 /*
  * qo_nljoin_cost () -
  *   return:
@@ -3298,6 +3661,8 @@ qo_nljoin_cost (QO_PLAN * planp)
   QO_PLAN *inner, *outer;
   double inner_io_cost, inner_cpu_cost, outer_io_cost, outer_cpu_cost;
   double guessed_result_cardinality, limit_val, outer_card;
+  double inner_cost_cardinality;
+  double non_unique_residual_lookup_cpu_cost, non_unique_residual_lookup_io_cost;
 
   inner = planp->plan_un.join.inner;
 
@@ -3359,12 +3724,19 @@ qo_nljoin_cost (QO_PLAN * planp)
     {
       guessed_result_cardinality = (outer->info)->cardinality;
     }
-  inner_cpu_cost = guessed_result_cardinality * inner->variable_cpu_cost;
+
+  inner_cost_cardinality = guessed_result_cardinality;
+  (void) qo_is_memoize_favorable_plan (planp, guessed_result_cardinality, &inner_cost_cardinality);
+  qo_get_non_unique_residual_lookup_costs (planp, inner_cost_cardinality, &non_unique_residual_lookup_cpu_cost,
+					   &non_unique_residual_lookup_io_cost);
+
+  inner_cpu_cost = inner_cost_cardinality * inner->variable_cpu_cost + non_unique_residual_lookup_cpu_cost;
 
   /* inner side IO cost of nested-loop block join */
   if (qo_is_iscan (inner))
     {
-      inner_io_cost = guessed_result_cardinality * inner->variable_io_cost * (1 - ISCAN_IO_HIT_RATIO);
+      inner_io_cost = inner_cost_cardinality * inner->variable_io_cost * (1 - ISCAN_IO_HIT_RATIO);
+      inner_io_cost += non_unique_residual_lookup_io_cost;
     }
   else
     {
@@ -3417,6 +3789,11 @@ qo_nljoin_cost (QO_PLAN * planp)
     /* subq cost is already included in the inner. so add it for the cardinality excluded due to ISCAN_IO_HIT_RATIO. */
     planp->variable_cpu_cost += guessed_result_cardinality * ISCAN_IO_HIT_RATIO * subq_cpu_cost;
     planp->variable_io_cost += guessed_result_cardinality * ISCAN_IO_HIT_RATIO * subq_io_cost;	/* assume IO as # blocks */
+
+    if (planp->info->env && BITSET_IS_VALID (&(planp->plan_un.join.join_terms)))
+      {
+	planp->variable_cpu_cost += qo_get_nljoin_term_cpu_overhead (planp, guessed_result_cardinality);
+      }
   }
 
 #if TEST_DUMP_PLAN_JOIN_COST
@@ -3991,7 +4368,6 @@ qo_zero_cost (QO_PLAN * planp)
   planp->variable_io_cost = 0.0;
 }
 
-
 /*
  * qo_plan_order_by () -
  *   return:
@@ -4103,7 +4479,6 @@ qo_plan_cmp (QO_PLAN * a, QO_PLAN * b)
   bf = b->fixed_cpu_cost + b->fixed_io_cost;
   ba = b->variable_cpu_cost + b->variable_io_cost;
 
-  /* Check if RBO is needed */
   ta = af + aa;
   tb = bf + ba;
   if (ta > 0 && tb > 0 && QO_PLAN_HAS_LIMIT (a) && QO_PLAN_HAS_LIMIT (b))
@@ -5922,7 +6297,6 @@ qo_check_new_best_plan_on_info (QO_INFO * info, QO_PLAN * plan)
 static int
 qo_check_plan_on_info (QO_INFO * info, QO_PLAN * plan)
 {
-  QO_INFO *best_info;
   QO_EQCLASS *plan_order;
   QO_PLAN_COMPARE_RESULT cmp;
   bool found_new_best;
@@ -5934,7 +6308,6 @@ qo_check_plan_on_info (QO_INFO * info, QO_PLAN * plan)
 
   /* init */
   found_new_best = false;
-  best_info = info->planner->best_info;
   plan_order = plan->order;
 
   /* if the plan is of type QO_SCANMETHOD_INDEX_ORDERBY_SCAN but it doesn't skip the orderby, we release the plan. */
@@ -5950,25 +6323,6 @@ qo_check_plan_on_info (QO_INFO * info, QO_PLAN * plan)
     {
       qo_plan_release (plan);
       return 0;
-    }
-
-  /*
-   * If the cost of the new Plan already exceeds the cost of the best
-   * known solution with the same order, there is no point in
-   * remembering the new plan.
-   */
-  if (best_info)
-    {
-      cmp =
-	qo_cmp_planvec (plan_order ==
-			QO_UNORDERED ? &best_info->best_no_order : &best_info->planvec[QO_EQCLASS_IDX (plan_order)],
-			plan);
-      /* cmp : PLAN_COMP_UNK, PLAN_COMP_LT, PLAN_COMP_EQ, PLAN_COMP_GT */
-      if (cmp == PLAN_COMP_LT || cmp == PLAN_COMP_EQ)
-	{
-	  qo_plan_release (plan);
-	  return 0;
-	}
     }
 
   /*
@@ -6021,7 +6375,8 @@ qo_check_plan_on_info (QO_INFO * info, QO_PLAN * plan)
  *   idx_join_plan_n(in):
  */
 static QO_PLAN *
-qo_find_best_nljoin_inner_plan_on_info (QO_PLAN * outer, QO_INFO * info, JOIN_TYPE join_type, int idx_join_plan_n)
+qo_find_best_nljoin_inner_plan_on_info (QO_PLAN * outer, QO_INFO * info, JOIN_TYPE join_type, BITSET * join_terms,
+					BITSET * duj_terms, BITSET * afj_terms, int idx_join_plan_n)
 {
   QO_PLANVEC *pv;
   QO_PLAN *temp, *best_plan, *inner;
@@ -6048,6 +6403,17 @@ qo_find_best_nljoin_inner_plan_on_info (QO_PLAN * outer, QO_INFO * info, JOIN_TY
   temp->plan_type = QO_PLANTYPE_JOIN;
   temp->plan_un.join.join_type = join_type;	/* set nl-join type */
   temp->plan_un.join.outer = outer;	/* set outer */
+
+  bitset_init (&(temp->plan_un.join.join_terms), info->env);
+  bitset_init (&(temp->plan_un.join.during_join_terms), info->env);
+  bitset_init (&(temp->plan_un.join.after_join_terms), info->env);
+
+  bitset_assign (&(temp->plan_un.join.join_terms), join_terms);
+  if (IS_OUTER_JOIN_TYPE (join_type))
+    {
+      bitset_assign (&(temp->plan_un.join.during_join_terms), duj_terms);
+      bitset_assign (&(temp->plan_un.join.after_join_terms), afj_terms);
+    }
 
   temp->multi_range_opt_use = PLAN_MULTI_RANGE_OPT_NO;
 
@@ -6078,6 +6444,9 @@ qo_find_best_nljoin_inner_plan_on_info (QO_PLAN * outer, QO_INFO * info, JOIN_TY
   /* free temp plan */
   temp->plan_un.join.outer = NULL;
   temp->plan_un.join.inner = NULL;
+  bitset_delset (&(temp->plan_un.join.join_terms));
+  bitset_delset (&(temp->plan_un.join.during_join_terms));
+  bitset_delset (&(temp->plan_un.join.after_join_terms));
 
   qo_plan_add_to_free_list (temp, NULL);
 
@@ -6279,7 +6648,9 @@ qo_examine_nl_join (QO_INFO * info, JOIN_TYPE join_type, QO_INFO * outer, QO_INF
 	{
 	  goto exit;
 	}
-      inner_plan = qo_find_best_nljoin_inner_plan_on_info (outer_plan, outer, join_type, idx_join_plan_n);
+      inner_plan =
+	qo_find_best_nljoin_inner_plan_on_info (outer_plan, outer, join_type, nl_join_terms, duj_terms, afj_terms,
+						idx_join_plan_n);
       if (inner_plan == NULL)
 	{
 	  goto exit;
@@ -6313,7 +6684,9 @@ qo_examine_nl_join (QO_INFO * info, JOIN_TYPE join_type, QO_INFO * outer, QO_INF
 	{
 	  goto exit;
 	}
-      inner_plan = qo_find_best_nljoin_inner_plan_on_info (outer_plan, inner, join_type, idx_join_plan_n);
+      inner_plan =
+	qo_find_best_nljoin_inner_plan_on_info (outer_plan, inner, join_type, nl_join_terms, duj_terms, afj_terms,
+						idx_join_plan_n);
       if (inner_plan == NULL)
 	{
 	  goto exit;
@@ -6565,17 +6938,17 @@ qo_examine_hash_join (QO_INFO * info, JOIN_TYPE join_type, QO_INFO * outer, QO_I
   /* A query using a predicate for an oid is rewritten as a path join query.  The path join query is executed
    * as a left outer join, so if the path join query is not executed with a follow plan, results with NULL values
    * are retrieved even if the join predicate is not satisfied.
-   * 
+   *
    *   e.g. drop table if exists t;
    *        create table t (c int) dont_reuse_oid;
    *        insert into t values (1);
    *        select dual into :dummy_oid from dual limit 1;
-   * 
+   *
    *        select * from t where t = :dummy_oid;
    *
    *        -- rewritten query
    *        select dt_1.da_2.t.c from table({:dummy_oid}) dt_1 (da_2)
-   * 
+   *
    *        -- Query plan: follow
    *        There are no results.
    *        0 row selected.
@@ -6583,7 +6956,7 @@ qo_examine_hash_join (QO_INFO * info, JOIN_TYPE join_type, QO_INFO * outer, QO_I
    *        -- Query plan: hash-join (left outer join)
    *        c1: NULL
    *        1 row selected.
-   * 
+   *
    * This code prevents the path join query from being executed as a hash join plan rather than as a follow plan.
    */
   for (bitset_index = bitset_iterate (hash_join_terms, &bitset_iter); bitset_index != -1;
@@ -7838,7 +8211,9 @@ planner_visit_node (QO_PLANNER * planner, QO_PARTITION * partition, PT_HINT_ENUM
 		}
 	      else
 		{
-		  selectivity *= QO_TERM_SELECTIVITY (term);
+		  double term_sel = QO_TERM_SELECTIVITY (term);
+
+		  selectivity *= term_sel;
 		  selectivity = MAX (1.0 / MAX (cardinality, 1.0), selectivity);
 
 		  double head_factor, tail_factor;
@@ -9744,1191 +10119,12 @@ qo_combine_partitions (QO_PLANNER * planner, BITSET * reamining_subqueries)
 }
 
 /*
- * qo_expr_selectivity () -
- *   return: double
- *   env(in): optimizer environment
- *   pt_expr(in): expression to evaluate
- */
-double
-qo_expr_selectivity (QO_ENV * env, PT_NODE * pt_expr)
-{
-  double lhs_selectivity, rhs_selectivity, selectivity, total_selectivity;
-  PT_NODE *node;
-  bool not_null_calculated = false;
-
-  QO_ASSERT (env, pt_expr != NULL);
-  QO_ASSERT (env, pt_expr->node_type == PT_EXPR);
-
-  selectivity = 0.0;
-  total_selectivity = 0.0;
-
-  /* traverse OR list */
-  for (node = pt_expr; node; node = node->or_next)
-    {
-      switch (node->info.expr.op)
-	{
-	case PT_OR:
-	  lhs_selectivity = qo_expr_selectivity (env, node->info.expr.arg1);
-	  rhs_selectivity = qo_expr_selectivity (env, node->info.expr.arg2);
-	  selectivity = qo_or_selectivity (env, lhs_selectivity, rhs_selectivity);
-	  break;
-
-	case PT_AND:
-	  lhs_selectivity = qo_expr_selectivity (env, node->info.expr.arg1);
-	  rhs_selectivity = qo_expr_selectivity (env, node->info.expr.arg2);
-	  selectivity = qo_and_selectivity (env, lhs_selectivity, rhs_selectivity);
-	  break;
-
-	case PT_NOT:
-	  lhs_selectivity = qo_expr_selectivity (env, node->info.expr.arg1);
-	  selectivity = qo_not_selectivity (env, lhs_selectivity);
-	  break;
-
-	case PT_EQ:
-	  selectivity = qo_equal_selectivity (env, node);
-	  break;
-
-	case PT_NE:
-	  lhs_selectivity = qo_equal_selectivity (env, node);
-	  selectivity = qo_not_selectivity (env, lhs_selectivity);
-	  break;
-
-	case PT_NULLSAFE_EQ:
-	  selectivity = qo_equal_selectivity (env, node);
-	  break;
-
-	case PT_GE:
-	case PT_GT:
-	case PT_LT:
-	case PT_LE:
-	  selectivity = qo_comp_selectivity (env, node);
-	  break;
-
-	case PT_BETWEEN:
-	  selectivity = qo_between_selectivity (env, node);
-	  break;
-
-	case PT_NOT_BETWEEN:
-	  lhs_selectivity = qo_between_selectivity (env, node);
-	  selectivity = qo_not_selectivity (env, lhs_selectivity);
-	  break;
-
-	case PT_RANGE:
-	  selectivity = qo_range_selectivity (env, node);
-	  break;
-
-	case PT_LIKE_ESCAPE:
-	  selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
-	  break;
-	case PT_LIKE:
-	  {
-	    selectivity = qo_like_selectivity (env, pt_expr);
-	    break;
-	  }
-	case PT_NOT_LIKE:
-	  {
-	    selectivity = 1 - qo_like_selectivity (env, pt_expr);
-	    break;
-	  }
-	case PT_SETNEQ:
-	case PT_SETEQ:
-	case PT_SUPERSETEQ:
-	case PT_SUPERSET:
-	case PT_SUBSET:
-	case PT_SUBSETEQ:
-	case PT_IS:
-	case PT_XOR:
-	  selectivity = DEFAULT_SELECTIVITY;
-	  break;
-
-	case PT_IS_NOT:
-	  selectivity = qo_not_selectivity (env, DEFAULT_SELECTIVITY);
-	  break;
-
-	case PT_EQ_SOME:
-	case PT_NE_SOME:
-	case PT_GE_SOME:
-	case PT_GT_SOME:
-	case PT_LT_SOME:
-	case PT_LE_SOME:
-	case PT_EQ_ALL:
-	case PT_NE_ALL:
-	case PT_GE_ALL:
-	case PT_GT_ALL:
-	case PT_LT_ALL:
-	case PT_LE_ALL:
-	case PT_IS_IN:
-	  selectivity = qo_all_some_in_selectivity (env, node);
-	  break;
-
-	case PT_IS_NOT_IN:
-	  lhs_selectivity = qo_all_some_in_selectivity (env, node);
-	  selectivity = qo_not_selectivity (env, lhs_selectivity);
-	  break;
-
-	case PT_IS_NULL:
-	  if (pt_expr->info.expr.arg1->node_type == PT_NAME && pt_expr->info.expr.arg1->info.name.null_frequency >= 0.0)
-	    {
-	      selectivity = pt_expr->info.expr.arg1->info.name.null_frequency;
-	    }
-	  else
-	    {
-	      selectivity = DEFAULT_NULL_SELECTIVITY;
-	    }
-	  not_null_calculated = true;
-	  break;
-
-	case PT_IS_NOT_NULL:
-	  if (pt_expr->info.expr.arg1->node_type == PT_NAME && pt_expr->info.expr.arg1->info.name.null_frequency >= 0.0)
-	    {
-	      selectivity = pt_expr->info.expr.arg1->info.name.null_frequency;
-	    }
-	  else
-	    {
-	      selectivity = DEFAULT_NULL_SELECTIVITY;
-	    }
-	  selectivity = 1 - selectivity;
-	  not_null_calculated = true;
-	  break;
-
-	case PT_EXISTS:
-	  selectivity = DEFAULT_EXISTS_SELECTIVITY;	/* make a guess */
-	  break;
-
-	default:
-	  break;
-	}
-
-      if (!not_null_calculated)
-	{
-	  if (pt_expr->info.expr.arg1 && pt_expr->info.expr.arg1->node_type == PT_NAME
-	      && pt_expr->info.expr.arg1->info.name.null_frequency >= 0.0)
-	    {
-	      selectivity = selectivity * (1 - pt_expr->info.expr.arg1->info.name.null_frequency);
-	    }
-	  if (pt_expr->info.expr.arg2 && pt_expr->info.expr.arg2->node_type == PT_NAME
-	      && pt_expr->info.expr.arg2->info.name.null_frequency >= 0.0)
-	    {
-	      selectivity = selectivity * (1 - pt_expr->info.expr.arg2->info.name.null_frequency);
-	    }
-	}
-
-      total_selectivity = qo_or_selectivity (env, total_selectivity, selectivity);
-      total_selectivity = MAX (total_selectivity, 0.0);
-      total_selectivity = MIN (total_selectivity, 1.0);
-    }
-
-  return total_selectivity;
-}
-
-static double
-qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr)
-{
-  PT_NODE *lhs, *rhs;
-  DB_VALUE *host_var = NULL;
-  PRED_CLASS pc_lhs, pc_rhs;
-
-  double selectivity;
-  double total_selectivity = 0.0;
-
-  PT_NODE *like_node;
-
-  for (like_node = pt_expr; like_node; like_node = like_node->or_next)
-    {
-      bool success = false;
-
-      lhs = like_node->info.expr.arg1;
-      rhs = like_node->info.expr.arg2;
-
-      if (lhs && rhs)
-	{
-	  pc_lhs = qo_classify (lhs);
-	  pc_rhs = qo_classify (rhs);
-
-	  if (pc_lhs == PC_ATTR)
-	    {
-	      if (pc_rhs == PC_CONST)
-		{
-		  host_var = &rhs->info.value.db_value;
-		}
-	      else if (pc_rhs == PC_HOST_VAR)
-		{
-		  host_var = &env->parser->host_variables[rhs->info.host_var.index];
-		}
-
-	      histogram_get_like_selectivity (lhs, host_var, &selectivity, &success);
-
-	      if (!success)
-		{
-		  selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
-		}
-	    }
-	  else
-	    {
-	      selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
-	    }
-
-	  total_selectivity = qo_or_selectivity (env, total_selectivity, selectivity);
-	  total_selectivity = MAX (total_selectivity, 0.0);
-	  total_selectivity = MIN (total_selectivity, 1.0);
-	}
-
-    }
-
-
-  return total_selectivity;
-}
-
-/*
- * qo_or_selectivity () - Calculate the selectivity of an OR expression
- *                        from the selectivities of the lhs and rhs
- *   return: double
- *   env(in):
- *   lhs_sel(in):
- *   rhs_sel(in):
- */
-static double
-qo_or_selectivity (QO_ENV * env, double lhs_sel, double rhs_sel)
-{
-  double result;
-
-  QO_ASSERT (env, lhs_sel >= 0.0);
-  QO_ASSERT (env, lhs_sel <= 1.0);
-  QO_ASSERT (env, rhs_sel >= 0.0);
-  QO_ASSERT (env, rhs_sel <= 1.0);
-
-  result = lhs_sel + rhs_sel - (lhs_sel * rhs_sel);
-
-  return result;
-}
-
-/*
- * qo_and_selectivity () -
- *   return:
- *   env(in):
- *   lhs_sel(in):
- *   rhs_sel(in):
- */
-static double
-qo_and_selectivity (QO_ENV * env, double lhs_sel, double rhs_sel)
-{
-  double result;
-
-  QO_ASSERT (env, lhs_sel >= 0.0);
-  QO_ASSERT (env, lhs_sel <= 1.0);
-  QO_ASSERT (env, rhs_sel >= 0.0);
-  QO_ASSERT (env, rhs_sel <= 1.0);
-
-  result = lhs_sel * rhs_sel;
-
-  return result;
-}
-
-/*
- * qo_not_selectivity () - Calculate the selectivity of a not expresssion
- *   return: double
- *   env(in):
- *   sel(in):
- */
-static double
-qo_not_selectivity (QO_ENV * env, double sel)
-{
-  QO_ASSERT (env, sel >= 0.0);
-  QO_ASSERT (env, sel <= 1.0);
-
-  return 1.0 - sel;
-}
-
-/*
- * qo_equal_selectivity () - Compute the selectivity of an equality predicate
- *   return: double
- *   env(in):
- *   pt_expr(in):
- *
- * Note: This uses the System R algorithm
- */
-static double
-qo_equal_selectivity (QO_ENV * env, PT_NODE * pt_expr)
-{
-  PT_NODE *lhs, *rhs, *multi_attr;
-  DB_VALUE *host_var;
-  PRED_CLASS pc_lhs, pc_rhs;
-  int lhs_icard, rhs_icard, icard;
-  double selectivity;
-
-  lhs = pt_expr->info.expr.arg1;
-  rhs = pt_expr->info.expr.arg2;
-
-  /* the class of lhs and rhs */
-  pc_lhs = qo_classify (lhs);
-  pc_rhs = qo_classify (rhs);
-
-  selectivity = DEFAULT_EQUAL_SELECTIVITY;
-
-  bool success = false;
-
-  switch (pc_lhs)
-    {
-    case PC_ATTR:
-
-      switch (pc_rhs)
-	{
-	case PC_ATTR:
-	  /* attr = attr */
-
-	  /* check for indexes on either of the attributes */
-	  lhs_icard = qo_index_cardinality (env, lhs);
-	  rhs_icard = qo_index_cardinality (env, rhs);
-
-	  icard = MAX (lhs_icard, rhs_icard);
-	  if (icard != 0)
-	    {
-	      selectivity = (1.0 / icard);
-	    }
-	  else
-	    {
-	      selectivity = DEFAULT_EQUIJOIN_SELECTIVITY;
-	    }
-
-	  /* TODO: add histogram selectivity */
-	  break;
-
-	case PC_CONST:
-	case PC_HOST_VAR:
-	  if (pc_rhs == PC_HOST_VAR)
-	    {
-	      host_var = &env->parser->host_variables[rhs->info.host_var.index];
-	    }
-	  else
-	    {
-	      host_var = &rhs->info.value.db_value;
-	    }
-	  histogram_get_equal_selectivity (lhs, host_var, &selectivity, &success);
-	  if (success)
-	    {
-	      break;
-	    }
-	  [[fallthrough]];
-
-	case PC_SUBQUERY:
-	case PC_SET:
-	case PC_OTHER:
-	  /* attr = const */
-
-	  /* check for index on the attribute.  NOTE: For an equality predicate, we treat subqueries as constants. */
-	  lhs_icard = qo_index_cardinality (env, lhs);
-	  if (lhs_icard != 0)
-	    {
-	      selectivity = (1.0 / lhs_icard);
-	    }
-	  else
-	    {
-	      selectivity = DEFAULT_EQUAL_SELECTIVITY;
-	    }
-
-	  break;
-
-	case PC_MULTI_ATTR:
-	  /* attr = (attr,attr) syntactic impossible case */
-	  selectivity = DEFAULT_EQUAL_SELECTIVITY;
-	  break;
-	}
-
-      break;
-
-    case PC_CONST:
-      switch (pc_rhs)
-	{
-	case PC_ATTR:
-	  histogram_get_equal_selectivity (rhs, &lhs->info.value.db_value, &selectivity, &success);
-	  break;
-
-	default:
-	  break;
-	}
-      if (success)
-	{
-	  break;
-	}
-      [[fallthrough]];
-
-    case PC_HOST_VAR:
-      switch (pc_rhs)
-	{
-	case PC_ATTR:
-	  host_var = &env->parser->host_variables[lhs->info.host_var.index];
-	  histogram_get_equal_selectivity (rhs, host_var, &selectivity, &success);
-	  break;
-
-	default:
-	  break;
-	}
-      if (success)
-	{
-	  break;
-	}
-      [[fallthrough]];
-    case PC_SUBQUERY:
-    case PC_SET:
-    case PC_OTHER:
-
-      switch (pc_rhs)
-	{
-	case PC_ATTR:
-	  /* const = attr */
-
-	  /* check for index on the attribute.  NOTE: For an equality predicate, we treat subqueries as constants. */
-	  rhs_icard = qo_index_cardinality (env, rhs);
-	  if (rhs_icard != 0)
-	    {
-	      selectivity = (1.0 / rhs_icard);
-	    }
-	  else
-	    {
-	      selectivity = DEFAULT_EQUAL_SELECTIVITY;
-	    }
-
-	  break;
-
-	case PC_CONST:
-	case PC_HOST_VAR:
-	case PC_SUBQUERY:
-	case PC_SET:
-	case PC_OTHER:
-	  /* const = const */
-
-	  selectivity = DEFAULT_EQUAL_SELECTIVITY;
-	  break;
-
-	case PC_MULTI_ATTR:
-	  /* const = (attr,attr) */
-	  multi_attr = rhs->info.function.arg_list;
-	  rhs_icard = 0;
-	  for ( /* none */ ; multi_attr; multi_attr = multi_attr->next)
-	    {
-	      /* get index cardinality */
-	      icard = qo_index_cardinality (env, multi_attr);
-	      if (icard <= 0)
-		{
-		  /* the only interesting case is PT_BETWEEN_EQ_NA */
-		  icard = 1 / DEFAULT_EQUAL_SELECTIVITY;
-		}
-	      if (rhs_icard == 0)
-		{
-		  /* first time */
-		  rhs_icard = icard;
-		}
-	      else
-		{
-		  rhs_icard *= icard;
-		}
-	    }
-	  if (rhs_icard != 0)
-	    {
-	      selectivity = (1.0 / rhs_icard);
-	    }
-	  else
-	    {
-	      selectivity = DEFAULT_EQUAL_SELECTIVITY;
-	    }
-	  break;
-	}
-      break;
-
-    case PC_MULTI_ATTR:
-      switch (pc_rhs)
-	{
-	case PC_ATTR:
-	  /* (attr,attr) = attr  syntactic impossible case */
-	  selectivity = DEFAULT_EQUAL_SELECTIVITY;
-	  break;
-
-	case PC_CONST:
-	case PC_HOST_VAR:
-	case PC_SUBQUERY:
-	case PC_SET:
-	case PC_OTHER:
-	  /* (attr,attr) = const */
-
-	  multi_attr = lhs->info.function.arg_list;
-	  lhs_icard = 0;
-	  for ( /* none */ ; multi_attr; multi_attr = multi_attr->next)
-	    {
-	      /* get index cardinality */
-	      icard = qo_index_cardinality (env, multi_attr);
-	      if (icard <= 0)
-		{
-		  /* the only interesting case is PT_BETWEEN_EQ_NA */
-		  icard = 1 / DEFAULT_EQUAL_SELECTIVITY;
-		}
-	      if (lhs_icard == 0)
-		{
-		  /* first time */
-		  lhs_icard = icard;
-		}
-	      else
-		{
-		  lhs_icard *= icard;
-		}
-	    }
-	  if (lhs_icard != 0)
-	    {
-	      selectivity = (1.0 / lhs_icard);
-	    }
-	  else
-	    {
-	      selectivity = DEFAULT_EQUAL_SELECTIVITY;
-	    }
-	  break;
-
-	case PC_MULTI_ATTR:
-	  /* (attr,attr) = (attr,attr) */
-	  multi_attr = lhs->info.function.arg_list;
-	  lhs_icard = 0;
-	  for ( /* none */ ; multi_attr; multi_attr = multi_attr->next)
-	    {
-	      /* get index cardinality */
-	      icard = qo_index_cardinality (env, multi_attr);
-	      if (icard <= 0)
-		{
-		  /* the only interesting case is PT_BETWEEN_EQ_NA */
-		  icard = 1 / DEFAULT_EQUAL_SELECTIVITY;
-		}
-	      if (lhs_icard == 0)
-		{
-		  /* first time */
-		  lhs_icard = icard;
-		}
-	      else
-		{
-		  lhs_icard *= icard;
-		}
-	    }
-
-	  multi_attr = rhs->info.function.arg_list;
-	  rhs_icard = 0;
-	  for ( /* none */ ; multi_attr; multi_attr = multi_attr->next)
-	    {
-	      /* get index cardinality */
-	      icard = qo_index_cardinality (env, multi_attr);
-	      if (icard <= 0)
-		{
-		  /* the only interesting case is PT_BETWEEN_EQ_NA */
-		  icard = 1 / DEFAULT_EQUAL_SELECTIVITY;
-		}
-	      if (rhs_icard == 0)
-		{
-		  /* first time */
-		  rhs_icard = icard;
-		}
-	      else
-		{
-		  rhs_icard *= icard;
-		}
-	    }
-
-	  icard = MAX (lhs_icard, rhs_icard);
-	  if (icard != 0)
-	    {
-	      selectivity = (1.0 / icard);
-	    }
-	  else
-	    {
-	      selectivity = DEFAULT_EQUIJOIN_SELECTIVITY;
-	    }
-	  break;
-	}
-
-      break;
-      break;
-    }
-
-  return selectivity;
-}
-
-/*
- * qo_comp_selectivity () - Compute the selectivity of a comparison predicate.
- *   return: double
- *   env(in): Pointer to an environment structure
- *   pt_expr(in): comparison expression
- *
- * Note: This uses the System R algorithm
- */
-static double
-qo_comp_selectivity (QO_ENV * env, PT_NODE * pt_expr)
-{
-  PT_NODE *lhs, *rhs, *multi_attr;
-  PRED_CLASS pc_lhs, pc_rhs;
-  DB_VALUE *rhs_db_value;
-  DB_VALUE *lhs_db_value;
-  int lhs_icard, rhs_icard, icard;
-  double selectivity;
-
-  lhs = pt_expr->info.expr.arg1;
-  rhs = pt_expr->info.expr.arg2;
-
-  /* the class of lhs and rhs */
-  pc_lhs = qo_classify (lhs);
-  pc_rhs = qo_classify (rhs);
-
-  selectivity = DEFAULT_COMP_SELECTIVITY;
-
-  bool success = false;
-  switch (pc_lhs)
-    {
-    case PC_ATTR:
-
-      switch (pc_rhs)
-	{
-	case PC_ATTR:
-	  /* TODO: add histogram selectivity */
-	  break;
-
-	case PC_CONST:
-	case PC_HOST_VAR:
-	  {
-	    if (pc_rhs == PC_HOST_VAR)
-	      {
-		rhs_db_value = &env->parser->host_variables[rhs->info.host_var.index];
-	      }
-	    else
-	      {
-		rhs_db_value = &rhs->info.value.db_value;
-	      }
-
-	    if (pt_expr->info.expr.op == PT_GE)
-	      {
-		histogram_get_comp_selectivity (lhs, rhs_db_value, true, true, &selectivity, &success);
-	      }
-	    else if (pt_expr->info.expr.op == PT_GT)
-	      {
-		histogram_get_comp_selectivity (lhs, rhs_db_value, true, false, &selectivity, &success);
-	      }
-	    else if (pt_expr->info.expr.op == PT_LE)
-	      {
-		histogram_get_comp_selectivity (lhs, rhs_db_value, false, true, &selectivity, &success);
-	      }
-	    else if (pt_expr->info.expr.op == PT_LT)
-	      {
-		histogram_get_comp_selectivity (lhs, rhs_db_value, false, false, &selectivity, &success);
-	      }
-	  }
-	  break;
-
-	default:
-	  break;
-	}
-
-      break;
-
-    case PC_CONST:
-    case PC_HOST_VAR:
-      {
-	switch (pc_rhs)
-	  {
-	  case PC_ATTR:
-	    {
-	      if (pc_lhs == PC_HOST_VAR)
-		{
-		  lhs_db_value = &env->parser->host_variables[lhs->info.host_var.index];
-		}
-	      else
-		{
-		  lhs_db_value = &lhs->info.value.db_value;
-		}
-	      if (pt_expr->info.expr.op == PT_GE)
-		{
-		  histogram_get_comp_selectivity (rhs, lhs_db_value, false, false, &selectivity, &success);
-		}
-	      else if (pt_expr->info.expr.op == PT_GT)
-		{
-		  histogram_get_comp_selectivity (rhs, lhs_db_value, false, true, &selectivity, &success);
-		}
-	      else if (pt_expr->info.expr.op == PT_LE)
-		{
-		  histogram_get_comp_selectivity (rhs, lhs_db_value, true, false, &selectivity, &success);
-		}
-	      else if (pt_expr->info.expr.op == PT_LT)
-		{
-		  histogram_get_comp_selectivity (rhs, lhs_db_value, true, true, &selectivity, &success);
-		}
-	      break;
-	    }
-	  default:
-	    break;
-	  }
-      }
-      break;
-
-    case PC_MULTI_ATTR:
-      switch (pc_rhs)
-	{
-	case PC_MULTI_ATTR:
-	  /* (attr,attr) = (attr,attr) */
-	  /* TODO: add histogram selectivity */
-	  break;
-
-	default:
-	  break;
-	}
-
-      break;
-    default:
-      break;
-    }
-
-  return success ? selectivity : DEFAULT_COMP_SELECTIVITY;
-}
-
-/*
- * qo_between_selectivity () - Compute the selectivity of a between predicate
- *   return: double
- *   env(in): Pointer to an environment structure
- *   pt_expr(in): between expression
- *
- * Note: This uses the System R algorithm
- */
-static double
-qo_between_selectivity (QO_ENV * env, PT_NODE * pt_expr)
-{
-  PT_NODE *and_node;
-
-  and_node = pt_expr->info.expr.arg2;
-
-  QO_ASSERT (env, and_node->node_type == PT_EXPR);
-  QO_ASSERT (env, pt_is_between_range_op (and_node->info.expr.op));
-
-  return DEFAULT_BETWEEN_SELECTIVITY;
-}
-
-/*
- * qo_range_selectivity () -
- *   return:
- *   env(in):
- *   pt_expr(in):
- */
-static double
-qo_range_selectivity (QO_ENV * env, PT_NODE * pt_expr)
-{
-  PT_NODE *lhs, *arg1, *arg2;
-  DB_VALUE *lhs_db_value;
-  DB_VALUE *arg1_db_value;
-  DB_VALUE *arg2_db_value;
-  PRED_CLASS pc1, pc2;
-  PRED_CLASS pc_arg1, pc_arg2;
-
-  double total_selectivity;
-  double selectivity = DEFAULT_BETWEEN_SELECTIVITY;
-  int lhs_icard = 0, rhs_icard = 0, icard = 0;
-  PT_NODE *range_node;
-  PT_OP_TYPE op_type;
-
-  lhs = pt_expr->info.expr.arg1;
-
-  pc2 = qo_classify (lhs);
-
-  /* the only interesting case is 'attr RANGE {=1,=2}' or '(attr,attr) RANGE {={..},..}' */
-  if (pc2 == PC_MULTI_ATTR)
-    {
-      lhs = lhs->info.function.arg_list;
-      lhs_icard = 0;
-      for ( /* none */ ; lhs; lhs = lhs->next)
-	{
-	  /* get index cardinality */
-	  icard = qo_index_cardinality (env, lhs);
-	  if (icard <= 0)
-	    {
-	      /* the only interesting case is PT_BETWEEN_EQ_NA */
-	      icard = 1 / DEFAULT_EQUAL_SELECTIVITY;
-	    }
-	  if (lhs_icard == 0)
-	    {
-	      /* first time */
-	      lhs_icard = icard;
-	    }
-	  else
-	    {
-	      lhs_icard *= icard;
-	    }
-	}
-    }
-  else if (pc2 == PC_ATTR)
-    {
-      /* get index cardinality */
-      lhs_icard = qo_index_cardinality (env, lhs);
-    }
-  else
-    {
-      return DEFAULT_RANGE_SELECTIVITY;
-    }
-#if 1				/* unused anymore - DO NOT DELETE ME */
-  QO_ASSERT (env, !PT_EXPR_INFO_IS_FLAGED (pt_expr, PT_EXPR_INFO_FULL_RANGE));
-#endif
-
-  total_selectivity = 0.0;
-
-  for (range_node = pt_expr->info.expr.arg2; range_node; range_node = range_node->or_next)
-    {
-      QO_ASSERT (env, range_node->node_type == PT_EXPR);
-
-      op_type = range_node->info.expr.op;
-      QO_ASSERT (env, pt_is_between_range_op (op_type));
-
-      arg1 = range_node->info.expr.arg1;
-      arg2 = range_node->info.expr.arg2;
-
-      pc_arg1 = qo_classify (arg1);
-      pc1 = pc_arg1;
-
-      if (pc_arg1 == PC_HOST_VAR)
-	{
-	  arg1_db_value = &env->parser->host_variables[arg1->info.host_var.index];
-	}
-      else if (pc_arg1 == PC_CONST)
-	{
-	  arg1_db_value = &arg1->info.value.db_value;
-	}
-      else
-	{
-	  arg1_db_value = NULL;
-	}
-
-      if (arg2 != NULL)
-	{
-	  pc_arg2 = qo_classify (arg2);
-
-	  if (pc_arg2 == PC_HOST_VAR)
-	    {
-	      arg2_db_value = &env->parser->host_variables[arg2->info.host_var.index];
-	    }
-	  else if (pc_arg2 == PC_CONST)
-	    {
-	      arg2_db_value = &arg2->info.value.db_value;
-	    }
-	  else
-	    {
-	      arg2_db_value = NULL;
-	    }
-	}
-      else
-	{
-	  arg2_db_value = NULL;
-	}
-
-      if (op_type == PT_BETWEEN_GE_LE || op_type == PT_BETWEEN_GE_LT || op_type == PT_BETWEEN_GT_LE
-	  || op_type == PT_BETWEEN_GT_LT || op_type == PT_BETWEEN_INF_LT || op_type == PT_BETWEEN_INF_LE
-	  || op_type == PT_BETWEEN_GE_INF || op_type == PT_BETWEEN_GT_INF)
-	{
-	  double selectivity_a = 0.0, selectivity_b = 0.0, selectivity_backup = selectivity;
-	  bool success1 = false;
-	  bool success2 = false;
-	  switch (op_type)
-	    {
-	    case PT_BETWEEN_GE_LE:
-	      {
-		/* selectivity = sel_le(b) - sel_lt(a) */
-		histogram_get_comp_selectivity (lhs, arg1_db_value, false, false, &selectivity_a, &success1);
-		histogram_get_comp_selectivity (lhs, arg2_db_value, false, true, &selectivity_b, &success2);
-		selectivity = selectivity_b - selectivity_a;
-		break;
-	      }
-	    case PT_BETWEEN_GE_LT:
-	      {
-		/* selectivity = sel_lt(b) - sel_lt(a) */
-		histogram_get_comp_selectivity (lhs, arg1_db_value, false, false, &selectivity_a, &success1);
-		histogram_get_comp_selectivity (lhs, arg2_db_value, false, false, &selectivity_b, &success2);
-		selectivity = selectivity_b - selectivity_a;
-		break;
-	      }
-	    case PT_BETWEEN_GT_LE:
-	      {
-		/* selectivity = sel_le(b) - sel_le(a) */
-		histogram_get_comp_selectivity (lhs, arg1_db_value, false, true, &selectivity_a, &success1);
-		histogram_get_comp_selectivity (lhs, arg2_db_value, false, true, &selectivity_b, &success2);
-		selectivity = selectivity_b - selectivity_a;
-		break;
-	      }
-	    case PT_BETWEEN_GT_LT:
-	      {
-		/* selectivity = sel_lt(b) - sel_le(a) */
-		histogram_get_comp_selectivity (lhs, arg1_db_value, false, true, &selectivity_a, &success1);
-		histogram_get_comp_selectivity (lhs, arg2_db_value, false, false, &selectivity_b, &success2);
-		selectivity = selectivity_b - selectivity_a;
-		break;
-	      }
-	    case PT_BETWEEN_INF_LT:
-	      {
-		histogram_get_comp_selectivity (lhs, arg1_db_value, false, false, &selectivity_a, &success1);
-		success2 = true;
-		selectivity = selectivity_a;
-		break;
-	      }
-	    case PT_BETWEEN_INF_LE:
-	      {
-		histogram_get_comp_selectivity (lhs, arg1_db_value, false, true, &selectivity_a, &success1);
-		success2 = true;
-		selectivity = selectivity_a;
-		break;
-	      }
-	    case PT_BETWEEN_GT_INF:
-	      {
-		histogram_get_comp_selectivity (lhs, arg1_db_value, true, false, &selectivity_a, &success1);
-		success2 = true;
-		selectivity = selectivity_a;
-		break;
-	      }
-	    case PT_BETWEEN_GE_INF:
-	      {
-		histogram_get_comp_selectivity (lhs, arg1_db_value, true, true, &selectivity_a, &success1);
-		success2 = true;
-		selectivity = selectivity_a;
-		break;
-	      }
-	    default:
-	      break;
-	    }
-	  if (!(success1 && success2))
-	    {
-	      if (op_type == PT_BETWEEN_INF_LT || op_type == PT_BETWEEN_INF_LE || op_type == PT_BETWEEN_GE_INF
-		  || op_type == PT_BETWEEN_GT_INF)
-		{
-		  selectivity = DEFAULT_COMP_SELECTIVITY;
-		}
-	      else
-		{
-		  selectivity = DEFAULT_BETWEEN_SELECTIVITY;
-		}
-	    }
-	}
-      else if (op_type == PT_BETWEEN_EQ_NA)
-	{
-	  /* PT_BETWEEN_EQ_NA have only one argument */
-
-	  selectivity = DEFAULT_EQUAL_SELECTIVITY;
-
-	  if (pc1 == PC_ATTR)
-	    {
-	      /* attr1 range (attr2 = ) */
-	      rhs_icard = qo_index_cardinality (env, arg1);
-
-	      icard = MAX (lhs_icard, rhs_icard);
-	      if (icard != 0)
-		{
-		  selectivity = (1.0 / icard);
-		}
-	      else
-		{
-		  selectivity = DEFAULT_EQUIJOIN_SELECTIVITY;
-		}
-	    }
-	  else
-	    {
-	      bool success = false;
-
-	      histogram_get_equal_selectivity (lhs, arg1_db_value, &selectivity, &success);
-
-	      if (!success)
-		{
-		  /* attr1 range (const = ) */
-		  if (lhs_icard != 0)
-		    {
-		      selectivity = (1.0 / lhs_icard);
-		    }
-		  else
-		    {
-		      selectivity = DEFAULT_EQUAL_SELECTIVITY;
-		    }
-		}
-	    }
-	}
-
-
-      selectivity = MAX (selectivity, 0.0);
-      selectivity = MIN (selectivity, 1.0);
-
-      total_selectivity = qo_or_selectivity (env, total_selectivity, selectivity);
-      total_selectivity = MAX (total_selectivity, 0.0);
-      total_selectivity = MIN (total_selectivity, 1.0);
-    }
-
-  return total_selectivity;
-}
-
-/*
- * qo_all_some_in_selectivity () - Compute the selectivity of an in predicate
- *   return: double
- *   env(in): Pointer to an environment structure
- *   pt_expr(in): in expression
- *
- * Note: This uses the System R algorithm
- */
-static double
-qo_all_some_in_selectivity (QO_ENV * env, PT_NODE * pt_expr)
-{
-  PRED_CLASS pc_lhs, pc_rhs;
-  double list_card = 0.0, icard = 0.0;
-  double equal_selectivity = 1.0;
-  PT_NODE *lhs;
-  PT_NODE *arg1, *arg2;
-
-  /* To avoid repeated dereferencing */
-  arg1 = pt_expr->info.expr.arg1;
-  arg2 = pt_expr->info.expr.arg2;
-
-  /* determine the class of each side of the range */
-  pc_lhs = qo_classify (arg1);
-  pc_rhs = qo_classify (arg2);
-
-  /* The only interesting cases are: attr IN set or (attr,attr) IN set or attr IN subquery */
-  if ((pc_lhs == PC_MULTI_ATTR || pc_lhs == PC_ATTR) && (pc_rhs == PC_SET || pc_rhs == PC_SUBQUERY))
-    {
-      if (pc_lhs == PC_MULTI_ATTR)
-	{
-	  for (lhs = arg1->info.function.arg_list; lhs; lhs = lhs->next)
-	    {
-	      /* get index cardinality */
-	      icard = qo_index_cardinality (env, lhs);
-	      if (icard > 0.0)
-		{
-		  equal_selectivity *= (1.0 / icard);
-		}
-	      else
-		{
-		  /* If no index, multiply by default selectivity for each attribute */
-		  equal_selectivity *= DEFAULT_EQUAL_SELECTIVITY;
-		}
-	    }
-	}
-      else if (pc_lhs == PC_ATTR)
-	{
-	  /* check for index on the attribute.  */
-	  icard = qo_index_cardinality (env, arg1);
-	  if (icard > 0.0)
-	    {
-	      equal_selectivity *= (1.0 / icard);
-	    }
-	  else
-	    {
-	      equal_selectivity = DEFAULT_EQUAL_SELECTIVITY;
-	    }
-	}
-
-      /* determine cardinality of set or subquery */
-      if (pc_rhs == PC_SET)
-	{
-	  if (pt_is_function (arg2))
-	    {
-	      list_card = pt_length_of_list (arg2->info.function.arg_list);
-	    }
-	  else
-	    {
-	      list_card = pt_length_of_list (arg2->info.value.data_value.set);
-	    }
-	}
-      else if (pc_rhs == PC_SUBQUERY)
-	{
-	  if (arg2->info.query.xasl)
-	    {
-	      list_card = ((XASL_NODE *) arg2->info.query.xasl)->cardinality;
-	    }
-	  else
-	    {
-	      /* legacy default list_card is 1000. Maybe it won't come in here */
-	      list_card = 1000.0;
-	    }
-	}
-
-      /* compute selectivity--cap at 0.5 */
-      double in_selectivity = list_card * equal_selectivity;
-      return in_selectivity > 0.5 ? 0.5 : in_selectivity;
-    }
-
-  return DEFAULT_IN_SELECTIVITY;
-}
-
-/*
- * qo_classify () - Determine which predicate class the node belongs in
- *   return: PRED_CLASS
- *   attr(in): pt node to classify
- */
-PRED_CLASS
-qo_classify (PT_NODE * attr)
-{
-  switch (attr->node_type)
-    {
-    case PT_NAME:
-    case PT_DOT_:
-      return PC_ATTR;
-
-    case PT_VALUE:
-      if (PT_IS_SET_TYPE (attr))
-	{
-	  return PC_SET;
-	}
-      else if (attr->type_enum == PT_TYPE_NULL)
-	{
-	  return PC_OTHER;
-	}
-      else
-	{
-	  return PC_CONST;
-	}
-
-    case PT_HOST_VAR:
-      return PC_HOST_VAR;
-
-    case PT_SELECT:
-    case PT_UNION:
-    case PT_INTERSECTION:
-    case PT_DIFFERENCE:
-      return PC_SUBQUERY;
-
-    case PT_FUNCTION:
-      /* (attr,attr) or (?,?) */
-      if (PT_IS_SET_TYPE (attr))
-	{
-	  PT_NODE *func_arg;
-	  func_arg = attr->info.function.arg_list;
-	  for ( /* none */ ; func_arg; func_arg = func_arg->next)
-	    {
-	      if (func_arg->node_type == PT_NAME)
-		{
-		  /* none */
-		}
-	      else if (func_arg->node_type == PT_HOST_VAR)
-		{
-		  return PC_SET;
-		}
-	      else
-		{
-		  return PC_OTHER;
-		}
-	    }
-	  return PC_MULTI_ATTR;
-	}
-      else
-	{
-	  return PC_OTHER;
-	}
-
-    case PT_EXPR:
-      if (pt_is_function_index_expression (attr))
-	{
-	  return PC_ATTR;
-	}
-      [[fallthrough]];
-    default:
-      return PC_OTHER;
-    }
-}
-
-/*
  * qo_index_cardinality () - Determine if the attribute has an index
  *   return: cardinality of the index if the index exists, otherwise return 0
  *   env(in): optimizer environment
  *   attr(in): pt node for the attribute for which we want the index cardinality
  */
-static int
+int
 qo_index_cardinality (QO_ENV * env, PT_NODE * attr)
 {
   PT_NODE *dummy;
@@ -10989,6 +10185,76 @@ qo_index_cardinality (QO_ENV * env, PT_NODE * attr)
 
   /* return number of the first partial-key of the index on the attribute shown in the expression */
   return info->cum_stats.pkeys[0];
+}
+
+/*
+ * qo_unique_index_cardinality () - Return class cardinality when attr is the
+ * only column of a normal unique-family index; otherwise 0.
+ */
+static int
+qo_unique_index_cardinality (QO_ENV * env, PT_NODE * attr)
+{
+  PT_NODE *dummy;
+  QO_NODE *nodep;
+  QO_SEGMENT *segp;
+  const char *attr_name;
+  int i;
+
+  if (attr->node_type == PT_DOT_)
+    {
+      attr = attr->info.dot.arg2;
+    }
+
+  QO_ASSERT (env, (attr->node_type == PT_NAME || pt_is_function_index_expression (attr)));
+
+  nodep = lookup_node (attr, env, &dummy);
+  if (nodep == NULL)
+    {
+      return 0;
+    }
+
+  segp = lookup_seg (nodep, attr, env);
+  if (segp == NULL || attr->info.name.meta_class == PT_RESERVED)
+    {
+      return 0;
+    }
+  attr_name = QO_SEG_NAME (segp);
+
+  if (QO_NODE_INFO (nodep) == NULL)
+    {
+      return 0;
+    }
+
+  for (i = 0; i < QO_NODE_INFO_N (nodep); i++)
+    {
+      QO_CLASS_INFO_ENTRY *class_info_entryp = &QO_NODE_INFO (nodep)->info[i];
+      SM_CLASS_CONSTRAINT *constraint;
+
+      if (class_info_entryp->smclass == NULL)
+	{
+	  continue;
+	}
+
+      for (constraint = class_info_entryp->smclass->constraints; constraint != NULL; constraint = constraint->next)
+	{
+	  int attr_id;
+
+	  if (constraint->index_status != SM_NORMAL_INDEX || !SM_IS_CONSTRAINT_UNIQUE_FAMILY (constraint->type)
+	      || constraint->attributes == NULL || constraint->attributes[0] == NULL
+	      || constraint->attributes[1] != NULL)
+	    {
+	      continue;
+	    }
+
+	  attr_id = sm_att_id (class_info_entryp->mop, attr_name);
+	  if (attr_id >= 0 && constraint->attributes[0]->id == attr_id)
+	    {
+	      return (QO_NODE_NCARD (nodep) > INT_MAX) ? INT_MAX : (int) QO_NODE_NCARD (nodep);
+	    }
+	}
+    }
+
+  return 0;
 }
 
 /*
@@ -11513,6 +10779,126 @@ qo_get_col_product_ndv (PARSER_CONTEXT * parser, PT_NODE * tree, void *arg, int 
     }
 
   return tree;
+}
+
+static double
+qo_get_term_cost_weight (QO_TERM * term)
+{
+  PT_NODE *expr;
+  PT_NODE *node;
+  double total_weight = 0.0;
+
+  if (term == NULL)
+    {
+      return QO_COST_WEIGHT_PRED_DEFAULT;
+    }
+
+  expr = QO_TERM_PT_EXPR (term);
+  if (expr == NULL || expr->node_type != PT_EXPR)
+    {
+      return QO_COST_WEIGHT_PRED_DEFAULT;
+    }
+
+  for (node = expr; node != NULL; node = node->or_next)
+    {
+      double weight = QO_COST_WEIGHT_PRED_DEFAULT;
+
+      if (node->node_type != PT_EXPR)
+	{
+	  continue;
+	}
+
+      switch (node->info.expr.op)
+	{
+	case PT_EQ:
+	case PT_NE:
+	  {
+	    PT_NODE *lhs = node->info.expr.arg1;
+
+	    if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	      {
+		weight = QO_COST_WEIGHT_STRING_EQUAL;
+	      }
+	    else
+	      {
+		weight = QO_COST_WEIGHT_NUMERIC_COMPARE;
+	      }
+	    break;
+	  }
+
+	case PT_LT:
+	case PT_LE:
+	case PT_GT:
+	case PT_GE:
+	  {
+	    PT_NODE *lhs = node->info.expr.arg1;
+	    if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	      {
+		weight = QO_COST_WEIGHT_STRING_RANGE;
+	      }
+	    else
+	      {
+		weight = QO_COST_WEIGHT_NUMERIC_COMPARE;
+	      }
+	    break;
+	  }
+
+	case PT_LIKE:
+	case PT_NOT_LIKE:
+	  {
+	    PT_NODE *rhs = node->info.expr.arg2;
+
+	    if (rhs != NULL && rhs->node_type == PT_VALUE)
+	      {
+		const char *pat = db_get_string (&rhs->info.value.db_value);
+		if (pat != NULL)
+		  {
+		    const char *pct = strchr (pat, '%');
+		    const char *und = strchr (pat, '_');
+
+		    if (pct != NULL && pct[1] == '\0' && und == NULL && pct != pat)
+		      {
+			weight = QO_COST_WEIGHT_LIKE_PREFIX;
+		      }
+		    else if (pat[0] == '%' || und != NULL)
+		      {
+			weight = QO_COST_WEIGHT_LIKE_CONTAINS;
+		      }
+		    else
+		      {
+			weight = QO_COST_WEIGHT_LIKE_COMPLEX;
+		      }
+		  }
+		else
+		  {
+		    weight = QO_COST_WEIGHT_LIKE_COMPLEX;
+		  }
+	      }
+	    else
+	      {
+		weight = QO_COST_WEIGHT_LIKE_COMPLEX;
+	      }
+	    break;
+	  }
+
+	case PT_LIKE_ESCAPE:
+	  weight = QO_COST_WEIGHT_LIKE_COMPLEX;
+	  break;
+
+	default:
+	  weight = QO_COST_WEIGHT_PRED_DEFAULT;
+	  break;
+	}
+
+      total_weight += weight;
+    }
+
+  if (total_weight <= 0.0)
+    {
+      return QO_COST_WEIGHT_PRED_DEFAULT;
+    }
+
+  return total_weight;
 }
 
 /*

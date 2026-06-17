@@ -12257,6 +12257,7 @@ error_return:
   return error;
 }
 
+
 /*
  * do_create_midxkey_for_constraint () - create a MIDX_KEY db_value for the
  *					 specified constraint using the values
