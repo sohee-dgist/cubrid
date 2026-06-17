@@ -116,33 +116,15 @@ namespace
     return vc;
   }
 
-  /* number of most-common-values: distinct values whose sample frequency exceeds
-   * total_sample * (0.5 / max_buckets). Mirrors MCV_COUNT_QUERY_TEMPLATE. */
-  template <typename T>
-  int
-  count_mcv (const std::vector<std::pair<T, std::int64_t>> &vc, std::int64_t total_sample, int max_buckets)
-  {
-    if (total_sample <= 0 || max_buckets <= 0)
-      {
-	return 0;
-      }
-    double threshold = static_cast<double> (total_sample) * (0.5 / max_buckets);
-    int n = 0;
-    for (const auto &p : vc)
-      {
-	if (static_cast<double> (p.second) > threshold)
-	  {
-	    n++;
-	  }
-      }
-    return n;
-  }
-
-  /* build the histogram blob from a typed sample */
+  /* build the histogram blob (format v2) from a typed sample.
+   *   n_total : population rows incl nulls
+   *   n_nn    : population non-null rows (exact, from the full reservoir scan)
+   * MCVs are selected by the PG analyze_mcv_list criterion and stored in their own blob
+   * section with population frequencies; the remaining values form the equi-depth buckets. */
   template <typename T>
   char *
   build_blob (THREAD_ENTRY *thread_p, std::vector<T> &samples, DB_TYPE attr_type, int max_buckets,
-	      std::int64_t n_nn, int *blob_length)
+	      std::int64_t n_total, std::int64_t n_nn, int *blob_length)
   {
     std::vector<std::pair<T, std::int64_t>> vc = group_counts (samples);
     std::int64_t total_sample = 0;
@@ -155,18 +137,10 @@ namespace
 	    f1_total++;
 	  }
       }
-    int num_mcv = count_mcv (vc, total_sample, max_buckets);
-    std::int64_t d_total = (std::int64_t) vc.size ();
+    const std::int64_t d_total = (std::int64_t) vc.size ();
 
-    std::vector<hist::sample_bucket<T>> buckets = hist::bucketize_sample<T> (vc, max_buckets, num_mcv);
-
-    /* Per-bucket approx_ndv from bucketize_sample is a SAMPLE distinct count. Equality
-     * selectivity is (bucket_rows/total_rows)/approx_ndv: the row ratio is scale-invariant,
-     * so approx_ndv must be the POPULATION distinct count or selectivity is over-estimated.
-     * Scale the non-MCV buckets up by the estimated population/sample distinct ratio
-     * (MCVs map 1:1 to the population and keep ndv=1), clamped to the bucket's row count. */
-    double nonmcv_ratio = 1.0;
-    double rows_scale = 1.0;
+    /* estimated population NDV (non-null) */
+    INT64 d_pop = d_total;
     if (total_sample > 0 && d_total > 0)
       {
 	STATS_NDV_SAMPLE_INPUT in;
@@ -176,44 +150,132 @@ namespace
 	in.sample_singleton = f1_total;
 	in.sampling_weight = 1;
 	in.total_nn_rows = n_nn;	/* exact population non-null (full reservoir scan) */
-	INT64 d_pop = stats_estimate_ndv_from_sample (&in);
+	d_pop = stats_estimate_ndv_from_sample (&in);
+      }
 
-	double d_nonmcv_sample = (double) (d_total - num_mcv);
-	double d_nonmcv_pop = (double) d_pop - (double) num_mcv;
-	if (d_nonmcv_pop < d_nonmcv_sample)
+    /* ---- MCV selection (PG analyze_mcv_list) ----
+     * candidates = top-`mcv_cap` distinct values by sample count (ties: smaller value).
+     * analyze_mcv_list decides how many of those leading candidates genuinely qualify. */
+    const std::size_t ncand = vc.size ();
+    std::vector<std::size_t> order (ncand);
+    for (std::size_t i = 0; i < ncand; i++)
+      {
+	order[i] = i;
+      }
+    int mcv_cap = max_buckets;
+    if (mcv_cap < 0)
+      {
+	mcv_cap = 0;
+      }
+    if (static_cast<std::size_t> (mcv_cap) > ncand)
+      {
+	mcv_cap = static_cast<int> (ncand);
+      }
+    std::partial_sort (order.begin (), order.begin () + mcv_cap, order.end (),
+		       [&vc] (std::size_t a, std::size_t b)
+    {
+      if (vc[a].second != vc[b].second)
+	{
+	  return vc[a].second > vc[b].second;
+	}
+      return vc[a].first < vc[b].first;
+    });
+
+    int num_mcv = 0;
+    if (mcv_cap > 0)
+      {
+	std::vector<INT64> cand_counts (mcv_cap);
+	for (int i = 0; i < mcv_cap; i++)
 	  {
-	    d_nonmcv_pop = d_nonmcv_sample;	/* population non-mcv distinct >= sample's */
+	    cand_counts[i] = vc[order[i]].second;
 	  }
-	if (d_nonmcv_sample > 0.0)
+	num_mcv = stats_analyze_mcv_list (cand_counts.data (), mcv_cap, (double) d_pop, 0.0, total_sample,
+					  (double) n_nn);
+      }
+
+    std::vector<bool> is_mcv (ncand, false);
+    for (int i = 0; i < num_mcv; i++)
+      {
+	is_mcv[order[i]] = true;
+      }
+
+    /* MCVs sorted ascending by value (builder requires ascending for binary search) */
+    std::vector<std::pair<T, std::int64_t>> mcvs;
+    mcvs.reserve (num_mcv);
+    for (int i = 0; i < num_mcv; i++)
+      {
+	mcvs.push_back (vc[order[i]]);
+      }
+    std::sort (mcvs.begin (), mcvs.end (),
+	       [] (const std::pair<T, std::int64_t> &a, const std::pair<T, std::int64_t> &b)
+    {
+      return a.first < b.first;
+    });
+
+    /* non-MCV values -> equi-depth histogram */
+    std::vector<std::pair<T, std::int64_t>> nonmcv;
+    nonmcv.reserve (ncand - num_mcv);
+    for (std::size_t i = 0; i < ncand; i++)
+      {
+	if (!is_mcv[i])
 	  {
-	    nonmcv_ratio = d_nonmcv_pop / d_nonmcv_sample;
-	  }
-	if (n_nn > 0)
-	  {
-	    rows_scale = (double) n_nn / (double) total_sample;	/* sample rows -> population rows */
+	    nonmcv.push_back (vc[i]);
 	  }
       }
+    std::vector<hist::sample_bucket<T>> buckets = hist::bucketize_sample<T> (nonmcv, max_buckets);
+
+    /* scaling sample -> population */
+    const double scale_nn = (total_sample > 0) ? (double) n_nn / (double) total_sample : 1.0;
+    double nonmcv_ratio = 1.0;
+    {
+      double d_nonmcv_sample = (double) (d_total - num_mcv);
+      double d_nonmcv_pop = (double) d_pop - (double) num_mcv;
+      if (d_nonmcv_pop < d_nonmcv_sample)
+	{
+	  d_nonmcv_pop = d_nonmcv_sample;	/* population non-mcv distinct >= sample's */
+	}
+      if (d_nonmcv_sample > 0.0)
+	{
+	  nonmcv_ratio = d_nonmcv_pop / d_nonmcv_sample;
+	}
+    }
 
     hist::HistogramBuilder builder;
+
+    /* MCV freq = (within-non-null sample fraction) * (population non-null fraction) */
+    for (const auto &m : mcvs)
+      {
+	double freq = 0.0;
+	if (total_sample > 0 && n_total > 0)
+	  {
+	    freq = ((double) m.second / (double) total_sample) * ((double) n_nn / (double) n_total);
+	  }
+	builder.add_mcv (m.first, freq);
+      }
+
+    /* buckets: scale cumulative rows + approx_ndv to the population */
     for (const hist::sample_bucket<T> &b : buckets)
       {
-	std::int64_t ndv = b.approx_ndv;
-	if (!b.is_mcv)
+	std::int64_t pop_cum = (std::int64_t) ((double) b.cumulative * scale_nn + 0.5);
+	std::int64_t ndv = (std::int64_t) (b.approx_ndv * nonmcv_ratio + 0.5);
+	std::int64_t bucket_pop_rows = (std::int64_t) ((double) b.rows_in_bucket * scale_nn + 0.5);
+	if (pop_cum < 0)
 	  {
-	    ndv = (std::int64_t) (b.approx_ndv * nonmcv_ratio + 0.5);
-	    std::int64_t bucket_pop_rows = (std::int64_t) (b.rows_in_bucket * rows_scale + 0.5);
-	    if (ndv < 1)
-	      {
-		ndv = 1;
-	      }
-	    if (bucket_pop_rows >= 1 && ndv > bucket_pop_rows)
-	      {
-		ndv = bucket_pop_rows;	/* distinct cannot exceed rows in the bucket */
-	      }
+	    pop_cum = 0;
 	  }
-	builder.add (b.endpoint, b.cumulative, ndv);
+	if (ndv < 1)
+	  {
+	    ndv = 1;
+	  }
+	if (bucket_pop_rows >= 1 && ndv > bucket_pop_rows)
+	  {
+	    ndv = bucket_pop_rows;	/* distinct cannot exceed rows in the bucket */
+	  }
+	builder.add (b.endpoint, pop_cum, ndv);
       }
-    return builder.build (thread_p, attr_type, blob_length);
+
+    const double null_frequency = (n_total > 0) ? (double) (n_total - n_nn) / (double) n_total : 0.0;
+    return builder.build (thread_p, attr_type, n_total, null_frequency, blob_length);
   }
 
   /* extract the typed value of the target attribute from a decoded record into the
@@ -415,7 +477,8 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
       if (error == NO_ERROR)
 	{
 	  /* always build: an empty sample yields a header-only blob (matches the old path) */
-	  *histogram_blob = build_blob<std::int64_t> (thread_p, samples, attr_type, max_buckets, total_rows - null_rows, blob_length);
+	  *histogram_blob = build_blob<std::int64_t> (thread_p, samples, attr_type, max_buckets, total_rows,
+			    total_rows - null_rows, blob_length);
 	}
       break;
     }
@@ -426,7 +489,8 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
 					&null_rows);
       if (error == NO_ERROR)
 	{
-	  *histogram_blob = build_blob<double> (thread_p, samples, attr_type, max_buckets, total_rows - null_rows, blob_length);
+	  *histogram_blob = build_blob<double> (thread_p, samples, attr_type, max_buckets, total_rows,
+			    total_rows - null_rows, blob_length);
 	}
       break;
     }
@@ -437,7 +501,8 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
 	      &null_rows);
       if (error == NO_ERROR)
 	{
-	  *histogram_blob = build_blob<std::string> (thread_p, samples, attr_type, max_buckets, total_rows - null_rows, blob_length);
+	  *histogram_blob = build_blob<std::string> (thread_p, samples, attr_type, max_buckets, total_rows,
+			    total_rows - null_rows, blob_length);
 	}
       break;
     }

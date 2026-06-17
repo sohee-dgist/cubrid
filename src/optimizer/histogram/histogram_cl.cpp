@@ -489,6 +489,55 @@ string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::
 
 /* histogram get selectivity functions */
 
+/*
+ * comp_parts () - PG-aligned pieces for a range comparison against value `v`.
+ *   nonmcv_below_frac (out): fraction of ALL rows that are non-MCV non-null and < v
+ *                            (equi-depth histogram interpolation / total_rows)
+ *   mcv_lt (out)           : Σ MCV freq for values strictly < v
+ *   mcv_le (out)           : Σ MCV freq for values <= v
+ * FracFn maps (lo, hi, v) -> position of v within (lo, hi] in [0,1].
+ */
+template <typename T, typename FracFn>
+static void
+comp_parts (const hist::HistogramReader &r, const T &v, FracFn frac,
+	    double &nonmcv_below_frac, double &mcv_lt, double &mcv_le)
+{
+  const double total_rows = static_cast<double> (r.total_rows ());
+  const int nb = static_cast<int> (r.bucket_count ());
+
+  double nonmcv_below_rows = 0.0;
+  if (nb > 0)
+    {
+      int b = r.find_bucket<T> (v);
+      if (b < 0)
+	{
+	  b = 0;
+	}
+      const double f = frac (r.bucket_hi<T> (b - 1), r.bucket_hi<T> (b), v);
+      nonmcv_below_rows = static_cast<double> (r.bucket_cumulative (b - 1))
+			  + static_cast<double> (r.bucket_rows (b)) * f;
+    }
+  nonmcv_below_frac = (total_rows > 0.0) ? nonmcv_below_rows / total_rows : 0.0;
+
+  mcv_lt = 0.0;
+  mcv_le = 0.0;
+  const int nmcv = static_cast<int> (r.mcv_count ());
+  for (int i = 0; i < nmcv; i++)
+    {
+      const T mv = r.mcv_hi<T> (i);
+      const double f = r.mcv_freq (i);
+      if (mv < v)
+	{
+	  mcv_lt += f;
+	  mcv_le += f;
+	}
+      else if (mv == v)
+	{
+	  mcv_le += f;
+	}
+    }
+}
+
 void
 histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success)
 {
@@ -514,53 +563,72 @@ histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *s
       return;
     }
 
-  int bucket_index = -1;
-  bool found = false;
-
-  switch (key.kind)
-    {
-    case hist::histogram_key_kind::i64:
-      found = histogram_reader.find_bucket_and_check<std::int64_t> (key.i64, bucket_index);
-      break;
-
-    case hist::histogram_key_kind::dbl:
-      found = histogram_reader.find_bucket_and_check<double> (key.dbl, bucket_index);
-      break;
-
-    case hist::histogram_key_kind::str:
-      found = histogram_reader.find_bucket_and_check<std::string> (key.str, bucket_index);
-      break;
-
-    case hist::histogram_key_kind::u64:
-      found = histogram_reader.find_bucket_and_check<std::uint64_t> (key.u64, bucket_index);
-      break;
-
-    case hist::histogram_key_kind::invalid:
-    default:
-      assert (false);
-      break;
-    }
-
-  if (!found || bucket_index < 0)
-    {
-      /* not found in histogram */
-      *success = true;
-      *selectivity = 1.0 / static_cast<double> (histogram_reader.total_rows ());
-      return;
-    }
-
-  const double bucket_rows = static_cast<double> (histogram_reader.bucket_rows (bucket_index));
   const double total_rows = static_cast<double> (histogram_reader.total_rows ());
-  const double approx_ndv = static_cast<double> (histogram_reader.bucket_approx_ndv (bucket_index));
-
-  if (total_rows <= 0.0 || approx_ndv <= 0.0)
+  if (total_rows <= 0.0)
     {
-      /* safe default */
       *success = false;
       return;
     }
 
-  *selectivity = (bucket_rows / total_rows) / approx_ndv;
+  int mcv_index = -1;
+  switch (key.kind)
+    {
+    case hist::histogram_key_kind::i64:
+      mcv_index = histogram_reader.find_mcv<std::int64_t> (key.i64);
+      break;
+    case hist::histogram_key_kind::dbl:
+      mcv_index = histogram_reader.find_mcv<double> (key.dbl);
+      break;
+    case hist::histogram_key_kind::str:
+      mcv_index = histogram_reader.find_mcv<std::string> (key.str);
+      break;
+    case hist::histogram_key_kind::u64:
+      mcv_index = histogram_reader.find_mcv<std::uint64_t> (key.u64);
+      break;
+    case hist::histogram_key_kind::invalid:
+    default:
+      assert (false);
+      *success = false;
+      return;
+    }
+
+  if (mcv_index >= 0)
+    {
+      /* PG: an MCV's population frequency is its stored frequency. */
+      *selectivity = histogram_reader.mcv_freq (mcv_index);
+    }
+  else
+    {
+      /* PG eqsel for a non-MCV value: residual mass spread over the non-MCV distinct
+       * values -> (1 - Σmcv_freq - nullfrac) / (ndistinct - nmcv). */
+      const double nonmcv_distinct = static_cast<double> (histogram_reader.nonmcv_distinct ());
+      double rest = 1.0 - histogram_reader.mcv_total_frequency () - histogram_reader.null_frequency ();
+      if (rest < 0.0)
+	{
+	  rest = 0.0;
+	}
+      if (nonmcv_distinct >= 1.0)
+	{
+	  *selectivity = rest / nonmcv_distinct;
+	}
+      else
+	{
+	  *selectivity = 1.0 / total_rows;
+	}
+    }
+
+  if (*selectivity < 0.0)
+    {
+      *selectivity = 0.0;
+    }
+  if (*selectivity > 1.0)
+    {
+      *selectivity = 1.0;
+    }
+  if (*selectivity <= 0.0)
+    {
+      *selectivity = 1.0 / total_rows;	/* avoid a zero-cardinality estimate */
+    }
   *success = true;
   return;
 }
@@ -591,8 +659,7 @@ histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge
       return;
     }
 
-  int bucket_index = -1;
-  const double total_rows = histogram_reader.total_rows ();
+  const double total_rows = static_cast<double> (histogram_reader.total_rows ());
   if (total_rows <= 0.0)
     {
       *success = true;
@@ -600,213 +667,61 @@ histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge
       return;
     }
 
-  double bucket_rows = 0.0;
+  double nonmcv_below_frac = 0.0;
+  double mcv_lt = 0.0;
+  double mcv_le = 0.0;
 
-  /* caculate bucket_rows for column <= rhs or column < rhs */
   switch (key.kind)
     {
     case hist::histogram_key_kind::i64:
-      bucket_index = histogram_reader.find_bucket<std::int64_t> (key.i64);
-
-      if (bucket_index < 0)
-	{
-	  *success = true;
-	  *selectivity = 1.0 / static_cast<double> (histogram_reader.total_rows ());
-	  return;
-	}
-
-      if (histogram_reader.bucket_approx_ndv (bucket_index) == 1)
-	{
-	  if (histogram_reader.check_value_included<std::int64_t> (bucket_index, key.i64))
-	    {
-	      if (is_ge == include_equal)
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
-		}
-	      else
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
-		}
-	    }
-	  else
-	    {
-	      if (bucket_index == static_cast<int> (histogram_reader.bucket_count()) - 1)
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
-		}
-	      else
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
-		}
-	    }
-	}
-      else
-	{
-	  /* linear interpolation */
-	  const double frac = numeric_domain_frac_i64_lt (histogram_reader.bucket_hi<std::int64_t> (bucket_index - 1),
-			      histogram_reader.bucket_hi<std::int64_t> (bucket_index), key.i64);
-	  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1) + histogram_reader.bucket_rows (
-				bucket_index) * frac;
-	}
+      comp_parts<std::int64_t> (histogram_reader, key.i64, numeric_domain_frac_i64_lt,
+				nonmcv_below_frac, mcv_lt, mcv_le);
       break;
-
     case hist::histogram_key_kind::dbl:
-      bucket_index = histogram_reader.find_bucket<double> (key.dbl);
-
-      if (bucket_index < 0)
-	{
-	  *success = true;
-	  *selectivity = 1.0 / static_cast<double> (histogram_reader.total_rows ());
-	  return;
-	}
-
-      if (histogram_reader.bucket_approx_ndv (bucket_index) == 1)
-	{
-	  if (histogram_reader.check_value_included<double> (bucket_index, key.dbl))
-	    {
-	      if (is_ge == include_equal)
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
-		}
-	      else
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
-		}
-	    }
-	  else
-	    {
-	      if (bucket_index == static_cast<int> (histogram_reader.bucket_count()) - 1)
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
-		}
-	      else
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
-		}
-	    }
-	}
-      else
-	{
-	  /* linear interpolation */
-	  const double frac = numeric_domain_frac_dbl_lt (histogram_reader.bucket_hi<double> (bucket_index - 1),
-			      histogram_reader.bucket_hi<double> (bucket_index), key.dbl);
-	  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1) + histogram_reader.bucket_rows (
-				bucket_index) * frac;
-	}
+      comp_parts<double> (histogram_reader, key.dbl, numeric_domain_frac_dbl_lt,
+			  nonmcv_below_frac, mcv_lt, mcv_le);
       break;
-
     case hist::histogram_key_kind::str:
-      bucket_index = histogram_reader.find_bucket<std::string> (key.str);
-      if (bucket_index < 0)
-	{
-	  *success = true;
-	  *selectivity = 1.0 / static_cast<double> (histogram_reader.total_rows ());
-	  return;
-	}
-
-      if (histogram_reader.bucket_approx_ndv (bucket_index) == 1)
-	{
-	  if (histogram_reader.check_value_included<std::string> (bucket_index, key.str))
-	    {
-	      if (is_ge == include_equal)
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
-		}
-	      else
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
-		}
-	    }
-	  else
-	    {
-	      if (bucket_index == static_cast<int> (histogram_reader.bucket_count()) - 1)
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
-		}
-	      else
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
-		}
-	    }
-	}
-      else
-	{
-	  /* linear interpolation */
-	  const double frac = string_domain_frac_lt (histogram_reader.bucket_hi<std::string> (bucket_index - 1),
-			      histogram_reader.bucket_hi<std::string> (bucket_index), key.str);
-	  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1) + histogram_reader.bucket_rows (
-				bucket_index) * frac;
-	}
+      comp_parts<std::string> (histogram_reader, key.str, string_domain_frac_lt,
+			       nonmcv_below_frac, mcv_lt, mcv_le);
       break;
-
     case hist::histogram_key_kind::u64:
-      bucket_index = histogram_reader.find_bucket<std::uint64_t> (key.u64);
-
-      if (bucket_index < 0)
-	{
-	  *success = true;
-	  *selectivity = 1.0 / static_cast<double> (histogram_reader.total_rows ());
-	  return;
-	}
-
-      if (histogram_reader.bucket_approx_ndv (bucket_index) == 1)
-	{
-	  if (histogram_reader.check_value_included<std::uint64_t> (bucket_index, key.u64))
-	    {
-	      if (is_ge == include_equal)
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
-		}
-	      else
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
-		}
-	    }
-	  else
-	    {
-	      if (bucket_index == static_cast<int> (histogram_reader.bucket_count()) - 1)
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index);
-		}
-	      else
-		{
-		  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1);
-		}
-	    }
-	}
-      else
-	{
-	  /* linear interpolation */
-	  const double frac = numeric_domain_frac_u64_lt (histogram_reader.bucket_hi<std::uint64_t> (bucket_index - 1),
-			      histogram_reader.bucket_hi<std::uint64_t> (bucket_index), key.u64);
-	  bucket_rows = histogram_reader.bucket_cumulative (bucket_index - 1) + histogram_reader.bucket_rows (
-				bucket_index) * frac;
-	}
+      comp_parts<std::uint64_t> (histogram_reader, key.u64, numeric_domain_frac_u64_lt,
+				 nonmcv_below_frac, mcv_lt, mcv_le);
       break;
-
     case hist::histogram_key_kind::invalid:
     default:
-      /* never reach here */
       assert (false);
-      break;
-    }
-
-  if (bucket_index < 0)
-    {
-      /* not found in histogram */
-      *success = true;
-      *selectivity = 1.0 / static_cast<double> (total_rows);
+      *success = false;
       return;
     }
 
-  /* selectivity = bucket_rows / total_rows */
-  *selectivity = bucket_rows / total_rows;
+  /* P(col < v) and P(col <= v) as fractions of ALL rows */
+  const double f_lt = nonmcv_below_frac + mcv_lt;
+  const double f_le = nonmcv_below_frac + mcv_le;
+  const double nullfrac = histogram_reader.null_frequency ();
 
+  double sel;
   if (is_ge)
     {
-      *selectivity = 1.0 - *selectivity;
+      /* ">=" excludes strictly-less rows and nulls; ">" excludes <= rows and nulls */
+      sel = include_equal ? (1.0 - nullfrac - f_lt) : (1.0 - nullfrac - f_le);
+    }
+  else
+    {
+      sel = include_equal ? f_le : f_lt;
     }
 
+  if (sel < 0.0)
+    {
+      sel = 0.0;
+    }
+  if (sel > 1.0)
+    {
+      sel = 1.0;
+    }
+
+  *selectivity = sel;
   *success = true;
   return;
 }
@@ -976,9 +891,21 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
       return;
     }
 
-  double matched_rows = 0.0;
-  double mcv_rows = 0.0;
+  /* MCVs: exact LIKE test against each MCV value, weighted by its population frequency. */
+  double matched_mcv_freq = 0.0;
+  const double mcvsum = histogram_reader.mcv_total_frequency ();
+  const double nullfrac = histogram_reader.null_frequency ();
 
+  for (int i = 0; i < static_cast<int> (histogram_reader.mcv_count ()); i++)
+    {
+      const std::string mcv_val = histogram_reader.mcv_hi<std::string> (i);
+      if (like_match_string (pattern, mcv_val))
+	{
+	  matched_mcv_freq += histogram_reader.mcv_freq (i);
+	}
+    }
+
+  /* Non-MCV buckets: heuristic confidence-weighted match fraction (bucket_hi proxy). */
   double matched_non_mcv_buckets = 0.0;
   double non_mcv_buckets = 0.0;
 
@@ -987,29 +914,9 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
 
   for (int i = 0; i < static_cast<int> (histogram_reader.bucket_count ()); i++)
     {
-      const double bucket_rows = histogram_reader.bucket_rows (i);
-      const int approx_ndv = histogram_reader.bucket_approx_ndv (i);
-      const std::string &bucket_val = histogram_reader.bucket_hi<std::string> (i);
+      const int approx_ndv = static_cast<int> (histogram_reader.bucket_approx_ndv (i));
+      const std::string bucket_val = histogram_reader.bucket_hi<std::string> (i);
 
-      if (approx_ndv == 1)
-	{
-	  /* MCV bucket. */
-	  mcv_rows += bucket_rows;
-
-	  if (like_match_string (pattern, bucket_val))
-	    {
-	      matched_rows += bucket_rows;
-	    }
-
-	  continue;
-	}
-
-      /*
-       * Non-MCV bucket.
-       *
-       * Since LIKE matching is tested only against bucket_hi, the bucket
-       * becomes less reliable as approx_ndv grows.
-       */
       non_mcv_buckets += 1.0;
 
       const double bucket_confidence =
@@ -1074,9 +981,14 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
 	      + pattern_sel * (1.0 - hist_weight);
     }
 
-  *selectivity =
-	  (matched_rows / total_rows)
-	  + (1.0 - (mcv_rows / total_rows)) * total_non_mcv_sel;
+  /* PG: total = Σ matching-MCV freq + (non-null non-MCV mass) * non-MCV match fraction. */
+  double nonmcv_mass = 1.0 - nullfrac - mcvsum;
+  if (nonmcv_mass < 0.0)
+    {
+      nonmcv_mass = 0.0;
+    }
+
+  *selectivity = matched_mcv_freq + nonmcv_mass * total_non_mcv_sel;
 
   *selectivity = std::max (1.0 / total_rows, *selectivity);
 
@@ -1479,7 +1391,8 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   fprintf (f, "| %-47s|\n", line);
 
   snprintf (line, sizeof (line),
-	    " buckets + mcv: %d",
+	    " mcv : %d   buckets : %d",
+	    static_cast<int> (histogram_reader.mcv_count()),
 	    static_cast<int> (histogram_reader.bucket_count()));
   fprintf (f, "| %-47s|\n", line);
 
@@ -1489,108 +1402,40 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   if (detailed)
     {
       const double total_rows = static_cast<double> (histogram_reader.total_rows ());
-      const int bucket_cnt = static_cast<int> (histogram_reader.bucket_count ());
 
+      /* MCV section (population frequency over all rows) */
+      const int mcv_cnt = static_cast<int> (histogram_reader.mcv_count ());
+      for (int i = 0; i < mcv_cnt; i++)
+	{
+	  const std::string v = histogram_reader.mcv_hi_dump_with_type (i, attr_type);
+	  const double freq = histogram_reader.mcv_freq (i);
+	  std::fprintf (f, "MCV#%02d [%s] freq=%.5f\n", i, v.c_str (), freq);
+	}
+
+      /* equi-depth histogram buckets (non-MCV) */
+      const int bucket_cnt = static_cast<int> (histogram_reader.bucket_count ());
       for (int i = 0; i < bucket_cnt; i++)
 	{
 	  const int rows = static_cast<int> (histogram_reader.bucket_rows (i));
 	  const double sel =
-		  (total_rows > 0.0
-		   ? static_cast<double> (rows) / total_rows
-		   : 0.0);
-
+		  (total_rows > 0.0 ? static_cast<double> (rows) / total_rows : 0.0);
 	  const std::int32_t ndv =
 		  static_cast<std::int32_t> (histogram_reader.bucket_approx_ndv (i));
-	  const bool is_mcv = (ndv == 1);
-	  const bool next_is_mcv = (i + 1 < bucket_cnt && histogram_reader.bucket_approx_ndv (i + 1) == 1);
 	  const double cum_sel =
 		  (total_rows > 0.0
 		   ? static_cast<double> (histogram_reader.bucket_cumulative (i)) / total_rows
 		   : 0.0);
-
-	  const char *mcv_suffix = is_mcv ? " (MCV)" : "";
-
+	  std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
 	  if (i == 0)
 	    {
-	      std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
-	      if (is_mcv)
-		{
-		  std::fprintf (f,
-				"#%02d [%s, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
-				i,
-				hi.c_str (),
-				hi.c_str (),
-				rows,
-				sel,
-				ndv,
-				mcv_suffix,
-				cum_sel);
-		}
-	      else
-		{
-		  std::fprintf (f,
-				"#%02d (-inf, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
-				i,
-				hi.c_str (),
-				rows,
-				sel,
-				ndv,
-				mcv_suffix,
-				cum_sel);
-		}
+	      std::fprintf (f, "#%02d (-inf, %s] rows=%d(%.3f) ndv=%d  cum=%.3f\n",
+			    i, hi.c_str (), rows, sel, ndv, cum_sel);
 	    }
 	  else
 	    {
-	      if (is_mcv)
-		{
-		  std::string lo = histogram_reader.bucket_hi_dump_with_type (i - 1, attr_type);
-		  std::string hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
-		  std::fprintf (f,
-				"#%02d [%s, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
-				i,
-				hi.c_str (),
-				hi.c_str (),
-				rows,
-				sel,
-				ndv,
-				mcv_suffix,
-				cum_sel);
-
-		}
-	      else
-		{
-		  std::string lo = histogram_reader.bucket_hi_dump_with_type (i - 1, attr_type);
-		  std::string hi;
-		  if (next_is_mcv)
-		    {
-		      hi = histogram_reader.bucket_hi_dump_with_type (i + 1, attr_type);
-		      std::fprintf (f,
-				    "#%02d (%s, %s) rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
-				    i,
-				    lo.c_str (),
-				    hi.c_str (),
-				    rows,
-				    sel,
-				    ndv,
-				    mcv_suffix,
-				    cum_sel);
-		    }
-		  else
-		    {
-		      hi = histogram_reader.bucket_hi_dump_with_type (i, attr_type);
-		      std::fprintf (f,
-				    "#%02d (%s, %s] rows=%d(%.3f) ndv=%d%s  cum=%.3f\n",
-				    i,
-				    lo.c_str (),
-				    hi.c_str (),
-				    rows,
-				    sel,
-				    ndv,
-				    mcv_suffix,
-				    cum_sel);
-		    }
-
-		}
+	      std::string lo = histogram_reader.bucket_hi_dump_with_type (i - 1, attr_type);
+	      std::fprintf (f, "#%02d (%s, %s] rows=%d(%.3f) ndv=%d  cum=%.3f\n",
+			    i, lo.c_str (), hi.c_str (), rows, sel, ndv, cum_sel);
 	    }
 	}
     }
