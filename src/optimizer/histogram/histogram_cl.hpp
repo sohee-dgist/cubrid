@@ -291,6 +291,7 @@ void histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, doub
 void histogram_get_comp_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, bool is_ge, bool include_equal,
 				     double *selectivity,
 				     bool *success);
+void histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success);
 void histogram_get_default_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success);
 void histogram_get_eqjoin_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivity, bool *success);
 void histogram_get_max_mcv_frequency (PT_NODE *pt_col, double *out_max_mcv_frequency, bool *out_success);

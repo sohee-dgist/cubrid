@@ -1212,6 +1212,229 @@ pattern_heuristic_selectivity (const std::string &pattern, char escape_char)
   return sel;
 }
 
+static bool
+like_match_string (const std::string &pattern, const std::string &value)
+{
+  if (pattern.empty())
+    {
+      return false;
+    }
+
+  const char *p = pattern.c_str ();
+  const char *s = value.data ();
+
+  /* most recent '%' position in pattern */
+  const char *last_percent = nullptr;
+  /* position in string that corresponds to retry after '%' */
+  const char *last_match = nullptr;
+
+  while (*s != '\0')
+    {
+      if (*p == '%')
+	{
+	  /* '%' matches any sequence, including empty */
+	  last_percent = p;
+	  ++p;
+	  last_match = s;
+	}
+      else if (*p == '_' || *p == *s)
+	{
+	  /* '_' matches any single character */
+	  ++p;
+	  ++s;
+	}
+      else if (last_percent != nullptr)
+	{
+	  /* backtrack: let previous '%' absorb one more character */
+	  p = last_percent + 1;
+	  ++last_match;
+	  s = last_match;
+	}
+      else
+	{
+	  return false;
+	}
+    }
+
+  /* trailing '%' can match empty suffix */
+  while (*p == '%')
+    {
+      ++p;
+    }
+
+  return (*p == '\0');
+}
+
+void
+histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *selectivity, bool *success)
+{
+  assert (selectivity != NULL);
+
+  if (rhs_db_value == NULL)
+    {
+      *success = false;
+      return;
+    }
+
+  hist::HistogramReader histogram_reader;
+  if (!histogram_init_reader_from_lhs (lhs, histogram_reader))
+    {
+      *success = false;
+      return;
+    }
+
+  const double total_rows = histogram_reader.total_rows ();
+  if (total_rows <= 0.0)
+    {
+      *success = true;
+      *selectivity = 0.0;
+      return;
+    }
+
+  if (DB_VALUE_TYPE (rhs_db_value) != DB_TYPE_STRING
+      && DB_VALUE_TYPE (rhs_db_value) != DB_TYPE_CHAR)
+    {
+      *success = false;
+      return;
+    }
+
+  const std::string &pattern = db_get_string (rhs_db_value);
+  if (pattern.empty())
+    {
+      *success = false;
+      return;
+    }
+
+  double matched_rows = 0.0;
+  double mcv_rows = 0.0;
+
+  double matched_non_mcv_buckets = 0.0;
+  double non_mcv_buckets = 0.0;
+
+  /* Confidence that bucket_hi can represent the entire bucket. */
+  double ndv_confidence_sum = 0.0;
+
+  for (int i = 0; i < static_cast<int> (histogram_reader.bucket_count ()); i++)
+    {
+      const double bucket_rows = histogram_reader.bucket_rows (i);
+      const int approx_ndv = histogram_reader.bucket_approx_ndv (i);
+      const std::string &bucket_val = histogram_reader.bucket_hi<std::string> (i);
+
+      if (approx_ndv == 1)
+	{
+	  /* MCV bucket. */
+	  mcv_rows += bucket_rows;
+
+	  if (like_match_string (pattern, bucket_val))
+	    {
+	      matched_rows += bucket_rows;
+	    }
+
+	  continue;
+	}
+
+      /*
+       * Non-MCV bucket.
+       *
+       * Since LIKE matching is tested only against bucket_hi, the bucket
+       * becomes less reliable as approx_ndv grows.
+       */
+      non_mcv_buckets += 1.0;
+
+      const double bucket_confidence =
+	      std::min (1.0, 3.0 / static_cast<double> (approx_ndv));
+
+      ndv_confidence_sum += bucket_confidence;
+
+      if (like_match_string (pattern, bucket_val))
+	{
+	  matched_non_mcv_buckets += 1.0;
+	}
+    }
+
+  const double pattern_sel = pattern_heuristic_selectivity (pattern, '\0');
+  assert_release (pattern_sel >= 0.0 && pattern_sel <= 1.0);
+
+  double total_non_mcv_sel = pattern_sel;
+
+  if (non_mcv_buckets > 0.0)
+    {
+      const double matched_buckets_sel =
+	      matched_non_mcv_buckets / non_mcv_buckets;
+
+      /*
+       * 1. Trust the histogram more when there are more non-MCV buckets.
+       *
+       * If around 200 buckets should be considered reasonably reliable,
+       * a baseline value between 64 and 100 is usually a practical choice.
+       */
+      const double bucket_count_weight =
+	      non_mcv_buckets / (non_mcv_buckets + 64.0);
+
+      /*
+       * 2. Do not over-trust matched_buckets_sel when only a few buckets match.
+       *
+       * A single matched bucket is weak evidence. The observation becomes
+       * more meaningful once around 4 to 8 buckets match.
+       */
+      const double matched_support_weight =
+	      matched_non_mcv_buckets / (matched_non_mcv_buckets + 4.0);
+
+      /*
+       * 3. Trust bucket_hi less when each bucket contains many distinct values.
+       */
+      const double avg_ndv_confidence =
+	      ndv_confidence_sum / non_mcv_buckets;
+
+      double hist_weight =
+	      bucket_count_weight * matched_support_weight * avg_ndv_confidence;
+
+      if (hist_weight > 1.0)
+	{
+	  hist_weight = 1.0;
+	}
+      else if (hist_weight < 0.0)
+	{
+	  hist_weight = 0.0;
+	}
+
+      const double eps = 1e-12;
+
+      const double a = std::max (matched_buckets_sel, eps);
+      const double b = std::max (pattern_sel, eps);
+
+      const double ratio = std::max (a, b) / std::min (a, b);
+
+      /*
+       * When histogram evidence and pattern heuristic disagree,
+       * bias the interpolation further toward the histogram observation.
+       */
+      const double disagreement_boost =
+	      (ratio - 1.0) / ratio;
+
+      double boosted_weight =
+	      hist_weight + (1.0 - hist_weight) * disagreement_boost;
+
+      if (boosted_weight > 1.0)
+	{
+	  boosted_weight = 1.0;
+	}
+
+      total_non_mcv_sel =
+	      matched_buckets_sel * boosted_weight
+	      + pattern_sel * (1.0 - boosted_weight);
+    }
+
+  *selectivity =
+	  (matched_rows / total_rows)
+	  + (1.0 - (mcv_rows / total_rows)) * total_non_mcv_sel;
+
+  *selectivity = std::max (1.0 / total_rows, *selectivity);
+
+  *success = true;
+  return;
+}
+
 int
 db_get_histogram (MOP classop, const char *attr_name, DB_OBJECT **histogram_obj)
 {

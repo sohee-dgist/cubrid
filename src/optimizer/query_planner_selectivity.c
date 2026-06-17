@@ -1096,15 +1096,46 @@ qo_classify (PT_NODE * attr)
 double
 qo_like_selectivity (QO_ENV * env, PT_NODE * pt_expr)
 {
-  /* Base LIKE selectivity: the system parameter PRM_ID_LIKE_TERM_SELECTIVITY.
-   * Histogram/pattern-based LIKE selectivity is added in the LIKE-selectivity layer (PR L2). */
-  PT_NODE *lhs = pt_expr->info.expr.arg1;
-  PT_NODE *rhs = pt_expr->info.expr.arg2;
+  PT_NODE *lhs, *rhs;
+  DB_VALUE *host_var = NULL;
+  PRED_CLASS pc_lhs, pc_rhs;
 
-  if (lhs == NULL || rhs == NULL)
+  double selectivity = 0.0;
+
+  PT_NODE *like_node = pt_expr;
+  bool success = false;
+
+  lhs = like_node->info.expr.arg1;
+  rhs = like_node->info.expr.arg2;
+
+  if (lhs && rhs)
     {
-      return 0.0;
+      pc_lhs = qo_classify (lhs);
+      pc_rhs = qo_classify (rhs);
+
+      if (pc_lhs == PC_ATTR)
+	{
+	  if (pc_rhs == PC_CONST)
+	    {
+	      host_var = &rhs->info.value.db_value;
+	    }
+	  else if (pc_rhs == PC_HOST_VAR)
+	    {
+	      host_var = &env->parser->host_variables[rhs->info.host_var.index];
+	    }
+
+	  histogram_get_like_selectivity (lhs, host_var, &selectivity, &success);
+
+	  if (!success)
+	    {
+	      selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
+	    }
+	}
+      else
+	{
+	  selectivity = (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
+	}
     }
 
-  return (double) prm_get_float_value (PRM_ID_LIKE_TERM_SELECTIVITY);
+  return selectivity;
 }
