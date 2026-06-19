@@ -4332,7 +4332,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	      if (!is_histogrammable_type (attr_type))
 		{
 		  error = ER_OBJ_INVALID_ARGUMENTS;
-		  error = dump_histogram (obj, attname, attr_type, with_fullscan, false, error, stdout);
+		  error = dump_histogram (obj, attname, attr_type, false, error, stdout);
 		  continue;
 		}
 
@@ -4342,7 +4342,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 		{
 		  if (error != ER_LC_CLASSNAME_EXIST)
 		    {
-		      error = dump_histogram (obj, attname, attr_type, with_fullscan, false, error, stdout);
+		      error = dump_histogram (obj, attname, attr_type, false, error, stdout);
 		      return error;
 		    }
 		}
@@ -4350,10 +4350,10 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	      error = analyze_classes (NULL, db_get_class_name (obj), attname, bucket_count, with_fullscan, obj);
 	      if (error != NO_ERROR)
 		{
-		  error = dump_histogram (obj, attname, attr_type, with_fullscan, false, error, stdout);
+		  error = dump_histogram (obj, attname, attr_type, false, error, stdout);
 		  return error;
 		}
-	      error = dump_histogram (obj, attname, attr_type, with_fullscan, false, error, stdout);
+	      error = dump_histogram (obj, attname, attr_type, false, error, stdout);
 	      if (error != NO_ERROR)
 		{
 		  assert (false);
@@ -4363,7 +4363,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	  else if (do_histogram == DO_HISTOGRAM_SHOW)
 	    {
 	      attr_type = TP_DOMAIN_TYPE (att->domain);
-	      error = dump_histogram (obj, attname, attr_type, with_fullscan, true, error, stdout);
+	      error = dump_histogram (obj, attname, attr_type, true, error, stdout);
 	      if (error != NO_ERROR)
 		{
 		  return error;
@@ -4408,7 +4408,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	  if (!is_histogrammable_type (attr_type))
 	    {
 	      error = ER_OBJ_INVALID_ARGUMENTS;
-	      error = dump_histogram (obj, attname, attr_type, with_fullscan, false, error, stdout);
+	      error = dump_histogram (obj, attname, attr_type, false, error, stdout);
 	      continue;
 	    }
 	  /* create histogram catalog entry */
@@ -4417,7 +4417,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	    {
 	      if (error != ER_LC_CLASSNAME_EXIST)
 		{
-		  error = dump_histogram (obj, attname, attr_type, with_fullscan, false, error, stdout);
+		  error = dump_histogram (obj, attname, attr_type, false, error, stdout);
 		  return error;
 		}
 	    }
@@ -4428,7 +4428,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	      return error;
 	    }
 
-	  error = dump_histogram (obj, attname, attr_type, with_fullscan, false, error, stdout);
+	  error = dump_histogram (obj, attname, attr_type, false, error, stdout);
 	  if (error != NO_ERROR)
 	    {
 	      assert (false);
@@ -4456,7 +4456,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	    }
 
 	  attr_type = TP_DOMAIN_TYPE (attr_domain);
-	  error = dump_histogram (obj, attname, attr_type, with_fullscan, true, error, stdout);
+	  error = dump_histogram (obj, attname, attr_type, true, error, stdout);
 	  if (error != NO_ERROR)
 	    {
 	      return error;

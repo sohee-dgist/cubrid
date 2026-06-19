@@ -1264,14 +1264,13 @@ is_histogrammable_type (DB_TYPE type)
 #define HIST_DUMP_WIDTH 47  /* inner width of the histogram */
 
 int
-dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with_fullscan, bool detailed, int error,
+dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool detailed, int error,
 		FILE *f)
 {
   char line[HIST_DUMP_WIDTH + 1];
   SM_CLASS *class_ = NULL;
   const char *col_name = attr_name;
   const char *type_name = db_get_type_name (attr_type);
-  int rows_scanned = 0;
   DB_VALUE histogram_value, null_frequency_value;
   DB_OBJECT *histogram_obj = NULL;
   int histogram_total_length = 0;
@@ -1361,9 +1360,7 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
   snprintf (line, sizeof (line), " column : %s (%s)", col_name, type_name);
   fprintf (f, "| %-47s|\n", line);
 
-  /* rows + sample line */
-  rows_scanned = static_cast<int> (histogram_reader.total_rows());
-
+  /* rows line */
   if (class_->stats->heap_num_objects <= 0 || class_->stats->heap_num_pages <= 0)
     {
       snprintf (line, sizeof (line), "Empty histogram for column: %s", attr_name);
@@ -1374,17 +1371,7 @@ dump_histogram (MOP classop, const char *attr_name, DB_TYPE attr_type, bool with
       return NO_ERROR;
     }
 
-  if (!with_fullscan)
-    {
-      snprintf (line, sizeof (line),
-		" rows   : %d   sample : %d (%.1f%%)",
-		class_->stats->heap_num_objects, rows_scanned, (double) rows_scanned / class_->stats->heap_num_objects * 100.0);
-    }
-  else
-    {
-      snprintf (line, sizeof (line),
-		" rows   : %d ", static_cast<int> (histogram_reader.total_rows()));
-    }
+  snprintf (line, sizeof (line), " rows   : %d ", static_cast<int> (histogram_reader.total_rows ()));
   fprintf (f, "| %-47s|\n", line);
 
   snprintf (line, sizeof (line), " null frequency : %.3f", null_frequency);
