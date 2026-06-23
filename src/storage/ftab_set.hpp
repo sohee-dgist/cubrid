@@ -54,12 +54,18 @@ class ftab_set
 
     ftab_set (const ftab_set &other)
       :m_ftab_set (other.m_ftab_set),
-       m_iterator (other.m_iterator)
+       m_iterator (other.m_iterator),
+       m_walk_sector (FILE_PARTIAL_SECTOR_INITIALIZER),
+       m_walk_pgoff (0),
+       m_walk_in_sector (false)
     {}
 
     ftab_set (ftab_set &&other)
       :m_ftab_set (std::move (other.m_ftab_set)),
-       m_iterator (other.m_iterator)
+       m_iterator (other.m_iterator),
+       m_walk_sector (FILE_PARTIAL_SECTOR_INITIALIZER),
+       m_walk_pgoff (0),
+       m_walk_in_sector (false)
     {
       other.m_iterator = 0;
     }
@@ -70,6 +76,9 @@ class ftab_set
 	{
 	  m_ftab_set = other.m_ftab_set;
 	  m_iterator = other.m_iterator;
+	  m_walk_sector = FILE_PARTIAL_SECTOR_INITIALIZER;
+	  m_walk_pgoff = 0;
+	  m_walk_in_sector = false;
 	}
       return *this;
     }
@@ -81,6 +90,9 @@ class ftab_set
 	  m_ftab_set = std::move (other.m_ftab_set);
 	  m_iterator = other.m_iterator;
 	  other.m_iterator = 0;
+	  m_walk_sector = FILE_PARTIAL_SECTOR_INITIALIZER;
+	  m_walk_pgoff = 0;
+	  m_walk_in_sector = false;
 	}
       return *this;
     }

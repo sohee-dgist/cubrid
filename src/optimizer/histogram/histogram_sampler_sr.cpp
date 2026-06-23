@@ -47,8 +47,10 @@
 #include "system_parameter.h"
 #if defined (SERVER_MODE)
 #include "bit.h"
+#include "error_code.h"
 #include "file_manager.h"
 #include "ftab_set.hpp"
+#include "page_buffer.h"
 #include "thread_entry_task.hpp"
 #include "thread_manager.hpp"
 #include "thread_worker_pool.hpp"
@@ -462,7 +464,9 @@ cleanup:
     int error = NO_ERROR;
     bool scancache_inited = false;
     bool attrinfo_inited = false;
+    PGBUF_WATCHER old_pw;
 
+    PGBUF_INIT_WATCHER (&old_pw, PGBUF_ORDERED_HEAP_NORMAL, hfid);
     *total_rows = 0;
     *null_rows = 0;
 
@@ -488,6 +492,39 @@ cleanup:
     while (part.next_data_vpid (hfid, &vpid))
       {
 	SCAN_CODE sc;
+	int fix_err;
+
+	/* fix the page safely + confirm it is a heap data page before scanning (see the multi-column
+	 * variant): a bitmap page may have been deallocated since the snapshot or not be a heap page */
+	if (scan_cache.page_watcher.pgptr != NULL)
+	  {
+	    pgbuf_replace_watcher (thread_p, &scan_cache.page_watcher, &old_pw);
+	  }
+	fix_err = pgbuf_ordered_fix (thread_p, &vpid, OLD_PAGE_MAYBE_DEALLOCATED, PGBUF_LATCH_READ,
+				     &scan_cache.page_watcher);
+	if (scan_cache.page_watcher.pgptr == NULL)
+	  {
+	    if (old_pw.pgptr != NULL)
+	      {
+		pgbuf_ordered_unfix (thread_p, &old_pw);
+	      }
+	    if (fix_err != NO_ERROR && fix_err != ER_PB_BAD_PAGEID)
+	      {
+		error = fix_err;
+		goto cleanup;
+	      }
+	    er_clear ();
+	    continue;
+	  }
+	if (old_pw.pgptr != NULL)
+	  {
+	    pgbuf_ordered_unfix (thread_p, &old_pw);
+	  }
+	if (pgbuf_get_page_ptype (thread_p, scan_cache.page_watcher.pgptr) != PAGE_HEAP)
+	  {
+	    continue;
+	  }
+
 	OID_SET_NULL (&cur_oid);
 	while ((sc = heap_next_1page (thread_p, hfid, &vpid, &local_class_oid, &cur_oid, &recdes, &scan_cache,
 				      PEEK)) == S_SUCCESS)
@@ -521,6 +558,10 @@ cleanup:
     error = NO_ERROR;
 
 cleanup:
+    if (old_pw.pgptr != NULL)
+      {
+	pgbuf_ordered_unfix (thread_p, &old_pw);
+      }
     if (attrinfo_inited)
       {
 	heap_attrinfo_end (thread_p, &attr_info);
@@ -835,7 +876,9 @@ cleanup:
     bool scancache_inited = false;
     bool attrinfo_inited = false;
     VPID vpid;
+    PGBUF_WATCHER old_pw;
 
+    PGBUF_INIT_WATCHER (&old_pw, PGBUF_ORDERED_HEAP_NORMAL, hfid);
     *total_rows = 0;
 
     error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */ , snapshot);
@@ -859,6 +902,40 @@ cleanup:
     while (part.next_data_vpid (hfid, &vpid))
       {
 	SCAN_CODE sc;
+	int fix_err;
+
+	/* Fix the page safely and confirm it is a heap data page before scanning it: a page in the
+	 * ftab bitmap may have been deallocated since the snapshot, or not be a heap page. Feeding
+	 * such a page to heap_next_1page trips an spage assertion. Mirrors input_handler_heap. */
+	if (scan_cache.page_watcher.pgptr != NULL)
+	  {
+	    pgbuf_replace_watcher (thread_p, &scan_cache.page_watcher, &old_pw);
+	  }
+	fix_err = pgbuf_ordered_fix (thread_p, &vpid, OLD_PAGE_MAYBE_DEALLOCATED, PGBUF_LATCH_READ,
+				     &scan_cache.page_watcher);
+	if (scan_cache.page_watcher.pgptr == NULL)
+	  {
+	    if (old_pw.pgptr != NULL)
+	      {
+		pgbuf_ordered_unfix (thread_p, &old_pw);
+	      }
+	    if (fix_err != NO_ERROR && fix_err != ER_PB_BAD_PAGEID)
+	      {
+		error = fix_err;
+		goto cleanup;
+	      }
+	    er_clear ();
+	    continue;		/* deallocated since the ftab snapshot; skip */
+	  }
+	if (old_pw.pgptr != NULL)
+	  {
+	    pgbuf_ordered_unfix (thread_p, &old_pw);
+	  }
+	if (pgbuf_get_page_ptype (thread_p, scan_cache.page_watcher.pgptr) != PAGE_HEAP)
+	  {
+	    continue;		/* not a heap data page; skip */
+	  }
+
 	OID_SET_NULL (&cur_oid);
 	while ((sc = heap_next_1page (thread_p, hfid, &vpid, &local_class_oid, &cur_oid, &recdes, &scan_cache,
 				      PEEK)) == S_SUCCESS)
@@ -887,6 +964,10 @@ cleanup:
     error = NO_ERROR;
 
 cleanup:
+    if (old_pw.pgptr != NULL)
+      {
+	pgbuf_ordered_unfix (thread_p, &old_pw);
+      }
     if (attrinfo_inited)
       {
 	heap_attrinfo_end (thread_p, &attr_info);
