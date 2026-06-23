@@ -34,8 +34,10 @@
 #ifndef _RESERVOIR_SAMPLER_HPP_
 #define _RESERVOIR_SAMPLER_HPP_
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <random>
 #include <utility>
 #include <vector>
@@ -56,31 +58,54 @@ namespace cubsampling
 	, m_filled (0)
 	, m_seen (0)
 	, m_rng (seed)
+	, m_w (0.0)
+	, m_next_accept (0)
       {
       }
 
-      /* Feed one stream item. Returns the slot index [0, capacity) the item must be
-       * written to, or NOT_SELECTED if the item is dropped. */
+      /* Feed one stream item. Returns the slot index [0, capacity) the item must be written to,
+       * or NOT_SELECTED if the item is dropped.
+       *
+       * Uses Vitter's skip-based reservoir sampling (Algorithm L). While the reservoir fills, every
+       * item is kept; once full, instead of drawing a random number for every item (Algorithm R,
+       * O(N) draws) it computes how many items to skip before the next replacement, so the RNG fires
+       * only ~capacity * (1 + ln (N / capacity)) times for a stream of N items -- skipped items cost
+       * just a counter compare. The resulting sample is statistically identical to Algorithm R (each
+       * item ends up in the reservoir with probability capacity / N). */
       int consider ()
       {
-	int slot;
+	m_seen++;		/* m_seen is now the 1-based index of this item */
+
+	if (m_capacity == 0)
+	  {
+	    return NOT_SELECTED;
+	  }
 
 	if (m_filled < m_capacity)
 	  {
 	    /* reservoir not full yet: always keep, fill next slot */
-	    slot = static_cast<int> (m_filled);
+	    int slot = static_cast<int> (m_filled);
 	    m_filled++;
-	  }
-	else
-	  {
-	    /* reservoir full: replace a random slot with probability capacity / (seen + 1) */
-	    std::uniform_int_distribution<std::uint64_t> dist (0, m_seen);
-	    std::uint64_t j = dist (m_rng);
-	    slot = (j < m_capacity) ? static_cast<int> (j) : NOT_SELECTED;
+	    if (m_filled == m_capacity)
+	      {
+		/* reservoir just filled: arm Algorithm L for the rest of the stream */
+		m_w = std::exp (std::log (next_unit ()) / static_cast<double> (m_capacity));
+		m_next_accept = m_seen + next_skip () + 1;
+	      }
+	    return slot;
 	  }
 
-	m_seen++;
-	return slot;
+	/* reservoir full: skip (no RNG) until the precomputed acceptance index */
+	if (m_seen < m_next_accept)
+	  {
+	    return NOT_SELECTED;
+	  }
+
+	/* this item is accepted: update W, schedule the next acceptance, replace a random slot */
+	m_w *= std::exp (std::log (next_unit ()) / static_cast<double> (m_capacity));
+	m_next_accept = m_seen + next_skip () + 1;
+	std::uniform_int_distribution<std::size_t> slot_dist (0, m_capacity - 1);
+	return static_cast<int> (slot_dist (m_rng));
       }
 
       std::size_t capacity () const
@@ -104,13 +129,46 @@ namespace cubsampling
       {
 	m_filled = 0;
 	m_seen = 0;
+	m_w = 0.0;
+	m_next_accept = 0;
       }
 
     private:
+      /* uniform random in the open interval (0, 1), safe for std::log */
+      double next_unit ()
+      {
+	double u;
+	do
+	  {
+	    u = std::generate_canonical<double, std::numeric_limits<double>::digits> (m_rng);
+	  }
+	while (u <= 0.0);
+	return u;
+      }
+
+      /* number of items to skip before the next acceptance (Algorithm L) */
+      std::uint64_t next_skip ()
+      {
+	const double denom = std::log (1.0 - m_w);
+	if (denom >= 0.0)
+	  {
+	    /* m_w in (0,1) => 1-m_w in (0,1) => log < 0; guard against degenerate values */
+	    return 0;
+	  }
+	double s = std::floor (std::log (next_unit ()) / denom);
+	if (s < 0.0)
+	  {
+	    s = 0.0;
+	  }
+	return static_cast<std::uint64_t> (s);
+      }
+
       std::size_t m_capacity;
       std::size_t m_filled;
       std::uint64_t m_seen;
       std::mt19937_64 m_rng;
+      double m_w;			/* Algorithm L running weight */
+      std::uint64_t m_next_accept;	/* next m_seen index at which to accept an item */
   };
 
   template <typename T>
