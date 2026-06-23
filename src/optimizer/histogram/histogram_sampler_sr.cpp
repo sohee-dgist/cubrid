@@ -49,9 +49,10 @@
 #include "file_manager.h"
 #include "ftab_set.hpp"
 #include "page_buffer.h"
+#include "px_parallel.hpp"
+#include "px_worker_manager.hpp"
 #include "thread_entry_task.hpp"
 #include "thread_manager.hpp"
-#include "thread_worker_pool.hpp"
 #include <atomic>
 #endif /* SERVER_MODE */
 
@@ -657,37 +658,64 @@ cleanup:
     return error;
   }
 
-  /* Worker thread context: run as a system worker but borrow the coordinator's connection so
-   * perf/logging have a valid context. MVCC visibility comes from the shared snapshot passed
-   * into each worker's scan_cache, not from the worker's (system) transaction. Mirrors the
-   * online index-build loader. */
-  class reservoir_scan_context : public cubthread::entry_manager
+  /* Reserve workers from the global parallel pool and split the heap's data pages for a parallel
+   * full scan. Returns the number of partitions to run (== reserved workers, capped to the sector
+   * count), or 0 to fall back to the serial scan. On a positive return, *out_wm holds the
+   * reservation (release with release_workers ()) and `parts` holds that many ftab partitions. */
+  static int
+  reserve_and_split (THREAD_ENTRY *thread_p, const HFID *hfid, std::vector<ftab_set> &parts,
+		     parallel_query::worker_manager **out_wm)
   {
-    public:
-      explicit reservoir_scan_context (css_conn_entry *conn)
-	: m_conn (conn)
+    *out_wm = NULL;
+
+    int npages = 0, nobjs = 0, avg_len = 0;
+    (void) heap_get_num_objects (thread_p, hfid, &npages, &nobjs, &avg_len);
+
+    int degree = (int) parallel_query::compute_parallel_degree (parallel_query::parallel_type::SCAN, (UINT64) npages);
+    if (degree < 2)
       {
+	return 0;		/* not worth it / parallelism disabled -> serial */
       }
 
-    protected:
-      void on_create (context_type &context) override
+    parallel_query::worker_manager *wm = parallel_query::worker_manager::try_reserve_workers (degree);
+    if (wm == NULL)
       {
-	context.claim_system_worker ();
-	context.conn_entry = m_conn;
+	return 0;		/* no free workers -> serial */
       }
-      void on_retire (context_type &context) override
+    degree = wm->get_reserved_workers ();
+
+    FILE_FTAB_COLLECTOR collector;
+    if (file_get_all_data_sectors (thread_p, &hfid->vfid, &collector) != NO_ERROR)
       {
-	context.retire_system_worker ();
-	context.conn_entry = NULL;
+	if (collector.partsect_ftab != NULL)
+	  {
+	    db_private_free_and_init (thread_p, collector.partsect_ftab);
+	  }
+	wm->release_workers ();
+	er_clear ();
+	return 0;		/* metadata read failed -> serial */
       }
-      void on_recycle (context_type &context) override
+    ftab_set full;
+    full.convert (&collector);
+    if (collector.partsect_ftab != NULL)
       {
-	context.tran_index = LOG_SYSTEM_TRAN_INDEX;
+	db_private_free_and_init (thread_p, collector.partsect_ftab);
+      }
+    if ((int) full.size () < degree)
+      {
+	degree = (int) full.size ();
+      }
+    if (degree <= 1)
+      {
+	wm->release_workers ();
+	return 0;
       }
 
-    private:
-      css_conn_entry *m_conn;
-  };
+    parts = full.split (degree);
+    full.clear ();
+    *out_wm = wm;
+    return degree;
+  }
 
   template <typename T>
   struct worker_result
@@ -704,7 +732,8 @@ cleanup:
   {
     public:
       reservoir_scan_task (const OID *class_oid, const HFID *hfid, ATTR_ID attr_id, MVCC_SNAPSHOT *snapshot,
-			   int capacity, std::uint64_t seed, ftab_set part, worker_result<T> *result)
+			   int capacity, std::uint64_t seed, ftab_set part, worker_result<T> *result,
+			   THREAD_ENTRY *parent, parallel_query::worker_manager *wm)
 	: m_class_oid (*class_oid)
 	, m_hfid (*hfid)
 	, m_attr_id (attr_id)
@@ -713,16 +742,31 @@ cleanup:
 	, m_seed (seed)
 	, m_part (std::move (part))
 	, m_result (result)
+	, m_parent (parent)
+	, m_wm (wm)
       {
       }
 
       void execute (cubthread::entry &thread_ref) override
       {
+	/* borrow the coordinator's transaction/connection so the worker has a valid logging context
+	 * and the same MVCC view (mirrors parallel_scan::task) */
+	thread_ref.m_px_orig_thread_entry = m_parent;
+	thread_ref.conn_entry = m_parent->conn_entry;
+	thread_ref.tran_index = m_parent->tran_index;
+	thread_ref.on_trace = false;
+
 	cubsampling::reservoir_sampler<T> rs ((std::size_t) m_capacity, m_seed);
 	m_result->error = scan_ftab_partition<T> (&thread_ref, &m_class_oid, &m_hfid, m_attr_id, m_snapshot, m_part, rs,
 			  &m_result->total_rows, &m_result->null_rows);
 	m_result->seen = rs.seen ();
 	m_result->samples = std::move (rs.samples ());
+      }
+
+      void retire () override
+      {
+	m_wm->pop_task ();
+	delete this;
       }
 
     private:
@@ -734,6 +778,8 @@ cleanup:
       std::uint64_t m_seed;
       ftab_page_walker m_part;
       worker_result<T> *m_result;
+      THREAD_ENTRY *m_parent;
+      parallel_query::worker_manager *m_wm;
   };
 #endif /* SERVER_MODE */
 
@@ -752,81 +798,32 @@ cleanup:
     *null_rows = 0;
 
 #if defined (SERVER_MODE)
-    int degree = prm_get_integer_value (PRM_ID_MAX_PARALLEL_WORKERS);
-    const int page_threshold = prm_get_integer_value (PRM_ID_PARALLEL_SCAN_PAGE_THRESHOLD);
-
-    int npages = 0;
-    int nobjs = 0;
-    int avg_len = 0;
-    (void) heap_get_num_objects (thread_p, hfid, &npages, &nobjs, &avg_len);
-
-    if (degree <= 1 || npages < page_threshold)
+    std::vector<ftab_set> parts;
+    parallel_query::worker_manager *wm = NULL;
+    int degree = reserve_and_split (thread_p, hfid, parts, &wm);
+    if (degree < 2)
       {
 	/* not worth the worker setup -> single-pass serial reservoir */
 	return scan_and_collect<T> (thread_p, class_oid, hfid, attr_id, sample_size, out_samples, total_rows,
 				    null_rows);
       }
-    if (degree > 16)
-      {
-	degree = 16;
-      }
-
-    FILE_FTAB_COLLECTOR collector;
-    int error = file_get_all_data_sectors (thread_p, &hfid->vfid, &collector);
-    if (error != NO_ERROR)
-      {
-	if (collector.partsect_ftab != NULL)
-	  {
-	    db_private_free_and_init (thread_p, collector.partsect_ftab);
-	  }
-	return error;
-      }
-    ftab_set full;
-    full.convert (&collector);
-    if (collector.partsect_ftab != NULL)
-      {
-	db_private_free_and_init (thread_p, collector.partsect_ftab);
-      }
-
-    if ((int) full.size () < degree)
-      {
-	degree = (int) full.size ();
-      }
-    if (degree <= 1)
-      {
-	return scan_and_collect<T> (thread_p, class_oid, hfid, attr_id, sample_size, out_samples, total_rows,
-				    null_rows);
-      }
-
-    std::vector<ftab_set> parts = full.split (degree);
-    full.clear ();
 
     MVCC_SNAPSHOT *snapshot = logtb_get_mvcc_snapshot (thread_p);
     std::vector<worker_result<T>> results (degree);
-
-    reservoir_scan_context context (thread_p->conn_entry);
-    cubthread::worker_pool_type *pool =
-	    thread_create_worker_pool (degree, degree, "histogram-reservoir-scan", context);
-    if (pool == NULL)
-      {
-	/* could not spawn workers -> serial fallback */
-	return scan_and_collect<T> (thread_p, class_oid, hfid, attr_id, sample_size, out_samples, total_rows,
-				    null_rows);
-      }
 
     for (int w = 0; w < degree; w++)
       {
 	reservoir_scan_task<T> *task =
 		new reservoir_scan_task<T> (class_oid, hfid, attr_id, snapshot, sample_size,
 					    cubsampling::RESERVOIR_DEFAULT_SEED + (std::uint64_t) w,
-					    std::move (parts[w]), &results[w]);
-	thread_get_manager ()->push_task (pool, task);
+					    std::move (parts[w]), &results[w], thread_p, wm);
+	wm->push_task (task);
       }
 
-    /* blocks until every task has finished, then frees the pool */
-    thread_get_manager ()->destroy_worker_pool (pool);
+    /* blocks until every pushed task has finished */
+    wm->wait_workers ();
 
-    error = NO_ERROR;
+    int error = NO_ERROR;
     std::vector<std::vector<T>> part_samples (degree);
     std::vector<std::uint64_t> part_seen (degree);
     for (int w = 0; w < degree; w++)
@@ -840,6 +837,7 @@ cleanup:
 	part_samples[w] = std::move (results[w].samples);
 	part_seen[w] = results[w].seen;
       }
+    wm->release_workers ();
     if (error != NO_ERROR)
       {
 	return error;
@@ -1085,7 +1083,8 @@ cleanup:
   {
     public:
       multi_scan_task (const OID *class_oid, const HFID *hfid, const ATTR_ID *attr_ids, int attr_cnt,
-		       MVCC_SNAPSHOT *snapshot, ftab_set part, multi_worker_result *result)
+		       MVCC_SNAPSHOT *snapshot, ftab_set part, multi_worker_result *result,
+		       THREAD_ENTRY *parent, parallel_query::worker_manager *wm)
 	: m_class_oid (*class_oid)
 	, m_hfid (*hfid)
 	, m_attr_ids (attr_ids)
@@ -1093,13 +1092,27 @@ cleanup:
 	, m_snapshot (snapshot)
 	, m_part (std::move (part))
 	, m_result (result)
+	, m_parent (parent)
+	, m_wm (wm)
       {
       }
 
       void execute (cubthread::entry &thread_ref) override
       {
+	/* borrow the coordinator's transaction/connection (mirrors parallel_scan::task) */
+	thread_ref.m_px_orig_thread_entry = m_parent;
+	thread_ref.conn_entry = m_parent->conn_entry;
+	thread_ref.tran_index = m_parent->tran_index;
+	thread_ref.on_trace = false;
+
 	m_result->error = scan_ftab_partition_multi (&thread_ref, &m_class_oid, &m_hfid, m_attr_ids, m_attr_cnt,
 			  m_snapshot, m_part, m_result->collectors, &m_result->total_rows);
+      }
+
+      void retire () override
+      {
+	m_wm->pop_task ();
+	delete this;
       }
 
     private:
@@ -1110,6 +1123,8 @@ cleanup:
       MVCC_SNAPSHOT *m_snapshot;
       ftab_page_walker m_part;
       multi_worker_result *m_result;
+      THREAD_ENTRY *m_parent;
+      parallel_query::worker_manager *m_wm;
   };
 
   /* Parallel multi-column scan + per-column merge. The reusable core shared by the histogram
@@ -1118,7 +1133,7 @@ cleanup:
    * reservoirs (population-weighted). On success with parallelism actually used, fills `merged`
    * with one merged col_collector per column (NULL for unsupported types; caller owns and deletes
    * them), sets *out_total_rows and *did_parallel = true. When parallelism is not applicable
-   * (degree <= 1, small heap, pool spawn failed) returns NO_ERROR with *did_parallel = false and
+   * (small heap, no workers reserved) returns NO_ERROR with *did_parallel = false and
    * `merged` empty, so the caller runs its serial scan. A worker error is returned with
    * *did_parallel = false. */
   static int
@@ -1131,45 +1146,13 @@ cleanup:
     *did_parallel = false;
     *out_total_rows = 0;
 
-    int degree = prm_get_integer_value (PRM_ID_MAX_PARALLEL_WORKERS);
-    const int page_threshold = prm_get_integer_value (PRM_ID_PARALLEL_SCAN_PAGE_THRESHOLD);
-    int npages = 0, nobjs = 0, avg_len = 0;
-    (void) heap_get_num_objects (thread_p, hfid, &npages, &nobjs, &avg_len);
-    if (degree <= 1 || npages < page_threshold)
+    std::vector<ftab_set> parts;
+    parallel_query::worker_manager *wm = NULL;
+    int degree = reserve_and_split (thread_p, hfid, parts, &wm);
+    if (degree < 2)
       {
-	return NO_ERROR;
+	return NO_ERROR;	/* caller runs the serial single scan */
       }
-    if (degree > 16)
-      {
-	degree = 16;
-      }
-
-    FILE_FTAB_COLLECTOR collector;
-    int error = file_get_all_data_sectors (thread_p, &hfid->vfid, &collector);
-    if (error != NO_ERROR)
-      {
-	if (collector.partsect_ftab != NULL)
-	  {
-	    db_private_free_and_init (thread_p, collector.partsect_ftab);
-	  }
-	return error;
-      }
-    ftab_set full;
-    full.convert (&collector);
-    if (collector.partsect_ftab != NULL)
-      {
-	db_private_free_and_init (thread_p, collector.partsect_ftab);
-      }
-    if ((int) full.size () < degree)
-      {
-	degree = (int) full.size ();
-      }
-    if (degree <= 1)
-      {
-	return NO_ERROR;
-      }
-    std::vector<ftab_set> parts = full.split (degree);
-    full.clear ();
 
     MVCC_SNAPSHOT *snapshot = logtb_get_mvcc_snapshot (thread_p);
     std::vector<multi_worker_result> results (degree);
@@ -1182,30 +1165,17 @@ cleanup:
 	  }
       }
 
-    reservoir_scan_context context (thread_p->conn_entry);
-    cubthread::worker_pool_type *pool =
-	    thread_create_worker_pool (degree, degree, "histogram-reservoir-multi", context);
-    if (pool == NULL)
-      {
-	for (w = 0; w < degree; w++)
-	  {
-	    for (c = 0; c < attr_cnt; c++)
-	      {
-		delete results[w].collectors[c];
-	      }
-	  }
-	return NO_ERROR;
-      }
-
     for (w = 0; w < degree; w++)
       {
 	multi_scan_task *task =
-		new multi_scan_task (class_oid, hfid, attr_ids, attr_cnt, snapshot, std::move (parts[w]), &results[w]);
-	thread_get_manager ()->push_task (pool, task);
+		new multi_scan_task (class_oid, hfid, attr_ids, attr_cnt, snapshot, std::move (parts[w]), &results[w],
+				     thread_p, wm);
+	wm->push_task (task);
       }
-    thread_get_manager ()->destroy_worker_pool (pool);
+    wm->wait_workers ();
+    wm->release_workers ();
 
-    error = NO_ERROR;
+    int error = NO_ERROR;
     std::int64_t total_rows = 0;
     for (w = 0; w < degree; w++)
       {
