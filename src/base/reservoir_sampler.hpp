@@ -47,6 +47,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <random>
+#include <utility>
 #include <vector>
 
 namespace cubsampling
@@ -197,6 +198,110 @@ namespace cubsampling
       reservoir_selector m_selector;
       std::vector<T> m_reservoir;
   };
+
+  /*
+   * merge_partition_samples () - combine per-partition reservoir samples (produced by a
+   *   parallel page-distributed scan) into a single sample of at most `capacity` items.
+   *
+   *   Each partition p contributed a uniform sample part_samples[p] drawn from the
+   *   part_seen[p] non-null values it observed on its slice of the heap. They are combined
+   *   with population-proportional (stratified) allocation: partition p donates
+   *   round(capacity * part_seen[p] / total_seen) items, chosen uniformly at random without
+   *   replacement from its own sample (capped at what it holds; rounding remainder spread
+   *   over partitions with spare samples). This keeps each partition's contribution in
+   *   proportion to how much of the population it covered, which is what the bucketizer needs
+   *   for distribution estimation, and matches a single-pass reservoir in expectation.
+   *
+   *   Deterministic for a given seed. part_samples is consumed (items are moved out).
+   */
+  template <typename T>
+  std::vector<T>
+  merge_partition_samples (std::vector<std::vector<T>> &part_samples,
+			   const std::vector<std::uint64_t> &part_seen,
+			   std::size_t capacity,
+			   std::uint64_t seed = RESERVOIR_DEFAULT_SEED)
+  {
+    std::vector<T> out;
+    const std::size_t m = part_samples.size ();
+    if (m == 0 || capacity == 0)
+      {
+	return out;
+      }
+
+    std::uint64_t total_seen = 0;
+    std::size_t total_available = 0;
+    for (std::size_t p = 0; p < m; p++)
+      {
+	total_seen += part_seen[p];
+	total_available += part_samples[p].size ();
+      }
+    if (total_available == 0)
+      {
+	return out;
+      }
+
+    const std::size_t want = (capacity < total_available) ? capacity : total_available;
+
+    std::mt19937_64 rng (seed);
+
+    /* population-proportional target per partition, capped at what it actually holds */
+    std::vector<std::size_t> take (m, 0);
+    std::size_t assigned = 0;
+    if (total_seen > 0)
+      {
+	for (std::size_t p = 0; p < m; p++)
+	  {
+	    std::size_t t =
+		    (std::size_t) ((long double) want * (long double) part_seen[p] / (long double) total_seen);
+	    if (t > part_samples[p].size ())
+	      {
+		t = part_samples[p].size ();
+	      }
+	    take[p] = t;
+	    assigned += t;
+	  }
+      }
+
+    /* spread any rounding remainder over partitions that still have spare samples */
+    std::size_t rr = 0;
+    while (assigned < want)
+      {
+	bool progressed = false;
+	for (std::size_t step = 0; step < m && assigned < want; step++)
+	  {
+	    std::size_t p = (rr + step) % m;
+	    if (take[p] < part_samples[p].size ())
+	      {
+		take[p]++;
+		assigned++;
+		progressed = true;
+	      }
+	  }
+	rr++;
+	if (!progressed)
+	  {
+	    break;		/* no partition has spare samples */
+	  }
+      }
+
+    /* draw take[p] items uniformly at random (without replacement) from each partition */
+    out.reserve (assigned);
+    for (std::size_t p = 0; p < m; p++)
+      {
+	std::vector<T> &s = part_samples[p];
+	const std::size_t k = take[p];
+	/* partial Fisher-Yates: select k items into [0, k) then move them out */
+	for (std::size_t i = 0; i < k; i++)
+	  {
+	    std::uniform_int_distribution<std::size_t> dist (i, s.size () - 1);
+	    std::size_t j = dist (rng);
+	    std::swap (s[i], s[j]);
+	    out.push_back (std::move (s[i]));
+	  }
+      }
+
+    return out;
+  }
 
 } // namespace cubsampling
 

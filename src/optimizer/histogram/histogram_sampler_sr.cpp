@@ -44,6 +44,16 @@
 #include "object_representation.h"
 #include "reservoir_sampler.hpp"
 #include "statistics.h"
+#include "system_parameter.h"
+#if defined (SERVER_MODE)
+#include "bit.h"
+#include "file_manager.h"
+#include "ftab_set.hpp"
+#include "thread_entry_task.hpp"
+#include "thread_manager.hpp"
+#include "thread_worker_pool.hpp"
+#include <atomic>
+#endif /* SERVER_MODE */
 
 #include "memory_wrapper.hpp"	// XXX: SHOULD BE THE LAST INCLUDE HEADER
 
@@ -426,6 +436,313 @@ cleanup:
     return error;
   }
 
+#if defined (SERVER_MODE)
+  /* Scan every allocated data page contained in the ftab partition `part` (heap header page
+   * excluded), pull MVCC-visible rows with heap_next_1page under the shared snapshot, and feed
+   * the target attribute's non-null values to the partition-local reservoir `rs`. total_rows /
+   * null_rows are exact for this partition. Runs on a worker thread. */
+  template <typename T>
+  static int
+  scan_ftab_partition (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid, ATTR_ID attr_id,
+		       MVCC_SNAPSHOT *snapshot, ftab_set &part, cubsampling::reservoir_sampler<T> &rs,
+		       std::int64_t *total_rows, std::int64_t *null_rows)
+  {
+    HEAP_SCANCACHE scan_cache;
+    HEAP_CACHE_ATTRINFO attr_info;
+    RECDES recdes;
+    OID cur_oid;
+    OID local_class_oid = *class_oid;
+    int error = NO_ERROR;
+    bool scancache_inited = false;
+    bool attrinfo_inited = false;
+
+    *total_rows = 0;
+    *null_rows = 0;
+
+    error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */ , snapshot);
+    if (error != NO_ERROR)
+      {
+	ASSERT_ERROR ();
+	goto cleanup;
+      }
+    scancache_inited = true;
+
+    error = heap_attrinfo_start (thread_p, class_oid, 1, &attr_id, &attr_info);
+    if (error != NO_ERROR)
+      {
+	ASSERT_ERROR ();
+	goto cleanup;
+      }
+    attrinfo_inited = true;
+
+    recdes.data = NULL;
+
+    for (;;)
+      {
+	FILE_PARTIAL_SECTOR ft = part.get_next ();
+	if (VSID_IS_NULL (&ft.vsid))
+	  {
+	    break;
+	  }
+
+	VPID vpid;
+	vpid.volid = ft.vsid.volid;
+	const PAGEID base_pageid = SECTOR_FIRST_PAGEID (ft.vsid.sectid);
+
+	for (size_t off = 0; off < DISK_SECTOR_NPAGES; off++)
+	  {
+	    if (!bit64_is_set (ft.page_bitmap, (int) off))
+	      {
+		continue;
+	      }
+	    vpid.pageid = base_pageid + (PAGEID) off;
+	    if (vpid.volid == hfid->vfid.volid && vpid.pageid == hfid->vfid.fileid)
+	      {
+		/* heap file header page, no user records */
+		continue;
+	      }
+
+	    SCAN_CODE sc;
+	    OID_SET_NULL (&cur_oid);
+	    while ((sc = heap_next_1page (thread_p, hfid, &vpid, &local_class_oid, &cur_oid, &recdes, &scan_cache,
+					  PEEK)) == S_SUCCESS)
+	      {
+		(*total_rows)++;
+
+		error = heap_attrinfo_read_dbvalues (thread_p, &cur_oid, &recdes, &attr_info);
+		if (error != NO_ERROR)
+		  {
+		    ASSERT_ERROR ();
+		    goto cleanup;
+		  }
+
+		DB_VALUE *v = heap_attrinfo_access (attr_id, &attr_info);
+		if (v == NULL || DB_IS_NULL (v))
+		  {
+		    (*null_rows)++;
+		    continue;
+		  }
+		if (!extract<T> (v, rs))
+		  {
+		    (*null_rows)++;
+		  }
+	      }
+	    if (sc != S_END)
+	      {
+		ASSERT_ERROR_AND_SET (error);
+		goto cleanup;
+	      }
+	  }
+      }
+    error = NO_ERROR;
+
+cleanup:
+    if (attrinfo_inited)
+      {
+	heap_attrinfo_end (thread_p, &attr_info);
+      }
+    if (scancache_inited)
+      {
+	(void) heap_scancache_end (thread_p, &scan_cache);
+      }
+    return error;
+  }
+
+  /* Worker thread context: run as a system worker but borrow the coordinator's connection so
+   * perf/logging have a valid context. MVCC visibility comes from the shared snapshot passed
+   * into each worker's scan_cache, not from the worker's (system) transaction. Mirrors the
+   * online index-build loader. */
+  class reservoir_scan_context : public cubthread::entry_manager
+  {
+    public:
+      explicit reservoir_scan_context (css_conn_entry *conn)
+	: m_conn (conn)
+      {
+      }
+
+    protected:
+      void on_create (context_type &context) override
+      {
+	context.claim_system_worker ();
+	context.conn_entry = m_conn;
+      }
+      void on_retire (context_type &context) override
+      {
+	context.retire_system_worker ();
+	context.conn_entry = NULL;
+      }
+      void on_recycle (context_type &context) override
+      {
+	context.tran_index = LOG_SYSTEM_TRAN_INDEX;
+      }
+
+    private:
+      css_conn_entry *m_conn;
+  };
+
+  template <typename T>
+  struct worker_result
+  {
+    std::vector<T> samples;
+    std::uint64_t seen = 0;
+    std::int64_t total_rows = 0;
+    std::int64_t null_rows = 0;
+    int error = NO_ERROR;
+  };
+
+  template <typename T>
+  class reservoir_scan_task : public cubthread::entry_task
+  {
+    public:
+      reservoir_scan_task (const OID *class_oid, const HFID *hfid, ATTR_ID attr_id, MVCC_SNAPSHOT *snapshot,
+			   int capacity, std::uint64_t seed, ftab_set part, worker_result<T> *result)
+	: m_class_oid (*class_oid)
+	, m_hfid (*hfid)
+	, m_attr_id (attr_id)
+	, m_snapshot (snapshot)
+	, m_capacity (capacity)
+	, m_seed (seed)
+	, m_part (std::move (part))
+	, m_result (result)
+      {
+      }
+
+      void execute (cubthread::entry &thread_ref) override
+      {
+	cubsampling::reservoir_sampler<T> rs ((std::size_t) m_capacity, m_seed);
+	m_result->error = scan_ftab_partition<T> (&thread_ref, &m_class_oid, &m_hfid, m_attr_id, m_snapshot, m_part, rs,
+			  &m_result->total_rows, &m_result->null_rows);
+	m_result->seen = rs.seen ();
+	m_result->samples = std::move (rs.samples ());
+      }
+
+    private:
+      OID m_class_oid;
+      HFID m_hfid;
+      ATTR_ID m_attr_id;
+      MVCC_SNAPSHOT *m_snapshot;
+      int m_capacity;
+      std::uint64_t m_seed;
+      ftab_set m_part;
+      worker_result<T> *m_result;
+  };
+#endif /* SERVER_MODE */
+
+  /* Parallel full-scan reservoir: distribute the heap's data pages across worker threads (each
+   * with its own page partition, scan_cache and reservoir, sharing the coordinator's snapshot),
+   * then merge the partition samples (population-weighted) and sum exact row/null counts. Falls
+   * back to the single-threaded scan when parallelism is off, the heap is small, or not in
+   * SERVER_MODE. Post-merge bucketizing / blob building stay serial. */
+  template <typename T>
+  static int
+  parallel_scan_and_collect (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid, ATTR_ID attr_id,
+			     int sample_size, std::vector<T> &out_samples, std::int64_t *total_rows,
+			     std::int64_t *null_rows)
+  {
+    *total_rows = 0;
+    *null_rows = 0;
+
+#if defined (SERVER_MODE)
+    int degree = prm_get_integer_value (PRM_ID_MAX_PARALLEL_WORKERS);
+    const int page_threshold = prm_get_integer_value (PRM_ID_PARALLEL_SCAN_PAGE_THRESHOLD);
+
+    int npages = 0;
+    int nobjs = 0;
+    int avg_len = 0;
+    (void) heap_get_num_objects (thread_p, hfid, &npages, &nobjs, &avg_len);
+
+    if (degree <= 1 || npages < page_threshold)
+      {
+	/* not worth the worker setup -> single-pass serial reservoir */
+	return scan_and_collect<T> (thread_p, class_oid, hfid, attr_id, sample_size, out_samples, total_rows,
+				    null_rows);
+      }
+    if (degree > 16)
+      {
+	degree = 16;
+      }
+
+    FILE_FTAB_COLLECTOR collector;
+    int error = file_get_all_data_sectors (thread_p, &hfid->vfid, &collector);
+    if (error != NO_ERROR)
+      {
+	if (collector.partsect_ftab != NULL)
+	  {
+	    db_private_free_and_init (thread_p, collector.partsect_ftab);
+	  }
+	return error;
+      }
+    ftab_set full;
+    full.convert (&collector);
+    if (collector.partsect_ftab != NULL)
+      {
+	db_private_free_and_init (thread_p, collector.partsect_ftab);
+      }
+
+    if ((int) full.size () < degree)
+      {
+	degree = (int) full.size ();
+      }
+    if (degree <= 1)
+      {
+	return scan_and_collect<T> (thread_p, class_oid, hfid, attr_id, sample_size, out_samples, total_rows,
+				    null_rows);
+      }
+
+    std::vector<ftab_set> parts = full.split (degree);
+    full.clear ();
+
+    MVCC_SNAPSHOT *snapshot = logtb_get_mvcc_snapshot (thread_p);
+    std::vector<worker_result<T>> results (degree);
+
+    reservoir_scan_context context (thread_p->conn_entry);
+    cubthread::worker_pool_type *pool =
+	    thread_create_worker_pool (degree, degree, "histogram-reservoir-scan", context);
+    if (pool == NULL)
+      {
+	/* could not spawn workers -> serial fallback */
+	return scan_and_collect<T> (thread_p, class_oid, hfid, attr_id, sample_size, out_samples, total_rows,
+				    null_rows);
+      }
+
+    for (int w = 0; w < degree; w++)
+      {
+	reservoir_scan_task<T> *task =
+		new reservoir_scan_task<T> (class_oid, hfid, attr_id, snapshot, sample_size,
+					    cubsampling::RESERVOIR_DEFAULT_SEED + (std::uint64_t) w,
+					    std::move (parts[w]), &results[w]);
+	thread_get_manager ()->push_task (pool, task);
+      }
+
+    /* blocks until every task has finished, then frees the pool */
+    thread_get_manager ()->destroy_worker_pool (pool);
+
+    error = NO_ERROR;
+    std::vector<std::vector<T>> part_samples (degree);
+    std::vector<std::uint64_t> part_seen (degree);
+    for (int w = 0; w < degree; w++)
+      {
+	if (results[w].error != NO_ERROR)
+	  {
+	    error = results[w].error;
+	  }
+	*total_rows += results[w].total_rows;
+	*null_rows += results[w].null_rows;
+	part_samples[w] = std::move (results[w].samples);
+	part_seen[w] = results[w].seen;
+      }
+    if (error != NO_ERROR)
+      {
+	return error;
+      }
+
+    out_samples = cubsampling::merge_partition_samples<T> (part_samples, part_seen, (std::size_t) sample_size);
+    return NO_ERROR;
+#else /* SERVER_MODE */
+    return scan_and_collect<T> (thread_p, class_oid, hfid, attr_id, sample_size, out_samples, total_rows, null_rows);
+#endif /* SERVER_MODE */
+  }
+
 } // anonymous namespace
 
 int
@@ -472,8 +789,8 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
     case value_category::integer:
     {
       std::vector<std::int64_t> samples;
-      error = scan_and_collect<std::int64_t> (thread_p, class_oid, hfid, attr_id, sample_size, samples, &total_rows,
-	      &null_rows);
+      error = parallel_scan_and_collect<std::int64_t> (thread_p, class_oid, hfid, attr_id, sample_size, samples,
+	      &total_rows, &null_rows);
       if (error == NO_ERROR)
 	{
 	  /* always build: an empty sample yields a header-only blob (matches the old path) */
@@ -485,8 +802,8 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
     case value_category::real:
     {
       std::vector<double> samples;
-      error = scan_and_collect<double> (thread_p, class_oid, hfid, attr_id, sample_size, samples, &total_rows,
-					&null_rows);
+      error = parallel_scan_and_collect<double> (thread_p, class_oid, hfid, attr_id, sample_size, samples, &total_rows,
+	      &null_rows);
       if (error == NO_ERROR)
 	{
 	  *histogram_blob = build_blob<double> (thread_p, samples, attr_type, max_buckets, total_rows,
@@ -497,8 +814,8 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
     case value_category::string:
     {
       std::vector<std::string> samples;
-      error = scan_and_collect<std::string> (thread_p, class_oid, hfid, attr_id, sample_size, samples, &total_rows,
-	      &null_rows);
+      error = parallel_scan_and_collect<std::string> (thread_p, class_oid, hfid, attr_id, sample_size, samples,
+	      &total_rows, &null_rows);
       if (error == NO_ERROR)
 	{
 	  *histogram_blob = build_blob<std::string> (thread_p, samples, attr_type, max_buckets, total_rows,
