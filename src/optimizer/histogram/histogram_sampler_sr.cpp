@@ -331,8 +331,11 @@ namespace
     return builder.build (thread_p, attr_type, n_total, null_frequency, blob_length);
   }
 
-  /* extract the typed value of the target attribute from a decoded record into the
-   * matching reservoir; returns false on NULL (so the caller counts it). */
+  /* Offer the target attribute's value to the matching reservoir. Returns false when the value
+   * is not samplable (NULL / wrong type) so the caller counts it as null. Uses decide-then-extract:
+   * the reservoir decides keep/drop from the running count alone (no value needed), so the value is
+   * only materialized when it is actually kept -- this skips a per-row std::string allocation for
+   * the values dropped once the reservoir is full (the vast majority). */
   template <typename T>
   bool extract (const DB_VALUE *v, cubsampling::reservoir_sampler<T> &rs);
 
@@ -355,7 +358,11 @@ namespace
       default:
 	return false;
       }
-    rs.add (out);
+    int slot = rs.consider ();
+    if (slot != cubsampling::reservoir_selector::NOT_SELECTED)
+      {
+	rs.store (slot, out);
+      }
     return true;
   }
 
@@ -363,25 +370,34 @@ namespace
   bool
   extract<double> (const DB_VALUE *v, cubsampling::reservoir_sampler<double> &rs)
   {
-    switch (DB_VALUE_TYPE (v))
+    const DB_TYPE t = DB_VALUE_TYPE (v);
+    if (t != DB_TYPE_FLOAT && t != DB_TYPE_DOUBLE && t != DB_TYPE_NUMERIC)
       {
-      case DB_TYPE_FLOAT:
-	rs.add (static_cast<double> (db_get_float (v)));
-	return true;
-      case DB_TYPE_DOUBLE:
-	rs.add (db_get_double (v));
-	return true;
-      case DB_TYPE_NUMERIC:
-      {
-	/* numeric is sampled as double, matching the client histogram key (histogram_cl.cpp) */
-	double d = 0.0;
-	numeric_coerce_num_to_double (v, db_get_numeric_scale (v, NULL), &d);
-	rs.add (d);
-	return true;
-      }
-      default:
 	return false;
       }
+    int slot = rs.consider ();
+    if (slot == cubsampling::reservoir_selector::NOT_SELECTED)
+      {
+	return true;
+      }
+    double d = 0.0;
+    switch (t)
+      {
+      case DB_TYPE_FLOAT:
+	d = static_cast<double> (db_get_float (v));
+	break;
+      case DB_TYPE_DOUBLE:
+	d = db_get_double (v);
+	break;
+      case DB_TYPE_NUMERIC:
+	/* numeric is sampled as double, matching the client histogram key (histogram_cl.cpp) */
+	numeric_coerce_num_to_double (v, db_get_numeric_scale (v, NULL), &d);
+	break;
+      default:
+	break;
+      }
+    rs.store (slot, d);
+    return true;
   }
 
   template <>
@@ -394,7 +410,12 @@ namespace
       {
 	return false;
       }
-    rs.add (std::string (s, static_cast<std::size_t> (len)));
+    int slot = rs.consider ();
+    if (slot != cubsampling::reservoir_selector::NOT_SELECTED)
+      {
+	/* build the std::string only when the value is actually kept */
+	rs.store (slot, std::string (s, static_cast<std::size_t> (len)));
+      }
     return true;
   }
 

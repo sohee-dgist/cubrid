@@ -158,6 +158,40 @@ namespace cubsampling
 	  }
       }
 
+      /* Decide whether the next stream item is sampled WITHOUT materializing it. Returns the slot
+       * to write via store (), or reservoir_selector::NOT_SELECTED to drop it. Lets the caller
+       * build T only for items that are actually kept (e.g. skip a per-row std::string alloc for
+       * the vast majority of values dropped once the reservoir is full). */
+      int consider ()
+      {
+	return m_selector.consider ();
+      }
+
+      /* Write an item to the slot returned by consider (). */
+      void store (int slot, T &&value)
+      {
+	if (static_cast<std::size_t> (slot) < m_reservoir.size ())
+	  {
+	    m_reservoir[slot] = std::move (value);
+	  }
+	else
+	  {
+	    m_reservoir.push_back (std::move (value));
+	  }
+      }
+
+      void store (int slot, const T &value)
+      {
+	if (static_cast<std::size_t> (slot) < m_reservoir.size ())
+	  {
+	    m_reservoir[slot] = value;
+	  }
+	else
+	  {
+	    m_reservoir.push_back (value);
+	  }
+      }
+
       const std::vector<T> &samples () const
       {
 	return m_reservoir;
