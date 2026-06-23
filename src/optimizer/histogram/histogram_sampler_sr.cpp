@@ -39,6 +39,7 @@
 #include "histogram_bucketizer.hpp"
 #include "histogram_builder.hpp"
 #include "log_impl.h"
+#include "numeric_opfunc.h"
 #include "object_representation.h"
 #include "reservoir_sampler.hpp"
 #include "statistics.h"
@@ -89,6 +90,7 @@ namespace
 	return value_category::integer;
       case DB_TYPE_FLOAT:
       case DB_TYPE_DOUBLE:
+      case DB_TYPE_NUMERIC:
 	return value_category::real;
       case DB_TYPE_CHAR:
       case DB_TYPE_VARCHAR:	/* == DB_TYPE_STRING */
@@ -369,6 +371,14 @@ namespace
       case DB_TYPE_DOUBLE:
 	rs.add (db_get_double (v));
 	return true;
+      case DB_TYPE_NUMERIC:
+      {
+	/* numeric is sampled as double, matching the client histogram key (histogram_cl.cpp) */
+	double d = 0.0;
+	numeric_coerce_num_to_double (v, db_get_numeric_scale (v, NULL), &d);
+	rs.add (d);
+	return true;
+      }
       default:
 	return false;
       }
