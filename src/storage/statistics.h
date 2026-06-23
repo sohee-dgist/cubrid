@@ -153,7 +153,7 @@ struct stats_ndv_sample_input
  * math; usable on client and server. Deliberately NOT tied to the query path. */
 extern INT64 stats_estimate_ndv_from_sample (const STATS_NDV_SAMPLE_INPUT * in);
 
-/* PostgreSQL-aligned MCV selection (analyze_mcv_list, analyze.c). Decides how many of the
+/* MCV selection. Decides how many of the
  * top-frequency candidate values (sorted by descending count) genuinely qualify as MCVs.
  * Pure math; usable on client and server. Returns the number of leading candidates to keep.
  *   mcv_counts  : per-candidate sample counts, sorted descending; length num_candidates
