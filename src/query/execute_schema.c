@@ -4396,7 +4396,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 		{
 		  continue;
 		}
-	      error = dump_histogram (obj, (char *) att->header.name, attr_type, false, NO_ERROR, stdout);
+	      error = dump_histogram (obj, (char *) att->header.name, attr_type, true, NO_ERROR, stdout);
 	      if (error != NO_ERROR)
 		{
 		  assert (false);
@@ -4462,7 +4462,7 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	      return error;
 	    }
 
-	  error = dump_histogram (obj, attname, attr_type, false, error, stdout);
+	  error = dump_histogram (obj, attname, attr_type, true, error, stdout);
 	  if (error != NO_ERROR)
 	    {
 	      assert (false);
