@@ -25,7 +25,8 @@
 #include <cstring>
 #include "object_domain.h"
 
-#include "memory_wrapper.hpp"	// XXX: SHOULD BE THE LAST INCLUDE HEADER
+// XXX: SHOULD BE THE LAST INCLUDE HEADER
+#include "memory_wrapper.hpp"
 
 namespace hist
 {

@@ -55,7 +55,8 @@
 #include <atomic>
 #endif /* SERVER_MODE */
 
-#include "memory_wrapper.hpp"	// XXX: SHOULD BE THE LAST INCLUDE HEADER
+// XXX: SHOULD BE THE LAST INCLUDE HEADER
+#include "memory_wrapper.hpp"
 
 /* Row-based reservoir capacity, used when the caller does not specify a sample size.
  * Sized proportionally to the bucket count (300 rows per bucket,

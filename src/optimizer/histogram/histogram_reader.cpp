@@ -26,7 +26,8 @@
 #include "error_manager.h"
 #include "object_representation.h"
 
-#include "memory_wrapper.hpp"	// XXX: SHOULD BE THE LAST INCLUDE HEADER
+// XXX: SHOULD BE THE LAST INCLUDE HEADER
+#include "memory_wrapper.hpp"
 
 namespace hist
 {
