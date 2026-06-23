@@ -412,4 +412,3 @@ stats_ndv_dump (const char *class_name_p, FILE * file_p)
     }
   return;
 }
-

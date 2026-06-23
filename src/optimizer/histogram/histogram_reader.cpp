@@ -26,6 +26,8 @@
 #include "error_manager.h"
 #include "object_representation.h"
 
+#include "memory_wrapper.hpp"	// XXX: SHOULD BE THE LAST INCLUDE HEADER
+
 namespace hist
 {
   // ---------- get_value template specialization ----------

@@ -19,26 +19,16 @@
 /*
  * reservoir_sampler.hpp - single-pass uniform reservoir sampling (Vitter, Algorithm R)
  *
- *  Draws a fixed-size uniform random sample of K items from a stream of unknown
- *  length N in a single pass, using O(K) memory and without needing N in advance.
- *  Every item that passes through the stream ends up in the final reservoir with
- *  probability K / N.
+ *  Draws a fixed-size uniform sample of K items from a stream of unknown length N in
+ *  one pass, using O(K) memory. Every item ends up in the sample with probability K / N.
  *
- *  Two interfaces are provided:
- *
- *    reservoir_selector  - decision only. consider() returns the reservoir slot
- *                          an incoming item should occupy, or NOT_SELECTED to drop
- *                          it. Use this when the items own external resources whose
- *                          lifetime the caller must manage (e.g. DB_VALUE that needs
- *                          db_value_clone / db_value_clear).
- *
- *    reservoir_sampler<T> - value storing. add() copies the item into the reservoir.
- *                          Use this for self-contained value types (std::int64_t,
- *                          double, std::string, ...).
- *
- *  Note: this is exact Algorithm R (O(N) RNG draws). Algorithm Z (O(K log(N/K))
- *  draws via skip distances) can be layered on later for very large streams; the
- *  public contract here is unaffected.
+ *  Two interfaces:
+ *    reservoir_selector   - decision only. consider() returns the slot an item should
+ *                           occupy, or NOT_SELECTED. Use when items own external
+ *                           resources the caller must manage (e.g. DB_VALUE that needs
+ *                           db_value_clone / db_value_clear).
+ *    reservoir_sampler<T> - stores values. add() copies the item in. Use for
+ *                           self-contained types (std::int64_t, double, std::string, ...).
  */
 
 #ifndef _RESERVOIR_SAMPLER_HPP_

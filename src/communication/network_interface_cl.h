@@ -241,7 +241,8 @@ extern int boot_notify_ha_log_applier_state (HA_LOG_APPLIER_STATE state);
 extern int stats_get_statistics_from_server (OID * classoid, unsigned int timestamp, int *length_ptr,
 					     char **stats_buffer);
 extern int histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_type, int max_buckets,
-						 int sample_size, double *null_frequency, char **blob, int *blob_length);
+						 int sample_size, double *null_frequency, char **blob,
+						 int *blob_length);
 extern int histogram_build_multi_by_reservoir_request (OID * class_oid, int attr_cnt, const int *attr_ids,
 						       const int *attr_types, int max_buckets, int sample_size,
 						       double *null_frequency, char **blob, int *blob_length,

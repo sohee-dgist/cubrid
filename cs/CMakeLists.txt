@@ -448,8 +448,6 @@ set (HISTOGRAM_SOURCES
   ${OPTIMIZER_HISTOGRAM_DIR}/histogram_cl.cpp
   ${OPTIMIZER_HISTOGRAM_DIR}/histogram_builder.cpp
   ${OPTIMIZER_HISTOGRAM_DIR}/histogram_reader.cpp
-  # histogram_sampler_sr.cpp is server-side (heap scan); CS clients reach it via
-  # NET_SERVER_QST_HISTOGRAM_BUILD_BY_RESERVOIR, so it is built in sa/cubrid only.
   )
 
 set (HISTOGRAM_HEADERS
@@ -458,6 +456,7 @@ set (HISTOGRAM_HEADERS
   ${OPTIMIZER_HISTOGRAM_DIR}/histogram_reader.hpp
   ${OPTIMIZER_HISTOGRAM_DIR}/histogram_bucketizer.hpp
   ${OPTIMIZER_HISTOGRAM_DIR}/histogram_sampler_sr.hpp
+  ${OPTIMIZER_HISTOGRAM_DIR}/reservoir_sampler.hpp
   )
 
 list(APPEND CONNECTION_SOURCES ${CONNECTION_DIR}/heartbeat.c)

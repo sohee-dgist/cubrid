@@ -189,7 +189,6 @@ stats_estimate_ndv_from_sample (const STATS_NDV_SAMPLE_INPUT * in)
  *
  *   return: number of leading candidates worth keeping in the MCV list (>= 0)
  *
- * Direct port of PostgreSQL's analyze_mcv_list() (src/backend/commands/analyze.c).
  * mcv_counts holds the sample counts of the most common values, sorted descending
  * (most common first). A value is kept only when its sample count is significantly
  * higher than the selectivity it would otherwise receive as a non-MCV value, using
@@ -225,7 +224,7 @@ stats_analyze_mcv_list (const INT64 * mcv_counts, int num_candidates, double sta
       return num_mcv;
     }
 
-  /* Estimated number of distinct nonnull values in the table. PG encodes a negative
+  /* Estimated number of distinct nonnull values in the table. A negative
    * stadistinct as a fraction of totalrows; our D_pop is always a positive absolute
    * count, but keep the decode for parity. */
   ndistinct_table = stadistinct;

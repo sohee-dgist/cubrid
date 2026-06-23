@@ -7508,8 +7508,7 @@ qexec_open_scan (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * curr_spec, VAL_LIST
 
 	  case ACCESS_METHOD_SEQUENTIAL_RECORD_INFO:	/* fall through */
 	    {
-	      SCAN_TYPE scan_type =
-		S_HEAP_SCAN_RECORD_INFO;
+	      SCAN_TYPE scan_type = S_HEAP_SCAN_RECORD_INFO;
 
 	      error_code = scan_open_heap_scan (thread_p, s_id, mvcc_select_lock_needed, scan_op_type, fixed, grouped,
 						curr_spec->single_fetch, curr_spec->s_dbval, val_list, vd,
@@ -9081,8 +9080,7 @@ qexec_init_next_partition (THREAD_ENTRY * thread_p, ACCESS_SPEC_TYPE * spec, XAS
 	  case ACCESS_METHOD_SEQUENTIAL_RECORD_INFO:	/* fall through */
 	    {
 	      HEAP_SCAN_ID *hsidp = &spec->s_id.s.hsid;
-	      SCAN_TYPE scan_type =
-		S_HEAP_SCAN_RECORD_INFO;
+	      SCAN_TYPE scan_type = S_HEAP_SCAN_RECORD_INFO;
 
 	      /* clear caches */
 	      if (hsidp->caches_inited)

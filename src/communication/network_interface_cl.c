@@ -5840,10 +5840,10 @@ histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_typ
   /* hand back a malloc'd copy so the caller can free() uniformly across CS/SA */
   if (status == NO_ERROR && priv_blob != NULL && *blob_length > 0)
     {
-      *blob = (char *) malloc ((size_t) *blob_length);
+      *blob = (char *) malloc ((size_t) * blob_length);
       if (*blob != NULL)
 	{
-	  memcpy (*blob, priv_blob, (size_t) *blob_length);
+	  memcpy (*blob, priv_blob, (size_t) * blob_length);
 	}
       else
 	{
@@ -5913,8 +5913,8 @@ histogram_build_multi_by_reservoir_request (OID * class_oid, int attr_cnt, const
     }
 
   req_error =
-	  net_client_request2 (NET_SERVER_QST_HISTOGRAM_BUILD_BY_RESERVOIR, request, request_size, reply,
-			       OR_ALIGNED_BUF_SIZE (a_reply), NULL, 0, &area, &area_size);
+    net_client_request2 (NET_SERVER_QST_HISTOGRAM_BUILD_BY_RESERVOIR, request, request_size, reply,
+			 OR_ALIGNED_BUF_SIZE (a_reply), NULL, 0, &area, &area_size);
   free (request);
 
   if (!req_error && area != NULL)
@@ -5991,9 +5991,9 @@ histogram_build_multi_by_reservoir_request (OID * class_oid, int attr_cnt, const
       return ER_FAILED;
     }
   status =
-	  xhistogram_build_multi_by_fullscan_reservoir (thread_p, class_oid, &hfid, (const ATTR_ID *) attr_ids,
-		  (const DB_TYPE *) attr_types, attr_cnt, max_buckets, sample_size, null_frequency, priv_blobs,
-		  blob_length, out_ndv, out_total_rows);
+    xhistogram_build_multi_by_fullscan_reservoir (thread_p, class_oid, &hfid, (const ATTR_ID *) attr_ids,
+						  (const DB_TYPE *) attr_types, attr_cnt, max_buckets, sample_size,
+						  null_frequency, priv_blobs, blob_length, out_ndv, out_total_rows);
   if (status == NO_ERROR)
     {
       for (i = 0; i < attr_cnt; i++)

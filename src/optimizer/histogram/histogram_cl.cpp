@@ -104,7 +104,7 @@ analyze_classes_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, cons
 
   /* server builds the histogram by full-scan reservoir sampling; sample_size 0 -> default */
   error = histogram_build_by_reservoir_request (class_oid, attr_id, (int) attr_type, max_number_of_buckets, 0,
-						&null_frequency, &histogram_blob, &histogram_total_length);
+	  &null_frequency, &histogram_blob, &histogram_total_length);
   if (error != NO_ERROR)
     {
       if (histogram_blob != NULL)
@@ -321,8 +321,8 @@ analyze_classes_multi_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name
 
   int error =
 	  histogram_build_multi_by_reservoir_request (class_oid, n, attr_ids.data (), attr_types.data (),
-		  max_number_of_buckets, 0, null_freqs.data (), blobs.data (), blob_lens.data (), ndvs.data (),
-		  &total_rows);
+	      max_number_of_buckets, 0, null_freqs.data (), blobs.data (), blob_lens.data (), ndvs.data (),
+	      &total_rows);
   if (error != NO_ERROR)
     {
       for (int i = 0; i < n; i++)
@@ -642,7 +642,7 @@ string_domain_frac_lt (const std::string &lo, const std::string &hi, const std::
 /* histogram get selectivity functions */
 
 /*
- * comp_parts () - PG-aligned pieces for a range comparison against value `v`.
+ * comp_parts () - pieces for a range comparison against value `v`.
  *   nonmcv_below_frac (out): fraction of ALL rows that are non-MCV non-null and < v
  *                            (equi-depth histogram interpolation / total_rows)
  *   mcv_lt (out)           : Σ MCV freq for values strictly < v
@@ -746,12 +746,12 @@ histogram_get_equal_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *s
 
   if (mcv_index >= 0)
     {
-      /* PG: an MCV's population frequency is its stored frequency. */
+      /* an MCV's population frequency is its stored frequency. */
       *selectivity = histogram_reader.mcv_freq (mcv_index);
     }
   else
     {
-      /* PG eqsel for a non-MCV value: residual mass spread over the non-MCV distinct
+      /* equality selectivity for a non-MCV value: residual mass spread over the non-MCV distinct
        * values -> (1 - Σmcv_freq - nullfrac) / (ndistinct - nmcv). */
       const double nonmcv_distinct = static_cast<double> (histogram_reader.nonmcv_distinct ());
       double rest = 1.0 - histogram_reader.mcv_total_frequency () - histogram_reader.null_frequency ();
@@ -1076,8 +1076,8 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
     }
 
   /* Non-MCV buckets: fraction of bucket boundary values (bucket_hi) matching the pattern.
-   * This is CUBRID's analogue of PG histogram_selectivity (apply the operator to each
-   * histogram entry and count matches). */
+   * Applies the operator to each
+   * histogram entry and counts matches. */
   double matched_non_mcv_buckets = 0.0;
   double non_mcv_buckets = 0.0;
 
@@ -1090,11 +1090,11 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
 	}
     }
 
-  /* char-count heuristic; PG uses it only as a fallback for small histograms */
+  /* char-count heuristic; used only as a fallback for small histograms */
   const double pattern_sel = pattern_heuristic_selectivity (pattern, '\0');
   assert_release (pattern_sel >= 0.0 && pattern_sel <= 1.0);
 
-  /* PG patternsel (like_support.c): the histogram value-match fraction is the primary
+  /* the histogram value-match fraction is the primary
    * non-MCV estimate. Trust it fully once the histogram is large enough (>=100 entries);
    * blend with the heuristic for 10..99 entries (weight = size/100); below 10 use the
    * heuristic alone. */
@@ -1115,7 +1115,7 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
       total_non_mcv_sel = pattern_sel;
     }
 
-  /* PG: don't believe extremely small or large estimates for the histogram part. */
+  /* don't believe extremely small or large estimates for the histogram part. */
   if (total_non_mcv_sel < 0.0001)
     {
       total_non_mcv_sel = 0.0001;
@@ -1125,7 +1125,7 @@ histogram_get_like_selectivity (PT_NODE *lhs, DB_VALUE *rhs_db_value, double *se
       total_non_mcv_sel = 0.9999;
     }
 
-  /* PG: total = Σ matching-MCV freq + (non-null non-MCV mass) * non-MCV match fraction. */
+  /* total = Σ matching-MCV freq + (non-null non-MCV mass) * non-MCV match fraction. */
   double nonmcv_mass = 1.0 - nullfrac - mcvsum;
   if (nonmcv_mass < 0.0)
     {

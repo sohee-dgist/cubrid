@@ -17,22 +17,20 @@
  */
 
 /*
- * histogram_bucketizer.hpp - turn a (reservoir) sample into equi-depth histogram buckets
+ * histogram_bucketizer.hpp - build equi-depth histogram buckets from a sample
  *
- *  Pure, dependency-free bucketing of the NON-MCV part of the distribution. MCVs are
- *  selected and removed by the caller (PG analyze_mcv_list, see histogram_sampler_sr);
- *  this routine only equi-depth-buckets the remaining distinct (value, count) pairs.
+ *  Buckets the non-MCV values of a column. The caller removes MCVs first (see
+ *  histogram_sampler_sr); this routine takes the remaining distinct (value, count)
+ *  pairs, walks them in ascending value order, and packs them into buckets of
+ *  roughly equal row count (cap = ceil (non_mcv_rows / max_buckets)).
  *
- *  Algorithm:
- *    The non-MCV values are walked in ascending value order and split into equi-depth
- *    buckets with capacity cap = ceil (total_non_mcv_rows / max_buckets). Each bucket:
- *      endpoint   = max value in the bucket,
- *      rows       = sum of counts,
- *      approx_ndv = number of distinct values in the bucket (SAMPLE count; the caller
- *                   scales it to the population).
- *    Buckets are emitted ordered by endpoint, with a running `cumulative`.
+ *  Each emitted bucket records:
+ *      endpoint   - largest value in the bucket
+ *      rows       - total rows in the bucket
+ *      approx_ndv - distinct values in the bucket
+ *      cumulative - running row total through this bucket
  *
- *  Counts are sample-relative; selectivity works on ratios / the caller scales to pop.
+ *  All counts are sample-relative; the caller scales them to the population.
  */
 
 #ifndef _HISTOGRAM_BUCKETIZER_HPP_
@@ -62,7 +60,7 @@ namespace hist
    */
   template <typename V>
   std::vector<sample_bucket<V>>
-  bucketize_sample (std::vector<std::pair<V, std::int64_t>> value_counts, int max_buckets)
+			     bucketize_sample (std::vector<std::pair<V, std::int64_t>> value_counts, int max_buckets)
   {
     std::vector<sample_bucket<V>> result;
     if (value_counts.empty ())

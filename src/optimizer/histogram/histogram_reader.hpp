@@ -39,7 +39,7 @@ namespace hist
 // ---- Flat binary layout v2 (LE) ----
 // [Header(48B)] [MCV area] [Buckets area] [String blob....]
 //
-// PG-aligned format: MCVs (most common values) live in their own section, separate from the
+// format: MCVs (most common values) live in their own section, separate from the
 // equi-depth histogram buckets which now hold ONLY the non-MCV non-null distribution.
 //
 // Header (fixed, 48B; fields read/written little-endian via OR_*):

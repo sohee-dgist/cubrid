@@ -19,11 +19,9 @@
 /*
  * histogram_sampler_sr.cpp - server-side histogram collection by full-scan reservoir sampling
  *
- *  Replaces the deprecated query-based path (db_compile_and_execute_local with the
- *  SAMPLING_SCAN hint). One server request performs a single full heap scan of the
- *  class, draws a fixed-size uniform reservoir sample of the target attribute's
- *  non-null values (Algorithm R), counts NULLs and total rows exactly, then builds
- *  the histogram blob from the sample using the same bucketing the CTE used to do.
+ *  One server request runs a single full heap scan of the class: it draws a fixed-size
+ *  uniform reservoir sample of the target attribute's non-null values (Algorithm R),
+ *  counts NULLs and total rows exactly, then builds the histogram blob from the sample.
  */
 
 #include "config.h"
@@ -60,7 +58,7 @@
 #include "memory_wrapper.hpp"	// XXX: SHOULD BE THE LAST INCLUDE HEADER
 
 /* Row-based reservoir capacity, used when the caller does not specify a sample size.
- * Sized proportionally to the bucket count (à la PostgreSQL's 300 * statistics_target,
+ * Sized proportionally to the bucket count (300 rows per bucket,
  * from the Chaudhuri-Motwani-Narasayya equi-depth error bound) and clamped to a sane
  * row range. NOTE: this is a number of ROWS (values), not pages. */
 #define HISTOGRAM_SAMPLE_ROWS_PER_BUCKET 300
@@ -101,7 +99,7 @@ namespace
   /* group a sorted-able sample into distinct (value, count) pairs */
   template <typename T>
   std::vector<std::pair<T, std::int64_t>>
-  group_counts (std::vector<T> &samples)
+				       group_counts (std::vector<T> &samples)
   {
     std::vector<std::pair<T, std::int64_t>> vc;
     if (samples.empty ())
@@ -131,7 +129,7 @@ namespace
   /* build the histogram blob (format v2) from a typed sample.
    *   n_total : population rows incl nulls
    *   n_nn    : population non-null rows (exact, from the full reservoir scan)
-   * MCVs are selected by the PG analyze_mcv_list criterion and stored in their own blob
+   * MCVs are selected by the analyze_mcv_list criterion and stored in their own blob
    * section with population frequencies; the remaining values form the equi-depth buckets. */
   template <typename T>
   char *
@@ -172,7 +170,7 @@ namespace
 	*out_ndv = d_pop;
       }
 
-    /* ---- MCV selection (PG analyze_mcv_list) ----
+    /* ---- MCV selection (analyze_mcv_list) ----
      * candidates = top-`mcv_cap` distinct values by sample count (ties: smaller value).
      * analyze_mcv_list decides how many of those leading candidates genuinely qualify. */
     const std::size_t ncand = vc.size ();
@@ -379,7 +377,7 @@ namespace
     *total_rows = 0;
     *null_rows = 0;
 
-    error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */ , snapshot);
+    error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */, snapshot);
     if (error != NO_ERROR)
       {
 	ASSERT_ERROR ();
@@ -470,7 +468,7 @@ cleanup:
     *total_rows = 0;
     *null_rows = 0;
 
-    error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */ , snapshot);
+    error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */, snapshot);
     if (error != NO_ERROR)
       {
 	ASSERT_ERROR ();
@@ -881,7 +879,7 @@ cleanup:
     PGBUF_INIT_WATCHER (&old_pw, PGBUF_ORDERED_HEAP_NORMAL, hfid);
     *total_rows = 0;
 
-    error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */ , snapshot);
+    error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */, snapshot);
     if (error != NO_ERROR)
       {
 	ASSERT_ERROR ();
@@ -1233,7 +1231,7 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
       if (error == NO_ERROR)
 	{
 	  *histogram_blob = build_blob<double> (thread_p, samples, attr_type, max_buckets, total_rows,
-			    total_rows - null_rows, blob_length);
+						total_rows - null_rows, blob_length);
 	}
       break;
     }
@@ -1342,7 +1340,7 @@ xhistogram_build_multi_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID 
       collectors[i] = make_col_collector (attr_ids[i], attr_types[i], (std::size_t) sample_size);
     }
 
-  error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */ , snapshot);
+  error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */, snapshot);
   if (error != NO_ERROR)
     {
       ASSERT_ERROR ();
@@ -1494,8 +1492,8 @@ namespace
 
 int
 xstats_collect_ndv_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid,
-					  const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt,
-					  INT64 *out_ndv, INT64 *out_total_rows)
+    const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt,
+    INT64 *out_ndv, INT64 *out_total_rows)
 {
   HEAP_SCANCACHE scan_cache;
   HEAP_CACHE_ATTRINFO attr_info;
@@ -1521,7 +1519,7 @@ xstats_collect_ndv_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *cla
       out_ndv[i] = -1;		/* unsupported / not computed by default */
     }
 
-  error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */ , snapshot);
+  error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */, snapshot);
   if (error != NO_ERROR)
     {
       ASSERT_ERROR ();
