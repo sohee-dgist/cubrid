@@ -5860,6 +5860,172 @@ histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_typ
 }
 
 /*
+ * histogram_build_multi_by_reservoir_request - single-scan, multi-column histogram build.
+ *   Sends all columns in one request; the server reads the heap once and returns one blob
+ *   per column. Output arrays (sized attr_cnt) are filled by the caller's storage.
+ *
+ *   reply variable-data layout: attr_cnt doubles (null_frequency), then attr_cnt ints
+ *   (blob_length), then the blobs concatenated in column order.
+ */
+int
+histogram_build_multi_by_reservoir_request (OID * class_oid, int attr_cnt, const int *attr_ids,
+					    const int *attr_types, int max_buckets, int sample_size,
+					    double *null_frequency, char **blob, int *blob_length, INT64 * out_ndv,
+					    INT64 * out_total_rows)
+{
+  int i;
+
+  *out_total_rows = 0;
+  for (i = 0; i < attr_cnt; i++)
+    {
+      blob[i] = NULL;
+      blob_length[i] = 0;
+      null_frequency[i] = 0.0;
+      out_ndv[i] = -1;
+    }
+
+#if defined(CS_MODE)
+  int req_error;
+  int status = ER_FAILED;
+  int data_len = 0;
+  char *area = NULL;
+  int area_size = 0;
+  char *ptr;
+  int request_size = OR_OID_SIZE + OR_INT_SIZE * 3 + attr_cnt * (OR_INT_SIZE * 2);
+  char *request = (char *) malloc ((size_t) request_size);
+  OR_ALIGNED_BUF (OR_INT_SIZE + OR_INT_SIZE) a_reply;
+  char *reply = OR_ALIGNED_BUF_START (a_reply);
+
+  if (request == NULL)
+    {
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, (size_t) request_size);
+      return ER_OUT_OF_VIRTUAL_MEMORY;
+    }
+
+  ptr = or_pack_oid (request, class_oid);
+  ptr = or_pack_int (ptr, max_buckets);
+  ptr = or_pack_int (ptr, sample_size);
+  ptr = or_pack_int (ptr, attr_cnt);
+  for (i = 0; i < attr_cnt; i++)
+    {
+      ptr = or_pack_int (ptr, attr_ids[i]);
+      ptr = or_pack_int (ptr, attr_types[i]);
+    }
+
+  req_error =
+	  net_client_request2 (NET_SERVER_QST_HISTOGRAM_BUILD_BY_RESERVOIR, request, request_size, reply,
+			       OR_ALIGNED_BUF_SIZE (a_reply), NULL, 0, &area, &area_size);
+  free (request);
+
+  if (!req_error && area != NULL)
+    {
+      char *ap = area;
+      INT64 tr = 0;
+      ptr = or_unpack_int (reply, &data_len);
+      ptr = or_unpack_int (ptr, &status);
+
+      ap = or_unpack_int64 (ap, &tr);
+      *out_total_rows = tr;
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  INT64 nv = -1;
+	  ap = or_unpack_int64 (ap, &nv);
+	  out_ndv[i] = nv;
+	}
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  double nf = 0.0;
+	  ap = or_unpack_double (ap, &nf);
+	  null_frequency[i] = nf;
+	}
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  int bl = 0;
+	  ap = or_unpack_int (ap, &bl);
+	  blob_length[i] = bl;
+	}
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  if (blob_length[i] > 0)
+	    {
+	      blob[i] = (char *) malloc ((size_t) blob_length[i]);
+	      if (blob[i] != NULL)
+		{
+		  memcpy (blob[i], ap, (size_t) blob_length[i]);
+		}
+	      else
+		{
+		  blob_length[i] = 0;
+		}
+	      ap += blob_length[i];
+	    }
+	}
+    }
+  else
+    {
+      status = req_error ? req_error : ER_FAILED;
+    }
+
+  if (area != NULL)
+    {
+      free (area);
+    }
+  return status;
+#else /* CS_MODE (i.e. SA_MODE) */
+  int status;
+  HFID hfid;
+  THREAD_ENTRY *thread_p;
+  char **priv_blobs = (char **) calloc ((size_t) (attr_cnt > 0 ? attr_cnt : 1), sizeof (char *));
+
+  if (priv_blobs == NULL)
+    {
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, (size_t) attr_cnt * sizeof (char *));
+      return ER_OUT_OF_VIRTUAL_MEMORY;
+    }
+
+  thread_p = enter_server ();
+  if (heap_get_class_info (thread_p, class_oid, &hfid, NULL, NULL) != NO_ERROR)
+    {
+      exit_server (*thread_p);
+      free (priv_blobs);
+      return ER_FAILED;
+    }
+  status =
+	  xhistogram_build_multi_by_fullscan_reservoir (thread_p, class_oid, &hfid, (const ATTR_ID *) attr_ids,
+		  (const DB_TYPE *) attr_types, attr_cnt, max_buckets, sample_size, null_frequency, priv_blobs,
+		  blob_length, out_ndv, out_total_rows);
+  if (status == NO_ERROR)
+    {
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  if (priv_blobs[i] != NULL && blob_length[i] > 0)
+	    {
+	      blob[i] = (char *) malloc ((size_t) blob_length[i]);
+	      if (blob[i] != NULL)
+		{
+		  memcpy (blob[i], priv_blobs[i], (size_t) blob_length[i]);
+		}
+	      else
+		{
+		  blob_length[i] = 0;
+		}
+	    }
+	}
+    }
+  for (i = 0; i < attr_cnt; i++)
+    {
+      if (priv_blobs[i] != NULL)
+	{
+	  db_private_free_and_init (thread_p, priv_blobs[i]);
+	}
+    }
+  exit_server (*thread_p);
+  free (priv_blobs);
+  return status;
+#endif /* !CS_MODE */
+}
+
+/*
  * stats_update_statistics -
  *
  * return:
@@ -5870,8 +6036,14 @@ histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_typ
  * NOTE:
  */
 int
-stats_update_statistics (MOP classop, int with_fullscan)
+stats_update_statistics (MOP classop, int with_fullscan, CLASS_ATTR_NDV * provided_ndv)
 {
+  /* provided_ndv (optional): per-column NDV already computed elsewhere (the histogram full scan).
+   * When present the server reuses it and skips its own NDV scan; otherwise an empty placeholder
+   * is sent and the server computes NDV itself. The wire format always carries attr_cnt+1 entries
+   * (a trailing sentinel), so populate that layout here. */
+  int provided_cnt = (provided_ndv != NULL && provided_ndv->attr_cnt > 0) ? provided_ndv->attr_cnt : 0;
+  INT64 prov_rows = (provided_cnt > 0) ? provided_ndv->total_rows : 0;
 #if defined(CS_MODE)
   int error = ER_NET_CLIENT_DATA_RECEIVE;
   int req_error;
@@ -5882,17 +6054,20 @@ stats_update_statistics (MOP classop, int with_fullscan)
   int request_size;
   CLASS_ATTR_NDV class_attr_ndv = CLASS_ATTR_NDV_INITIALIZER;
 
-  /* NDV is computed server-side by the dedicated full-scan reservoir collector;
-   * send an empty placeholder (the server ignores it). No SQL query is issued. */
-  class_attr_ndv.attr_cnt = 0;
-  class_attr_ndv.attr_ndv = (ATTR_NDV *) malloc (sizeof (ATTR_NDV));
+  class_attr_ndv.attr_cnt = provided_cnt;
+  class_attr_ndv.attr_ndv = (ATTR_NDV *) malloc (sizeof (ATTR_NDV) * (provided_cnt + 1));
   if (class_attr_ndv.attr_ndv == NULL)
     {
       error = ER_OUT_OF_VIRTUAL_MEMORY;
       goto end;
     }
-  class_attr_ndv.attr_ndv[0].id = -1;
-  class_attr_ndv.attr_ndv[0].ndv = 0;
+  for (int i = 0; i < provided_cnt; i++)
+    {
+      class_attr_ndv.attr_ndv[i] = provided_ndv->attr_ndv[i];
+    }
+  class_attr_ndv.attr_ndv[provided_cnt].id = -1;	/* trailing sentinel carries total_rows */
+  class_attr_ndv.attr_ndv[provided_cnt].ndv = prov_rows;
+  class_attr_ndv.total_rows = prov_rows;
 
   request_size = OR_INT_SIZE + (sizeof (ATTR_NDV) * (class_attr_ndv.attr_cnt + 1)) + OR_INT_SIZE + OR_OID_SIZE;
   request = (char *) malloc (request_size);
@@ -5939,16 +6114,20 @@ end:
   CLASS_ATTR_NDV class_attr_ndv = CLASS_ATTR_NDV_INITIALIZER;
   THREAD_ENTRY *thread_p;
 
-  /* NDV is computed server-side by the dedicated full-scan reservoir collector. */
-  class_attr_ndv.attr_cnt = 0;
-  class_attr_ndv.attr_ndv = (ATTR_NDV *) malloc (sizeof (ATTR_NDV));
+  class_attr_ndv.attr_cnt = provided_cnt;
+  class_attr_ndv.attr_ndv = (ATTR_NDV *) malloc (sizeof (ATTR_NDV) * (provided_cnt + 1));
   if (class_attr_ndv.attr_ndv == NULL)
     {
       error = ER_OUT_OF_VIRTUAL_MEMORY;
       goto end;
     }
-  class_attr_ndv.attr_ndv[0].id = -1;
-  class_attr_ndv.attr_ndv[0].ndv = 0;
+  for (int i = 0; i < provided_cnt; i++)
+    {
+      class_attr_ndv.attr_ndv[i] = provided_ndv->attr_ndv[i];
+    }
+  class_attr_ndv.attr_ndv[provided_cnt].id = -1;	/* trailing sentinel carries total_rows */
+  class_attr_ndv.attr_ndv[provided_cnt].ndv = prov_rows;
+  class_attr_ndv.total_rows = prov_rows;
 
   thread_p = enter_server ();
   error = xstats_update_statistics (thread_p, WS_OID (classop), with_fullscan, &class_attr_ndv);

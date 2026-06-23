@@ -50,6 +50,22 @@ extern int xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const
     char **histogram_blob, int *blob_length);
 
 /*
+ * xhistogram_build_multi_by_fullscan_reservoir () - single-scan, multi-column variant.
+ *   Reads the heap ONCE and reservoir-samples every requested attribute in the same pass
+ *   (instead of one full scan per column), then builds one histogram blob per column.
+ *
+ *   attr_ids[attr_cnt] / attr_types[attr_cnt] : columns to build histograms for
+ *   null_frequency[attr_cnt] (out)            : per-column NULL fraction (exact)
+ *   histogram_blob[attr_cnt]  (out)           : per-column db_private_alloc'd blob (caller frees;
+ *                                               NULL for unsupported types or empty result)
+ *   blob_length[attr_cnt]     (out)           : per-column blob length
+ */
+extern int xhistogram_build_multi_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class_oid,
+    const HFID *hfid, const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt, int max_buckets,
+    int sample_size, double *null_frequency, char **histogram_blob, int *blob_length, INT64 *out_ndv,
+    INT64 *out_total_rows);
+
+/*
  * xstats_collect_ndv_by_fullscan_reservoir () - dedicated, query-free NDV collection.
  *   One full heap scan; per column a row reservoir of canonical value keys; per-column
  *   (n, d, f1) are fed to stats_estimate_ndv_from_sample () (statistics_ndv.c).

@@ -129,8 +129,10 @@ struct class_attr_ndv
 {
   int attr_cnt;			/* column id */
   ATTR_NDV *attr_ndv;		/* Number of Distinct Values of column */
+  INT64 total_rows;		/* exact row count when caller-provided (0 => server counts itself); on the
+				 * wire it rides in the trailing sentinel ATTR_NDV entry's ndv field */
 };
-#define CLASS_ATTR_NDV_INITIALIZER	{0, NULL}
+#define CLASS_ATTR_NDV_INITIALIZER	{0, NULL, 0}
 
 /* Sample statistics fed to the NDV estimator (CBRD-26667). Population NDV is
  * extrapolated from a uniform sample's distinct/singleton counts. */

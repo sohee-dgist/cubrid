@@ -2081,72 +2081,166 @@ sqst_histogram_build_by_reservoir (THREAD_ENTRY *thread_p, unsigned int rid, cha
 {
   OID class_oid;
   HFID hfid;
-  int attr_id = 0, attr_type = 0, max_buckets = 0, sample_size = 0;
+  int max_buckets = 0, sample_size = 0, attr_cnt = 0;
+  int i;
   char *ptr;
-  char *blob = NULL;
   char *send_buf = NULL;
-  int blob_length = 0;
-  double null_frequency = 0.0;
+  int send_len = 0;
   int status = NO_ERROR;
-  OR_ALIGNED_BUF (OR_INT_SIZE + OR_INT_SIZE + OR_DOUBLE_SIZE) a_reply;
+  ATTR_ID *attr_ids = NULL;
+  DB_TYPE *attr_types = NULL;
+  double *null_freqs = NULL;
+  char **blobs = NULL;
+  int *blob_lens = NULL;
+  INT64 *ndvs = NULL;
+  INT64 total_rows = 0;
+  OR_ALIGNED_BUF (OR_INT_SIZE + OR_INT_SIZE) a_reply;
   char *reply = OR_ALIGNED_BUF_START (a_reply);
 
   ptr = or_unpack_oid (request, &class_oid);
-  ptr = or_unpack_int (ptr, &attr_id);
-  ptr = or_unpack_int (ptr, &attr_type);
   ptr = or_unpack_int (ptr, &max_buckets);
   ptr = or_unpack_int (ptr, &sample_size);
+  ptr = or_unpack_int (ptr, &attr_cnt);
+
+  if (attr_cnt <= 0)
+    {
+      status = ER_FAILED;
+      (void) return_error_to_client (thread_p, rid);
+      goto send;
+    }
+
+  attr_ids = (ATTR_ID *) db_private_alloc (thread_p, sizeof (ATTR_ID) * attr_cnt);
+  attr_types = (DB_TYPE *) db_private_alloc (thread_p, sizeof (DB_TYPE) * attr_cnt);
+  null_freqs = (double *) db_private_alloc (thread_p, sizeof (double) * attr_cnt);
+  blobs = (char **) db_private_alloc (thread_p, sizeof (char *) * attr_cnt);
+  blob_lens = (int *) db_private_alloc (thread_p, sizeof (int) * attr_cnt);
+  ndvs = (INT64 *) db_private_alloc (thread_p, sizeof (INT64) * attr_cnt);
+  if (attr_ids == NULL || attr_types == NULL || null_freqs == NULL || blobs == NULL || blob_lens == NULL
+      || ndvs == NULL)
+    {
+      status = ER_OUT_OF_VIRTUAL_MEMORY;
+      (void) return_error_to_client (thread_p, rid);
+      goto cleanup;
+    }
+  for (i = 0; i < attr_cnt; i++)
+    {
+      int id = 0, t = 0;
+      ptr = or_unpack_int (ptr, &id);
+      ptr = or_unpack_int (ptr, &t);
+      attr_ids[i] = (ATTR_ID) id;
+      attr_types[i] = (DB_TYPE) t;
+      blobs[i] = NULL;
+      blob_lens[i] = 0;
+      null_freqs[i] = 0.0;
+    }
 
   if (heap_get_class_info (thread_p, &class_oid, &hfid, NULL, NULL) != NO_ERROR)
     {
       status = ER_FAILED;
       (void) return_error_to_client (thread_p, rid);
+      goto cleanup;
+    }
+
+  status = xhistogram_build_multi_by_fullscan_reservoir (thread_p, &class_oid, &hfid, attr_ids, attr_types, attr_cnt,
+	   max_buckets, sample_size, null_freqs, blobs, blob_lens, ndvs, &total_rows);
+  if (status != NO_ERROR)
+    {
+      (void) return_error_to_client (thread_p, rid);
+      goto cleanup;
+    }
+
+  /* reply var-data (8-byte items first for natural alignment):
+   *   total_rows (int64), attr_cnt NDV (int64), attr_cnt null_frequency (double),
+   *   attr_cnt blob_length (int), then the blobs concatenated in column order. */
+  send_len = OR_INT64_SIZE + attr_cnt * OR_INT64_SIZE + attr_cnt * OR_DOUBLE_SIZE + attr_cnt * OR_INT_SIZE;
+  for (i = 0; i < attr_cnt; i++)
+    {
+      if (blob_lens[i] > 0)
+	{
+	  send_len += blob_lens[i];
+	}
+    }
+  send_buf = (char *) malloc ((size_t) send_len);
+  if (send_buf != NULL)
+    {
+      char *sp = send_buf;
+      sp = or_pack_int64 (sp, total_rows);
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  sp = or_pack_int64 (sp, ndvs[i]);
+	}
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  sp = or_pack_double (sp, null_freqs[i]);
+	}
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  sp = or_pack_int (sp, blob_lens[i] > 0 ? blob_lens[i] : 0);
+	}
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  if (blob_lens[i] > 0 && blobs[i] != NULL)
+	    {
+	      memcpy (sp, blobs[i], (size_t) blob_lens[i]);
+	      sp += blob_lens[i];
+	    }
+	}
     }
   else
     {
-      status = xhistogram_build_by_fullscan_reservoir (thread_p, &class_oid, &hfid, (ATTR_ID) attr_id,
-						       (DB_TYPE) attr_type, max_buckets, sample_size, &null_frequency,
-						       &blob, &blob_length);
-      if (status != NO_ERROR)
-	{
-	  (void) return_error_to_client (thread_p, rid);
-	  blob_length = 0;
-	}
+      send_len = 0;
     }
 
-  /* copy the db_private_alloc'd blob into a malloc'd buffer the network layer can free */
-  if (blob != NULL && blob_length > 0)
+cleanup:
+  if (blobs != NULL)
     {
-      send_buf = (char *) malloc ((size_t) blob_length);
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  if (blobs[i] != NULL)
+	    {
+	      db_private_free_and_init (thread_p, blobs[i]);
+	    }
+	}
+      db_private_free_and_init (thread_p, blobs);
+    }
+  if (attr_ids != NULL)
+    {
+      db_private_free_and_init (thread_p, attr_ids);
+    }
+  if (attr_types != NULL)
+    {
+      db_private_free_and_init (thread_p, attr_types);
+    }
+  if (null_freqs != NULL)
+    {
+      db_private_free_and_init (thread_p, null_freqs);
+    }
+  if (blob_lens != NULL)
+    {
+      db_private_free_and_init (thread_p, blob_lens);
+    }
+  if (ndvs != NULL)
+    {
+      db_private_free_and_init (thread_p, ndvs);
+    }
+
+send:
+  /* protocol: net_client_request2 requires the FIRST int of the reply to be the length of
+   * the variable-length data block that follows */
+  ptr = or_pack_int (reply, send_len);
+  ptr = or_pack_int (ptr, status);
+
+  {
+    auto deleter = [send_buf]() noexcept
+    {
       if (send_buf != NULL)
 	{
-	  memcpy (send_buf, blob, (size_t) blob_length);
+	  free (send_buf);
 	}
-      else
-	{
-	  blob_length = 0;
-	}
-    }
-  if (blob != NULL)
-    {
-      db_private_free_and_init (thread_p, blob);
-    }
-
-  /* protocol: net_client_request2 requires the FIRST int of the reply to be the
-   * length of the variable-length data block that follows */
-  ptr = or_pack_int (reply, blob_length);
-  ptr = or_pack_int (ptr, status);
-  ptr = or_pack_double (ptr, null_frequency);
-
-  auto deleter = [send_buf]() noexcept
-  {
-    if (send_buf != NULL)
-      {
-	free (send_buf);
-      }
-  };
-  css_send_reply_and_data_to_client (thread_p->conn_entry, rid, reply, OR_ALIGNED_BUF_SIZE (a_reply), send_buf,
-				     blob_length, std::move (deleter));
+    };
+    css_send_reply_and_data_to_client (thread_p->conn_entry, rid, reply, OR_ALIGNED_BUF_SIZE (a_reply), send_buf,
+				       send_len, std::move (deleter));
+  }
 }
 
 /*
@@ -4349,6 +4443,8 @@ sqst_update_statistics (THREAD_ENTRY *thread_p, unsigned int rid, char *request,
       ptr = or_unpack_int (ptr, &class_attr_ndv.attr_ndv[i].id);
       ptr = or_unpack_int64 (ptr, &class_attr_ndv.attr_ndv[i].ndv);
     }
+  /* the trailing sentinel entry's ndv carries the caller-provided exact row count (0 if none) */
+  class_attr_ndv.total_rows = class_attr_ndv.attr_ndv[class_attr_ndv.attr_cnt].ndv;
   ptr = or_unpack_oid (ptr, &classoid);
   ptr = or_unpack_int (ptr, &with_fullscan);
 

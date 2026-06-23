@@ -252,13 +252,15 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
   assert (npages > 0);
   cls_info_p->ci_tot_pages = MAX (npages, 0);
 
-  /* Dedicated query-free NDV (CBRD-26667): one full heap scan with per-column reservoirs.
-   * The client-provided class_attr_ndv (query-based) is ignored; the same scan also
-   * yields the exact row count for ci_tot_objects. */
+  /* NDV collection. Normally one dedicated full heap scan with per-column reservoirs
+   * (CBRD-26667), which also yields the exact row count. BUT when the caller supplies NDV
+   * (class_attr_ndv->attr_cnt > 0) -- e.g. the histogram full scan already computed it from the
+   * same reservoir sample -- reuse it and skip this second scan entirely. */
   rs_n_attrs = disk_repr_p->n_fixed + disk_repr_p->n_variable;
   if (rs_n_attrs > 0)
     {
       int rs_i;
+      bool use_provided_ndv = (class_attr_ndv != NULL && class_attr_ndv->attr_cnt > 0);
 
       rs_ndv_attr_ids = (ATTR_ID *) db_private_alloc (thread_p, rs_n_attrs * sizeof (ATTR_ID));
       rs_ndv_attr_types = (DB_TYPE *) db_private_alloc (thread_p, rs_n_attrs * sizeof (DB_TYPE));
@@ -280,15 +282,50 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
 	    }
 	  rs_ndv_attr_ids[rs_i] = rs_attr->id;
 	  rs_ndv_attr_types[rs_i] = (DB_TYPE) rs_attr->type;
+	  rs_ndv_values[rs_i] = -1;
 	}
 
-      if (xstats_collect_ndv_by_fullscan_reservoir (thread_p, class_id_p, &(cls_info_p->ci_hfid), rs_ndv_attr_ids,
-						    rs_ndv_attr_types, rs_n_attrs, rs_ndv_values,
-						    &rs_total_rows) != NO_ERROR)
+      if (use_provided_ndv)
 	{
-	  goto error;
+	  /* reuse caller-provided NDV (histogram scan); map (id -> ndv) onto our attr order */
+	  int pj;
+	  for (pj = 0; pj < class_attr_ndv->attr_cnt; pj++)
+	    {
+	      for (rs_i = 0; rs_i < rs_n_attrs; rs_i++)
+		{
+		  if (rs_ndv_attr_ids[rs_i] == class_attr_ndv->attr_ndv[pj].id)
+		    {
+		      rs_ndv_values[rs_i] = class_attr_ndv->attr_ndv[pj].ndv;
+		      break;
+		    }
+		}
+	    }
+	  /* exact row count rides along with the provided NDV (from the histogram full scan);
+	   * fall back to heap metadata only if it was not supplied */
+	  if (class_attr_ndv->total_rows > 0)
+	    {
+	      rs_total_rows = class_attr_ndv->total_rows;
+	    }
+	  else
+	    {
+	      int hp = 0, ho = 0, ha = 0;
+	      if (heap_get_num_objects (thread_p, &(cls_info_p->ci_hfid), &hp, &ho, &ha) == NO_ERROR)
+		{
+		  rs_total_rows = ho;
+		}
+	    }
+	  cls_info_p->ci_tot_objects = (int) rs_total_rows;
 	}
-      cls_info_p->ci_tot_objects = (int) rs_total_rows;
+      else
+	{
+	  if (xstats_collect_ndv_by_fullscan_reservoir (thread_p, class_id_p, &(cls_info_p->ci_hfid), rs_ndv_attr_ids,
+							rs_ndv_attr_types, rs_n_attrs, rs_ndv_values,
+							&rs_total_rows) != NO_ERROR)
+	    {
+	      goto error;
+	    }
+	  cls_info_p->ci_tot_objects = (int) rs_total_rows;
+	}
     }
 
   /* update the index statistics for each attribute */

@@ -134,7 +134,7 @@ namespace
   template <typename T>
   char *
   build_blob (THREAD_ENTRY *thread_p, std::vector<T> &samples, DB_TYPE attr_type, int max_buckets,
-	      std::int64_t n_total, std::int64_t n_nn, int *blob_length)
+	      std::int64_t n_total, std::int64_t n_nn, int *blob_length, INT64 *out_ndv = NULL)
   {
     std::vector<std::pair<T, std::int64_t>> vc = group_counts (samples);
     std::int64_t total_sample = 0;
@@ -161,6 +161,13 @@ namespace
 	in.sampling_weight = 1;
 	in.total_nn_rows = n_nn;	/* exact population non-null (full reservoir scan) */
 	d_pop = stats_estimate_ndv_from_sample (&in);
+      }
+
+    /* surface the population NDV so the histogram scan can feed it to update-statistics
+     * (reuse the same scan instead of a second NDV full scan) */
+    if (out_ndv != NULL)
+      {
+	*out_ndv = d_pop;
       }
 
     /* ---- MCV selection (PG analyze_mcv_list) ----
@@ -477,61 +484,38 @@ cleanup:
 
     recdes.data = NULL;
 
-    for (;;)
+    VPID vpid;
+    while (part.next_data_vpid (hfid, &vpid))
       {
-	FILE_PARTIAL_SECTOR ft = part.get_next ();
-	if (VSID_IS_NULL (&ft.vsid))
+	SCAN_CODE sc;
+	OID_SET_NULL (&cur_oid);
+	while ((sc = heap_next_1page (thread_p, hfid, &vpid, &local_class_oid, &cur_oid, &recdes, &scan_cache,
+				      PEEK)) == S_SUCCESS)
 	  {
-	    break;
-	  }
+	    (*total_rows)++;
 
-	VPID vpid;
-	vpid.volid = ft.vsid.volid;
-	const PAGEID base_pageid = SECTOR_FIRST_PAGEID (ft.vsid.sectid);
-
-	for (size_t off = 0; off < DISK_SECTOR_NPAGES; off++)
-	  {
-	    if (!bit64_is_set (ft.page_bitmap, (int) off))
+	    error = heap_attrinfo_read_dbvalues (thread_p, &cur_oid, &recdes, &attr_info);
+	    if (error != NO_ERROR)
 	      {
-		continue;
-	      }
-	    vpid.pageid = base_pageid + (PAGEID) off;
-	    if (vpid.volid == hfid->vfid.volid && vpid.pageid == hfid->vfid.fileid)
-	      {
-		/* heap file header page, no user records */
-		continue;
-	      }
-
-	    SCAN_CODE sc;
-	    OID_SET_NULL (&cur_oid);
-	    while ((sc = heap_next_1page (thread_p, hfid, &vpid, &local_class_oid, &cur_oid, &recdes, &scan_cache,
-					  PEEK)) == S_SUCCESS)
-	      {
-		(*total_rows)++;
-
-		error = heap_attrinfo_read_dbvalues (thread_p, &cur_oid, &recdes, &attr_info);
-		if (error != NO_ERROR)
-		  {
-		    ASSERT_ERROR ();
-		    goto cleanup;
-		  }
-
-		DB_VALUE *v = heap_attrinfo_access (attr_id, &attr_info);
-		if (v == NULL || DB_IS_NULL (v))
-		  {
-		    (*null_rows)++;
-		    continue;
-		  }
-		if (!extract<T> (v, rs))
-		  {
-		    (*null_rows)++;
-		  }
-	      }
-	    if (sc != S_END)
-	      {
-		ASSERT_ERROR_AND_SET (error);
+		ASSERT_ERROR ();
 		goto cleanup;
 	      }
+
+	    DB_VALUE *v = heap_attrinfo_access (attr_id, &attr_info);
+	    if (v == NULL || DB_IS_NULL (v))
+	      {
+		(*null_rows)++;
+		continue;
+	      }
+	    if (!extract<T> (v, rs))
+	      {
+		(*null_rows)++;
+	      }
+	  }
+	if (sc != S_END)
+	  {
+	    ASSERT_ERROR_AND_SET (error);
+	    goto cleanup;
 	  }
       }
     error = NO_ERROR;
@@ -743,6 +727,367 @@ cleanup:
 #endif /* SERVER_MODE */
   }
 
+  /* Per-column histogram collector used by the single-scan multi-column build: holds one
+   * reservoir of the column's typed values plus an exact NULL count. One scan of the heap
+   * feeds every column's collector, so the table is read once instead of once per column. */
+  class col_collector
+  {
+    public:
+      ATTR_ID attr_id;
+      DB_TYPE attr_type;
+      value_category cat;
+      std::int64_t null_rows;
+      INT64 ndv;		/* population NDV estimated from this column's reservoir (set by build ()) */
+
+      col_collector (ATTR_ID id, DB_TYPE t, value_category c)
+	: attr_id (id), attr_type (t), cat (c), null_rows (0), ndv (-1)
+      {
+      }
+      virtual ~col_collector () {}
+      virtual void feed (const DB_VALUE *v) = 0;
+      virtual char *build (THREAD_ENTRY *thread_p, int max_buckets, std::int64_t total_rows, int *blob_length) = 0;
+      /* merge the (same-column, same dynamic type) per-worker collectors `peers` into this one's
+       * final sample, population-weighted, capped at `capacity`. Used by the parallel path. */
+      virtual void merge_peers (const std::vector<col_collector *> &peers, std::size_t capacity) = 0;
+  };
+
+  template <typename T>
+  class col_collector_t : public col_collector
+  {
+    public:
+      cubsampling::reservoir_sampler<T> rs;
+      std::vector<T> m_merged;
+      bool m_has_merged;
+
+      col_collector_t (ATTR_ID id, DB_TYPE t, value_category c, std::size_t cap)
+	: col_collector (id, t, c), rs (cap), m_has_merged (false)
+      {
+      }
+
+      void feed (const DB_VALUE *v) override
+      {
+	if (v == NULL || DB_IS_NULL (v))
+	  {
+	    null_rows++;
+	    return;
+	  }
+	if (!extract<T> (v, rs))
+	  {
+	    null_rows++;
+	  }
+      }
+
+      void merge_peers (const std::vector<col_collector *> &peers, std::size_t capacity) override
+      {
+	std::vector<std::vector<T>> parts;
+	std::vector<std::uint64_t> seens;
+	parts.reserve (peers.size ());
+	seens.reserve (peers.size ());
+	for (col_collector *p : peers)
+	  {
+	    col_collector_t<T> *pt = static_cast<col_collector_t<T> *> (p);
+	    parts.push_back (std::move (pt->rs.samples ()));
+	    seens.push_back (pt->rs.seen ());
+	  }
+	m_merged = cubsampling::merge_partition_samples<T> (parts, seens, capacity);
+	m_has_merged = true;
+      }
+
+      char *build (THREAD_ENTRY *thread_p, int max_buckets, std::int64_t total_rows, int *blob_length) override
+      {
+	std::vector<T> &s = m_has_merged ? m_merged : rs.samples ();
+	return build_blob<T> (thread_p, s, attr_type, max_buckets, total_rows, total_rows - null_rows, blob_length,
+			      &ndv);
+      }
+  };
+
+  static col_collector *
+  make_col_collector (ATTR_ID id, DB_TYPE t, std::size_t cap)
+  {
+    switch (category_of (t))
+      {
+      case value_category::integer:
+	return new col_collector_t<std::int64_t> (id, t, value_category::integer, cap);
+      case value_category::real:
+	return new col_collector_t<double> (id, t, value_category::real, cap);
+      case value_category::string:
+	return new col_collector_t<std::string> (id, t, value_category::string, cap);
+      default:
+	return NULL;
+      }
+  }
+
+#if defined (SERVER_MODE)
+  /* Worker side of the parallel multi-column build: scan one ftab page partition with
+   * heap_next_1page under the shared snapshot, feeding every column's collector. */
+  static int
+  scan_ftab_partition_multi (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid, const ATTR_ID *attr_ids,
+			     int attr_cnt, MVCC_SNAPSHOT *snapshot, ftab_set &part,
+			     std::vector<col_collector *> &cols, std::int64_t *total_rows)
+  {
+    HEAP_SCANCACHE scan_cache;
+    HEAP_CACHE_ATTRINFO attr_info;
+    RECDES recdes;
+    OID cur_oid;
+    OID local_class_oid = *class_oid;
+    int error = NO_ERROR;
+    int c;
+    bool scancache_inited = false;
+    bool attrinfo_inited = false;
+    VPID vpid;
+
+    *total_rows = 0;
+
+    error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */ , snapshot);
+    if (error != NO_ERROR)
+      {
+	ASSERT_ERROR ();
+	goto cleanup;
+      }
+    scancache_inited = true;
+
+    error = heap_attrinfo_start (thread_p, class_oid, attr_cnt, attr_ids, &attr_info);
+    if (error != NO_ERROR)
+      {
+	ASSERT_ERROR ();
+	goto cleanup;
+      }
+    attrinfo_inited = true;
+
+    recdes.data = NULL;
+
+    while (part.next_data_vpid (hfid, &vpid))
+      {
+	SCAN_CODE sc;
+	OID_SET_NULL (&cur_oid);
+	while ((sc = heap_next_1page (thread_p, hfid, &vpid, &local_class_oid, &cur_oid, &recdes, &scan_cache,
+				      PEEK)) == S_SUCCESS)
+	  {
+	    (*total_rows)++;
+	    error = heap_attrinfo_read_dbvalues (thread_p, &cur_oid, &recdes, &attr_info);
+	    if (error != NO_ERROR)
+	      {
+		ASSERT_ERROR ();
+		goto cleanup;
+	      }
+	    for (c = 0; c < attr_cnt; c++)
+	      {
+		if (cols[c] != NULL)
+		  {
+		    cols[c]->feed (heap_attrinfo_access (attr_ids[c], &attr_info));
+		  }
+	      }
+	  }
+	if (sc != S_END)
+	  {
+	    ASSERT_ERROR_AND_SET (error);
+	    goto cleanup;
+	  }
+      }
+    error = NO_ERROR;
+
+cleanup:
+    if (attrinfo_inited)
+      {
+	heap_attrinfo_end (thread_p, &attr_info);
+      }
+    if (scancache_inited)
+      {
+	(void) heap_scancache_end (thread_p, &scan_cache);
+      }
+    return error;
+  }
+
+  struct multi_worker_result
+  {
+    std::vector<col_collector *> collectors;	/* one per column, owned by the driver */
+    std::int64_t total_rows;
+    int error;
+    multi_worker_result () : total_rows (0), error (NO_ERROR) {}
+  };
+
+  class multi_scan_task : public cubthread::entry_task
+  {
+    public:
+      multi_scan_task (const OID *class_oid, const HFID *hfid, const ATTR_ID *attr_ids, int attr_cnt,
+		       MVCC_SNAPSHOT *snapshot, ftab_set part, multi_worker_result *result)
+	: m_class_oid (*class_oid)
+	, m_hfid (*hfid)
+	, m_attr_ids (attr_ids)
+	, m_attr_cnt (attr_cnt)
+	, m_snapshot (snapshot)
+	, m_part (std::move (part))
+	, m_result (result)
+      {
+      }
+
+      void execute (cubthread::entry &thread_ref) override
+      {
+	m_result->error = scan_ftab_partition_multi (&thread_ref, &m_class_oid, &m_hfid, m_attr_ids, m_attr_cnt,
+			  m_snapshot, m_part, m_result->collectors, &m_result->total_rows);
+      }
+
+    private:
+      OID m_class_oid;
+      HFID m_hfid;
+      const ATTR_ID *m_attr_ids;
+      int m_attr_cnt;
+      MVCC_SNAPSHOT *m_snapshot;
+      ftab_set m_part;
+      multi_worker_result *m_result;
+  };
+
+  /* Parallel single-scan multi-column build: distribute the heap's pages across workers, each
+   * with its own per-column collectors and the shared snapshot; merge each column's per-worker
+   * reservoirs (population-weighted) and build the blobs. *did_parallel is set true iff the
+   * parallel path actually ran; otherwise the caller falls back to the serial single scan. */
+  static int
+  parallel_build_multi (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid, const ATTR_ID *attr_ids,
+			const DB_TYPE *attr_types, int attr_cnt, int max_buckets, int sample_size,
+			double *null_frequency, char **histogram_blob, int *blob_length, INT64 *out_ndv,
+			INT64 *out_total_rows, bool *did_parallel)
+  {
+    int w, c;
+    *did_parallel = false;
+
+    int degree = prm_get_integer_value (PRM_ID_MAX_PARALLEL_WORKERS);
+    const int page_threshold = prm_get_integer_value (PRM_ID_PARALLEL_SCAN_PAGE_THRESHOLD);
+    int npages = 0, nobjs = 0, avg_len = 0;
+    (void) heap_get_num_objects (thread_p, hfid, &npages, &nobjs, &avg_len);
+    if (degree <= 1 || npages < page_threshold)
+      {
+	return NO_ERROR;	/* caller does the serial single scan */
+      }
+    if (degree > 16)
+      {
+	degree = 16;
+      }
+
+    FILE_FTAB_COLLECTOR collector;
+    int error = file_get_all_data_sectors (thread_p, &hfid->vfid, &collector);
+    if (error != NO_ERROR)
+      {
+	if (collector.partsect_ftab != NULL)
+	  {
+	    db_private_free_and_init (thread_p, collector.partsect_ftab);
+	  }
+	return error;
+      }
+    ftab_set full;
+    full.convert (&collector);
+    if (collector.partsect_ftab != NULL)
+      {
+	db_private_free_and_init (thread_p, collector.partsect_ftab);
+      }
+    if ((int) full.size () < degree)
+      {
+	degree = (int) full.size ();
+      }
+    if (degree <= 1)
+      {
+	return NO_ERROR;	/* caller does the serial single scan */
+      }
+    std::vector<ftab_set> parts = full.split (degree);
+    full.clear ();
+
+    MVCC_SNAPSHOT *snapshot = logtb_get_mvcc_snapshot (thread_p);
+    std::vector<multi_worker_result> results (degree);
+    for (w = 0; w < degree; w++)
+      {
+	results[w].collectors.resize (attr_cnt, (col_collector *) NULL);
+	for (c = 0; c < attr_cnt; c++)
+	  {
+	    results[w].collectors[c] = make_col_collector (attr_ids[c], attr_types[c], (std::size_t) sample_size);
+	  }
+      }
+
+    reservoir_scan_context context (thread_p->conn_entry);
+    cubthread::worker_pool_type *pool =
+	    thread_create_worker_pool (degree, degree, "histogram-reservoir-multi", context);
+    if (pool == NULL)
+      {
+	for (w = 0; w < degree; w++)
+	  {
+	    for (c = 0; c < attr_cnt; c++)
+	      {
+		delete results[w].collectors[c];
+	      }
+	  }
+	return NO_ERROR;	/* caller does the serial single scan */
+      }
+
+    for (w = 0; w < degree; w++)
+      {
+	multi_scan_task *task =
+		new multi_scan_task (class_oid, hfid, attr_ids, attr_cnt, snapshot, std::move (parts[w]), &results[w]);
+	thread_get_manager ()->push_task (pool, task);
+      }
+    thread_get_manager ()->destroy_worker_pool (pool);
+
+    error = NO_ERROR;
+    std::int64_t total_rows = 0;
+    for (w = 0; w < degree; w++)
+      {
+	if (results[w].error != NO_ERROR)
+	  {
+	    error = results[w].error;
+	  }
+	total_rows += results[w].total_rows;
+      }
+    *out_total_rows = total_rows;
+
+    if (error == NO_ERROR)
+      {
+	for (c = 0; c < attr_cnt; c++)
+	  {
+	    col_collector *fin = make_col_collector (attr_ids[c], attr_types[c], (std::size_t) sample_size);
+	    if (fin == NULL)
+	      {
+		continue;	/* unsupported type */
+	      }
+	    std::vector<col_collector *> peers;
+	    std::int64_t nulls = 0;
+	    peers.reserve (degree);
+	    for (w = 0; w < degree; w++)
+	      {
+		if (results[w].collectors[c] != NULL)
+		  {
+		    peers.push_back (results[w].collectors[c]);
+		    nulls += results[w].collectors[c]->null_rows;
+		  }
+	      }
+	    fin->null_rows = nulls;
+	    fin->merge_peers (peers, (std::size_t) sample_size);
+	    histogram_blob[c] = fin->build (thread_p, max_buckets, total_rows, &blob_length[c]);
+	    out_ndv[c] = fin->ndv;
+	    null_frequency[c] = (total_rows > 0) ? (double) nulls / (double) total_rows : 0.0;
+	    if (histogram_blob[c] != NULL && blob_length[c] <= 0)
+	      {
+		db_private_free_and_init (thread_p, histogram_blob[c]);
+		histogram_blob[c] = NULL;
+	      }
+	    delete fin;
+	  }
+      }
+
+    for (w = 0; w < degree; w++)
+      {
+	for (c = 0; c < attr_cnt; c++)
+	  {
+	    delete results[w].collectors[c];
+	  }
+      }
+
+    if (error != NO_ERROR)
+      {
+	return error;
+      }
+
+    *did_parallel = true;
+    return NO_ERROR;
+  }
+#endif /* SERVER_MODE */
+
 } // anonymous namespace
 
 int
@@ -844,6 +1189,161 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
     }
 
   return NO_ERROR;
+}
+
+int
+xhistogram_build_multi_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid,
+    const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt, int max_buckets, int sample_size,
+    double *null_frequency, char **histogram_blob, int *blob_length, INT64 *out_ndv, INT64 *out_total_rows)
+{
+  HEAP_SCANCACHE scan_cache;
+  HEAP_CACHE_ATTRINFO attr_info;
+  RECDES recdes;
+  OID inst_oid;
+  OID scan_class_oid;
+  SCAN_CODE sc;
+  int error = NO_ERROR;
+  int i;
+  bool scancache_inited = false;
+  bool attrinfo_inited = false;
+  std::int64_t total_rows = 0;
+  MVCC_SNAPSHOT *snapshot = logtb_get_mvcc_snapshot (thread_p);
+  std::vector<col_collector *> collectors (attr_cnt, (col_collector *) NULL);
+
+  *out_total_rows = 0;
+  for (i = 0; i < attr_cnt; i++)
+    {
+      histogram_blob[i] = NULL;
+      blob_length[i] = 0;
+      null_frequency[i] = 0.0;
+      out_ndv[i] = -1;		/* -1 = not computed (unsupported type) */
+    }
+
+  if (max_buckets < 1)
+    {
+      max_buckets = 1;
+    }
+  if (sample_size <= 0)
+    {
+      std::int64_t s = (std::int64_t) HISTOGRAM_SAMPLE_ROWS_PER_BUCKET * max_buckets;
+      if (s < HISTOGRAM_MIN_SAMPLE_ROWS)
+	{
+	  s = HISTOGRAM_MIN_SAMPLE_ROWS;
+	}
+      if (s > HISTOGRAM_MAX_SAMPLE_ROWS)
+	{
+	  s = HISTOGRAM_MAX_SAMPLE_ROWS;
+	}
+      sample_size = (int) s;
+    }
+
+#if defined (SERVER_MODE)
+  /* try the page-parallel single scan first; falls through to serial when not applicable */
+  {
+    bool did_parallel = false;
+    int perr = parallel_build_multi (thread_p, class_oid, hfid, attr_ids, attr_types, attr_cnt, max_buckets,
+				     sample_size, null_frequency, histogram_blob, blob_length, out_ndv, out_total_rows,
+				     &did_parallel);
+    if (perr != NO_ERROR)
+      {
+	return perr;
+      }
+    if (did_parallel)
+      {
+	return NO_ERROR;
+      }
+  }
+#endif /* SERVER_MODE */
+
+  /* one collector per column; NULL for unsupported types (their blob stays NULL) */
+  for (i = 0; i < attr_cnt; i++)
+    {
+      collectors[i] = make_col_collector (attr_ids[i], attr_types[i], (std::size_t) sample_size);
+    }
+
+  error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */ , snapshot);
+  if (error != NO_ERROR)
+    {
+      ASSERT_ERROR ();
+      goto cleanup;
+    }
+  scancache_inited = true;
+
+  error = heap_attrinfo_start (thread_p, class_oid, attr_cnt, attr_ids, &attr_info);
+  if (error != NO_ERROR)
+    {
+      ASSERT_ERROR ();
+      goto cleanup;
+    }
+  attrinfo_inited = true;
+
+  OID_SET_NULL (&inst_oid);
+  recdes.data = NULL;
+  scan_class_oid = *class_oid;
+
+  /* single shared full scan: every row feeds every column's reservoir */
+  while ((sc = heap_next (thread_p, hfid, &scan_class_oid, &inst_oid, &recdes, &scan_cache, PEEK)) == S_SUCCESS)
+    {
+      total_rows++;
+
+      error = heap_attrinfo_read_dbvalues (thread_p, &inst_oid, &recdes, &attr_info);
+      if (error != NO_ERROR)
+	{
+	  ASSERT_ERROR ();
+	  goto cleanup;
+	}
+
+      for (i = 0; i < attr_cnt; i++)
+	{
+	  if (collectors[i] == NULL)
+	    {
+	      continue;
+	    }
+	  collectors[i]->feed (heap_attrinfo_access (attr_ids[i], &attr_info));
+	}
+    }
+
+  if (sc != S_END)
+    {
+      ASSERT_ERROR_AND_SET (error);
+      goto cleanup;
+    }
+
+  *out_total_rows = total_rows;
+  for (i = 0; i < attr_cnt; i++)
+    {
+      if (collectors[i] == NULL)
+	{
+	  continue;
+	}
+      histogram_blob[i] = collectors[i]->build (thread_p, max_buckets, total_rows, &blob_length[i]);
+      out_ndv[i] = collectors[i]->ndv;
+      if (total_rows > 0)
+	{
+	  null_frequency[i] = (double) collectors[i]->null_rows / (double) total_rows;
+	}
+      if (histogram_blob[i] != NULL && blob_length[i] <= 0)
+	{
+	  db_private_free_and_init (thread_p, histogram_blob[i]);
+	  histogram_blob[i] = NULL;
+	}
+    }
+  error = NO_ERROR;
+
+cleanup:
+  if (attrinfo_inited)
+    {
+      heap_attrinfo_end (thread_p, &attr_info);
+    }
+  if (scancache_inited)
+    {
+      (void) heap_scancache_end (thread_p, &scan_cache);
+    }
+  for (i = 0; i < attr_cnt; i++)
+    {
+      delete collectors[i];
+    }
+  return error;
 }
 
 /* target rows per column for the NDV reservoir (cf. PR #7228 STATS_NDV_TARGET_SAMPLE_ROWS) */

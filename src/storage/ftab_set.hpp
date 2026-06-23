@@ -23,6 +23,7 @@
 #ifndef _FTAB_SET_HPP_
 #define _FTAB_SET_HPP_
 
+#include "bit.h"
 #include "file_manager.h"
 
 
@@ -31,11 +32,18 @@ class ftab_set
   private:
     std::vector<FILE_PARTIAL_SECTOR> m_ftab_set;
     size_t m_iterator;
+    /* page-level walk state for next_data_vpid () */
+    FILE_PARTIAL_SECTOR m_walk_sector;
+    size_t m_walk_pgoff;
+    bool m_walk_in_sector;
 
   public:
     ftab_set()
       :m_ftab_set(),
-       m_iterator (0)
+       m_iterator (0),
+       m_walk_sector (FILE_PARTIAL_SECTOR_INITIALIZER),
+       m_walk_pgoff (0),
+       m_walk_in_sector (false)
     {}
 
     ~ftab_set()
@@ -128,6 +136,44 @@ class ftab_set
       FILE_PARTIAL_SECTOR ftab = m_ftab_set[m_iterator];
       m_iterator++;
       return ftab;
+    }
+
+    /*
+     * next_data_vpid () - iterate the allocated data-page VPIDs of this set, one per call,
+     *   skipping the heap file header page (hfid->vfid). Returns false when exhausted.
+     *   Shared page-walk used by parallel heap consumers (cf. input_handler_heap).
+     */
+    bool next_data_vpid (const HFID *hfid, VPID *out)
+    {
+      for (;;)
+	{
+	  if (!m_walk_in_sector)
+	    {
+	      m_walk_sector = get_next ();
+	      if (VSID_IS_NULL (&m_walk_sector.vsid))
+		{
+		  return false;
+		}
+	      m_walk_pgoff = 0;
+	      m_walk_in_sector = true;
+	    }
+
+	  while (m_walk_pgoff < DISK_SECTOR_NPAGES)
+	    {
+	      size_t off = m_walk_pgoff++;
+	      if (bit64_is_set (m_walk_sector.page_bitmap, (int) off))
+		{
+		  out->volid = m_walk_sector.vsid.volid;
+		  out->pageid = SECTOR_FIRST_PAGEID (m_walk_sector.vsid.sectid) + (PAGEID) off;
+		  if (out->volid == hfid->vfid.volid && out->pageid == hfid->vfid.fileid)
+		    {
+		      continue;		/* heap file header page, no user records */
+		    }
+		  return true;
+		}
+	    }
+	  m_walk_in_sector = false;
+	}
     }
 
     size_t size() const

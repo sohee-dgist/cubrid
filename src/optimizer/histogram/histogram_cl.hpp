@@ -26,6 +26,8 @@
 #include <cstdio>
 #include <cstdint>
 #include <string>
+#include "dbtype_def.h"
+#include "statistics.h"
 #include "thread_compat.hpp"
 
 // Forward declaration for PT_NODE
@@ -65,6 +67,11 @@ int analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *a
 /* server-side full-scan + reservoir sampling histogram collection (replaces the query-based path) */
 int analyze_classes_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name,
 				  int max_number_of_buckets, MOP classop);
+/* single-scan variant: build histograms for all histogrammable columns of the class in one heap scan.
+ * Also surfaces the per-column NDV + exact row count derived from the same scan (out_ndv_info /
+ * out_total_rows, may be NULL) so the caller can feed them to UPDATE STATISTICS and skip its NDV scan. */
+int analyze_classes_multi_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, int max_number_of_buckets,
+					MOP classop, CLASS_ATTR_NDV *out_ndv_info, INT64 *out_total_rows);
 int set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, char *histogram_blob,
 		   int histogram_total_length, MOP classop);
 

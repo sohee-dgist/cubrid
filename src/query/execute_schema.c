@@ -4293,8 +4293,10 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
   cur_column = histogram_info->target_columns;
   with_fullscan = histogram_info->with_fullscan ? true : false;
 
-  /* update statistics for class first (only when creating/updating histograms) */
-  if (do_histogram == DO_HISTOGRAM_CREATE)
+  /* Update statistics for the class. For the all-columns histogram path (nnames == 0) this is
+   * DEFERRED to after the histogram build so it can reuse that scan's NDV and skip its own NDV
+   * full scan; see below. The named-columns path keeps the standalone update here. */
+  if (do_histogram == DO_HISTOGRAM_CREATE && nnames != 0)
     {
       error = sm_update_statistics (obj, with_fullscan);
       if (error != NO_ERROR)
@@ -4336,27 +4338,12 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 		  continue;
 		}
 
-	      /* create histogram catalog entry */
+	      /* create the histogram catalog entry; the actual histogram is built once, below,
+	       * in a single shared heap scan across all columns */
 	      error = sm_add_histogram (obj, attname, bucket_count, with_fullscan);
-	      if (error != NO_ERROR)
-		{
-		  if (error != ER_LC_CLASSNAME_EXIST)
-		    {
-		      error = dump_histogram (obj, attname, attr_type, false, error, stdout);
-		      return error;
-		    }
-		}
-	      /* update the histogram */
-	      error = analyze_classes (NULL, db_get_class_name (obj), attname, bucket_count, with_fullscan, obj);
-	      if (error != NO_ERROR)
+	      if (error != NO_ERROR && error != ER_LC_CLASSNAME_EXIST)
 		{
 		  error = dump_histogram (obj, attname, attr_type, false, error, stdout);
-		  return error;
-		}
-	      error = dump_histogram (obj, attname, attr_type, false, error, stdout);
-	      if (error != NO_ERROR)
-		{
-		  assert (false);
 		  return error;
 		}
 	    }
@@ -4366,6 +4353,44 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
 	      error = dump_histogram (obj, attname, attr_type, true, error, stdout);
 	      if (error != NO_ERROR)
 		{
+		  return error;
+		}
+	    }
+	}
+
+      /* single heap scan builds the histograms for every histogrammable column at once
+       * (instead of one full scan per column), then dump each result */
+      if (do_histogram == DO_HISTOGRAM_CREATE)
+	{
+	  /* one heap scan builds all histograms AND yields per-column NDV + row count; feed those
+	   * to UPDATE STATISTICS so it reuses this scan instead of doing its own NDV full scan */
+	  CLASS_ATTR_NDV ndv_info = CLASS_ATTR_NDV_INITIALIZER;
+	  INT64 hist_total_rows = 0;
+	  error = analyze_classes_multi_by_reservoir (NULL, db_get_class_name (obj), bucket_count, obj, &ndv_info,
+						      &hist_total_rows);
+	  if (error == NO_ERROR)
+	    {
+	      error = sm_update_statistics (obj, with_fullscan, &ndv_info);
+	    }
+	  if (ndv_info.attr_ndv != NULL)
+	    {
+	      free_and_init (ndv_info.attr_ndv);
+	    }
+	  if (error != NO_ERROR)
+	    {
+	      return error;
+	    }
+	  for (att = (DB_ATTRIBUTE *) db_get_attributes_force (obj); att != NULL; att = db_attribute_next (att))
+	    {
+	      attr_type = TP_DOMAIN_TYPE (att->domain);
+	      if (!is_histogrammable_type (attr_type))
+		{
+		  continue;
+		}
+	      error = dump_histogram (obj, (char *) att->header.name, attr_type, false, NO_ERROR, stdout);
+	      if (error != NO_ERROR)
+		{
+		  assert (false);
 		  return error;
 		}
 	    }

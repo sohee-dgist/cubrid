@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <string>
+#include <vector>
 #include "parser.h"
 #include "class_object.h"
 #include "object_accessor.h"
@@ -217,6 +218,157 @@ set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_na
 
 end:
   db_value_clear (&histogram_value);
+  return error;
+}
+
+/*
+ * store_one_histogram () - write one column's blob + exact null frequency into its
+ *   _db_histogram catalog entry (the entry must already exist).
+ */
+static int
+store_one_histogram (MOP classop, const char *attr_name, char *blob, int blob_length, double null_freq)
+{
+  int error = NO_ERROR;
+  DB_OBJECT *histogram_obj = NULL, *fin = NULL;
+  DB_OTMPL *obj_tmpl = NULL;
+  DB_VALUE nfv, hv;
+
+  db_make_null (&hv);
+
+  error = db_get_histogram (classop, attr_name, &histogram_obj);
+  if (error != NO_ERROR || histogram_obj == NULL)
+    {
+      return error;
+    }
+
+  obj_tmpl = dbt_edit_object (histogram_obj);
+  if (obj_tmpl == NULL)
+    {
+      ASSERT_ERROR_AND_SET (error);
+      return error;
+    }
+
+  db_make_double (&nfv, null_freq);
+  error = dbt_put (obj_tmpl, "null_frequency", &nfv);
+  if (error == NO_ERROR && blob != NULL && blob_length > 0)
+    {
+      /*  SM_MAX_STRING_LENGTH = 1073741823 */
+      db_make_varbit (&hv, 1073741823, blob, blob_length * 8);
+      error = dbt_put (obj_tmpl, "histogram_values", &hv);
+    }
+  if (error != NO_ERROR)
+    {
+      dbt_abort_object (obj_tmpl);
+      db_value_clear (&hv);
+      return error;
+    }
+
+  fin = dbt_finish_object (obj_tmpl);
+  if (fin == NULL)
+    {
+      ASSERT_ERROR_AND_SET (error);
+      dbt_abort_object (obj_tmpl);
+      db_value_clear (&hv);
+      return error;
+    }
+
+  error = locator_flush_instance (fin);
+  db_value_clear (&hv);
+  return error;
+}
+
+/*
+ * analyze_classes_multi_by_reservoir () - single-scan histogram collection for every
+ *   histogrammable column of the class. Sends all columns in one server request (one full
+ *   heap scan) and stores each returned blob, instead of one scan per column.
+ */
+int
+analyze_classes_multi_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, int max_number_of_buckets,
+				    MOP classop, CLASS_ATTR_NDV *out_ndv_info, INT64 *out_total_rows)
+{
+  OID *class_oid = ws_oid (classop);
+  if (class_oid == NULL || OID_ISNULL (class_oid))
+    {
+      return ER_FAILED;
+    }
+
+  std::vector<int> attr_ids;
+  std::vector<int> attr_types;
+  std::vector<std::string> attr_names;
+  for (DB_ATTRIBUTE *att = db_get_attributes (classop); att != NULL; att = db_attribute_next (att))
+    {
+      DB_TYPE t = db_attribute_type (att);
+      if (!is_histogrammable_type (t))
+	{
+	  continue;
+	}
+      attr_ids.push_back (db_attribute_id (att));
+      attr_types.push_back ((int) t);
+      attr_names.push_back (db_attribute_name (att));
+    }
+
+  int n = (int) attr_ids.size ();
+  if (n == 0)
+    {
+      return NO_ERROR;
+    }
+
+  std::vector<double> null_freqs (n, 0.0);
+  std::vector<char *> blobs (n, (char *) NULL);
+  std::vector<int> blob_lens (n, 0);
+  std::vector<INT64> ndvs (n, (INT64) -1);
+  INT64 total_rows = 0;
+
+  int error =
+	  histogram_build_multi_by_reservoir_request (class_oid, n, attr_ids.data (), attr_types.data (),
+		  max_number_of_buckets, 0, null_freqs.data (), blobs.data (), blob_lens.data (), ndvs.data (),
+		  &total_rows);
+  if (error != NO_ERROR)
+    {
+      for (int i = 0; i < n; i++)
+	{
+	  if (blobs[i] != NULL)
+	    {
+	      free (blobs[i]);
+	    }
+	}
+      return error;
+    }
+
+  for (int i = 0; i < n; i++)
+    {
+      int e = store_one_histogram (classop, attr_names[i].c_str (), blobs[i], blob_lens[i], null_freqs[i]);
+      if (e != NO_ERROR && error == NO_ERROR)
+	{
+	  error = e;
+	}
+      if (blobs[i] != NULL)
+	{
+	  free (blobs[i]);
+	}
+    }
+
+  /* surface NDV + exact row count so the caller can feed them to UPDATE STATISTICS and skip its
+   * own (redundant) NDV full scan -- the histogram scan already produced both. */
+  if (out_total_rows != NULL)
+    {
+      *out_total_rows = total_rows;
+    }
+  if (out_ndv_info != NULL && error == NO_ERROR)
+    {
+      out_ndv_info->attr_ndv = (ATTR_NDV *) malloc (sizeof (ATTR_NDV) * n);
+      if (out_ndv_info->attr_ndv != NULL)
+	{
+	  out_ndv_info->attr_cnt = n;
+	  out_ndv_info->total_rows = total_rows;
+	  for (int i = 0; i < n; i++)
+	    {
+	      out_ndv_info->attr_ndv[i].id = attr_ids[i];
+	      out_ndv_info->attr_ndv[i].ndv = ndvs[i];
+	    }
+	}
+    }
+
   return error;
 }
 
