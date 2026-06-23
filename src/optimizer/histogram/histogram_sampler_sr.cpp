@@ -127,6 +127,49 @@ namespace
     return vc;
   }
 
+  /* estimate population NDV (non-null) from a sample's grouped stats.
+   *   total_sample : non-null values examined in the sample
+   *   d_total      : distinct values in the sample
+   *   f1_total     : distinct values that appear exactly once (singletons)
+   *   n_nn         : exact population non-null rows (from the full reservoir scan) */
+  static INT64
+  estimate_ndv_from_grouped (std::int64_t total_sample, std::int64_t d_total, std::int64_t f1_total,
+			     std::int64_t n_nn)
+  {
+    INT64 d_pop = d_total;
+    if (total_sample > 0 && d_total > 0)
+      {
+	STATS_NDV_SAMPLE_INPUT in;
+	in.sample_rows = total_sample;
+	in.sample_nulls = 0;
+	in.sample_distinct = d_total;
+	in.sample_singleton = f1_total;
+	in.sampling_weight = 1;
+	in.total_nn_rows = n_nn;
+	d_pop = stats_estimate_ndv_from_sample (&in);
+      }
+    return d_pop;
+  }
+
+  /* group a typed sample and estimate its population NDV (non-null). n_nn = exact population
+   * non-null rows. Shared by the histogram blob build and the NDV-only collection path. */
+  template <typename T>
+  static INT64
+  estimate_ndv_from_samples (std::vector<T> &samples, std::int64_t n_nn)
+  {
+    std::vector<std::pair<T, std::int64_t>> vc = group_counts (samples);
+    std::int64_t total_sample = 0, f1_total = 0;
+    for (const auto &p : vc)
+      {
+	total_sample += p.second;
+	if (p.second == 1)
+	  {
+	    f1_total++;
+	  }
+      }
+    return estimate_ndv_from_grouped (total_sample, (std::int64_t) vc.size (), f1_total, n_nn);
+  }
+
   /* build the histogram blob (format v2) from a typed sample.
    *   n_total : population rows incl nulls
    *   n_nn    : population non-null rows (exact, from the full reservoir scan)
@@ -150,19 +193,8 @@ namespace
       }
     const std::int64_t d_total = (std::int64_t) vc.size ();
 
-    /* estimated population NDV (non-null) */
-    INT64 d_pop = d_total;
-    if (total_sample > 0 && d_total > 0)
-      {
-	STATS_NDV_SAMPLE_INPUT in;
-	in.sample_rows = total_sample;
-	in.sample_nulls = 0;
-	in.sample_distinct = d_total;
-	in.sample_singleton = f1_total;
-	in.sampling_weight = 1;
-	in.total_nn_rows = n_nn;	/* exact population non-null (full reservoir scan) */
-	d_pop = stats_estimate_ndv_from_sample (&in);
-      }
+    /* estimated population NDV (non-null); n_nn is exact (full reservoir scan) */
+    INT64 d_pop = estimate_ndv_from_grouped (total_sample, d_total, f1_total, n_nn);
 
     /* surface the population NDV so the histogram scan can feed it to update-statistics
      * (reuse the same scan instead of a second NDV full scan) */
@@ -445,6 +477,59 @@ cleanup:
   }
 
 #if defined (SERVER_MODE)
+  /* Page-level iterator over an ftab_set. Kept out of the shared ftab_set (which is a plain sector
+   * container used by parallel scan / index load / external sort) so only this histogram consumer
+   * carries the per-walk cursor. Built by moving a split ftab partition into it. */
+  class ftab_page_walker : public ftab_set
+  {
+    public:
+      ftab_page_walker () = default;
+      explicit ftab_page_walker (ftab_set &&base)
+	: ftab_set (std::move (base))
+      {
+      }
+
+      /* iterate the allocated data-page VPIDs of this partition, one per call, skipping the heap
+       * file header page (hfid->vfid). Returns false when exhausted. */
+      bool next_data_vpid (const HFID *hfid, VPID *out)
+      {
+	for (;;)
+	  {
+	    if (!m_walk_in_sector)
+	      {
+		m_walk_sector = get_next ();
+		if (VSID_IS_NULL (&m_walk_sector.vsid))
+		  {
+		    return false;
+		  }
+		m_walk_pgoff = 0;
+		m_walk_in_sector = true;
+	      }
+
+	    while (m_walk_pgoff < DISK_SECTOR_NPAGES)
+	      {
+		size_t off = m_walk_pgoff++;
+		if (bit64_is_set (m_walk_sector.page_bitmap, (int) off))
+		  {
+		    out->volid = m_walk_sector.vsid.volid;
+		    out->pageid = SECTOR_FIRST_PAGEID (m_walk_sector.vsid.sectid) + (PAGEID) off;
+		    if (out->volid == hfid->vfid.volid && out->pageid == hfid->vfid.fileid)
+		      {
+			continue;	/* heap file header page, no user records */
+		      }
+		    return true;
+		  }
+	      }
+	    m_walk_in_sector = false;
+	  }
+      }
+
+    private:
+      FILE_PARTIAL_SECTOR m_walk_sector = FILE_PARTIAL_SECTOR_INITIALIZER;
+      size_t m_walk_pgoff = 0;
+      bool m_walk_in_sector = false;
+  };
+
   /* Scan every allocated data page contained in the ftab partition `part` (heap header page
    * excluded), pull MVCC-visible rows with heap_next_1page under the shared snapshot, and feed
    * the target attribute's non-null values to the partition-local reservoir `rs`. total_rows /
@@ -452,7 +537,7 @@ cleanup:
   template <typename T>
   static int
   scan_ftab_partition (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid, ATTR_ID attr_id,
-		       MVCC_SNAPSHOT *snapshot, ftab_set &part, cubsampling::reservoir_sampler<T> &rs,
+		       MVCC_SNAPSHOT *snapshot, ftab_page_walker &part, cubsampling::reservoir_sampler<T> &rs,
 		       std::int64_t *total_rows, std::int64_t *null_rows)
   {
     HEAP_SCANCACHE scan_cache;
@@ -647,7 +732,7 @@ cleanup:
       MVCC_SNAPSHOT *m_snapshot;
       int m_capacity;
       std::uint64_t m_seed;
-      ftab_set m_part;
+      ftab_page_walker m_part;
       worker_result<T> *m_result;
   };
 #endif /* SERVER_MODE */
@@ -789,6 +874,9 @@ cleanup:
       /* merge the (same-column, same dynamic type) per-worker collectors `peers` into this one's
        * final sample, population-weighted, capped at `capacity`. Used by the parallel path. */
       virtual void merge_peers (const std::vector<col_collector *> &peers, std::size_t capacity) = 0;
+      /* estimate population NDV (non-null) from this collector's (possibly merged) sample, without
+       * building the histogram blob. Stores it in `ndv` and returns it. Used by the NDV-only path. */
+      virtual INT64 compute_ndv (std::int64_t total_rows) = 0;
   };
 
   template <typename T>
@@ -839,6 +927,13 @@ cleanup:
 	return build_blob<T> (thread_p, s, attr_type, max_buckets, total_rows, total_rows - null_rows, blob_length,
 			      &ndv);
       }
+
+      INT64 compute_ndv (std::int64_t total_rows) override
+      {
+	std::vector<T> &s = m_has_merged ? m_merged : rs.samples ();
+	ndv = estimate_ndv_from_samples<T> (s, total_rows - null_rows);
+	return ndv;
+      }
   };
 
   static col_collector *
@@ -862,7 +957,7 @@ cleanup:
    * heap_next_1page under the shared snapshot, feeding every column's collector. */
   static int
   scan_ftab_partition_multi (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid, const ATTR_ID *attr_ids,
-			     int attr_cnt, MVCC_SNAPSHOT *snapshot, ftab_set &part,
+			     int attr_cnt, MVCC_SNAPSHOT *snapshot, ftab_page_walker &part,
 			     std::vector<col_collector *> &cols, std::int64_t *total_rows)
   {
     HEAP_SCANCACHE scan_cache;
@@ -1013,22 +1108,28 @@ cleanup:
       const ATTR_ID *m_attr_ids;
       int m_attr_cnt;
       MVCC_SNAPSHOT *m_snapshot;
-      ftab_set m_part;
+      ftab_page_walker m_part;
       multi_worker_result *m_result;
   };
 
-  /* Parallel single-scan multi-column build: distribute the heap's pages across workers, each
-   * with its own per-column collectors and the shared snapshot; merge each column's per-worker
-   * reservoirs (population-weighted) and build the blobs. *did_parallel is set true iff the
-   * parallel path actually ran; otherwise the caller falls back to the serial single scan. */
+  /* Parallel multi-column scan + per-column merge. The reusable core shared by the histogram
+   * build and the NDV-only collection: distribute the heap's pages across workers (each with its
+   * own per-column collectors and the shared snapshot), then merge each column's per-worker
+   * reservoirs (population-weighted). On success with parallelism actually used, fills `merged`
+   * with one merged col_collector per column (NULL for unsupported types; caller owns and deletes
+   * them), sets *out_total_rows and *did_parallel = true. When parallelism is not applicable
+   * (degree <= 1, small heap, pool spawn failed) returns NO_ERROR with *did_parallel = false and
+   * `merged` empty, so the caller runs its serial scan. A worker error is returned with
+   * *did_parallel = false. */
   static int
-  parallel_build_multi (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid, const ATTR_ID *attr_ids,
-			const DB_TYPE *attr_types, int attr_cnt, int max_buckets, int sample_size,
-			double *null_frequency, char **histogram_blob, int *blob_length, INT64 *out_ndv,
-			INT64 *out_total_rows, bool *did_parallel)
+  parallel_scan_merge_multi (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid,
+			     const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt, int sample_size,
+			     std::vector<col_collector *> &merged, std::int64_t *out_total_rows,
+			     bool *did_parallel)
   {
     int w, c;
     *did_parallel = false;
+    *out_total_rows = 0;
 
     int degree = prm_get_integer_value (PRM_ID_MAX_PARALLEL_WORKERS);
     const int page_threshold = prm_get_integer_value (PRM_ID_PARALLEL_SCAN_PAGE_THRESHOLD);
@@ -1036,7 +1137,7 @@ cleanup:
     (void) heap_get_num_objects (thread_p, hfid, &npages, &nobjs, &avg_len);
     if (degree <= 1 || npages < page_threshold)
       {
-	return NO_ERROR;	/* caller does the serial single scan */
+	return NO_ERROR;
       }
     if (degree > 16)
       {
@@ -1065,7 +1166,7 @@ cleanup:
       }
     if (degree <= 1)
       {
-	return NO_ERROR;	/* caller does the serial single scan */
+	return NO_ERROR;
       }
     std::vector<ftab_set> parts = full.split (degree);
     full.clear ();
@@ -1093,7 +1194,7 @@ cleanup:
 		delete results[w].collectors[c];
 	      }
 	  }
-	return NO_ERROR;	/* caller does the serial single scan */
+	return NO_ERROR;
       }
 
     for (w = 0; w < degree; w++)
@@ -1114,16 +1215,16 @@ cleanup:
 	  }
 	total_rows += results[w].total_rows;
       }
-    *out_total_rows = total_rows;
 
     if (error == NO_ERROR)
       {
+	merged.assign (attr_cnt, (col_collector *) NULL);
 	for (c = 0; c < attr_cnt; c++)
 	  {
 	    col_collector *fin = make_col_collector (attr_ids[c], attr_types[c], (std::size_t) sample_size);
 	    if (fin == NULL)
 	      {
-		continue;	/* unsupported type */
+		continue;       /* unsupported type */
 	      }
 	    std::vector<col_collector *> peers;
 	    std::int64_t nulls = 0;
@@ -1138,15 +1239,7 @@ cleanup:
 	      }
 	    fin->null_rows = nulls;
 	    fin->merge_peers (peers, (std::size_t) sample_size);
-	    histogram_blob[c] = fin->build (thread_p, max_buckets, total_rows, &blob_length[c]);
-	    out_ndv[c] = fin->ndv;
-	    null_frequency[c] = (total_rows > 0) ? (double) nulls / (double) total_rows : 0.0;
-	    if (histogram_blob[c] != NULL && blob_length[c] <= 0)
-	      {
-		db_private_free_and_init (thread_p, histogram_blob[c]);
-		histogram_blob[c] = NULL;
-	      }
-	    delete fin;
+	    merged[c] = fin;
 	  }
       }
 
@@ -1163,7 +1256,77 @@ cleanup:
 	return error;
       }
 
+    *out_total_rows = total_rows;
     *did_parallel = true;
+    return NO_ERROR;
+  }
+
+  /* Parallel single-scan multi-column histogram build: scan + merge via parallel_scan_merge_multi,
+   * then build each column's blob and surface its population NDV. *did_parallel is set true iff the
+   * parallel path actually ran; otherwise the caller falls back to the serial single scan. */
+  static int
+  parallel_build_multi (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid, const ATTR_ID *attr_ids,
+			const DB_TYPE *attr_types, int attr_cnt, int max_buckets, int sample_size,
+			double *null_frequency, char **histogram_blob, int *blob_length, INT64 *out_ndv,
+			INT64 *out_total_rows, bool *did_parallel)
+  {
+    std::vector<col_collector *> merged;
+    std::int64_t total_rows = 0;
+    int error = parallel_scan_merge_multi (thread_p, class_oid, hfid, attr_ids, attr_types, attr_cnt, sample_size,
+					   merged, &total_rows, did_parallel);
+    if (error != NO_ERROR || !*did_parallel)
+      {
+	return error;
+      }
+
+    *out_total_rows = total_rows;
+    for (int c = 0; c < attr_cnt; c++)
+      {
+	col_collector *fin = merged[c];
+	if (fin == NULL)
+	  {
+	    continue;   /* unsupported type */
+	  }
+	histogram_blob[c] = fin->build (thread_p, max_buckets, total_rows, &blob_length[c]);
+	out_ndv[c] = fin->ndv;
+	null_frequency[c] = (total_rows > 0) ? (double) fin->null_rows / (double) total_rows : 0.0;
+	if (histogram_blob[c] != NULL && blob_length[c] <= 0)
+	  {
+	    db_private_free_and_init (thread_p, histogram_blob[c]);
+	    histogram_blob[c] = NULL;
+	  }
+	delete fin;
+      }
+    return NO_ERROR;
+  }
+
+  /* Parallel multi-column NDV-only collection: same page-parallel scan + merge as the histogram
+   * build, but computes only the population NDV per column (no histogram blob). */
+  static int
+  parallel_collect_ndv_multi (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid,
+			      const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt, int sample_size,
+			      INT64 *out_ndv, INT64 *out_total_rows, bool *did_parallel)
+  {
+    std::vector<col_collector *> merged;
+    std::int64_t total_rows = 0;
+    int error = parallel_scan_merge_multi (thread_p, class_oid, hfid, attr_ids, attr_types, attr_cnt, sample_size,
+					   merged, &total_rows, did_parallel);
+    if (error != NO_ERROR || !*did_parallel)
+      {
+	return error;
+      }
+
+    *out_total_rows = total_rows;
+    for (int c = 0; c < attr_cnt; c++)
+      {
+	if (merged[c] == NULL)
+	  {
+	    out_ndv[c] = -1;    /* unsupported type */
+	    continue;
+	  }
+	out_ndv[c] = merged[c]->compute_ndv (total_rows);
+	delete merged[c];
+      }
     return NO_ERROR;
   }
 #endif /* SERVER_MODE */
@@ -1509,6 +1672,23 @@ xstats_collect_ndv_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *cla
   MVCC_SNAPSHOT *snapshot = logtb_get_mvcc_snapshot (thread_p);
 
   *out_total_rows = 0;
+
+#if defined (SERVER_MODE)
+  /* try the page-parallel scan first; falls through to the serial scan when not applicable */
+  {
+    bool did_parallel = false;
+    int perr = parallel_collect_ndv_multi (thread_p, class_oid, hfid, attr_ids, attr_types, attr_cnt,
+					   STATS_NDV_RESERVOIR_ROWS, out_ndv, out_total_rows, &did_parallel);
+    if (perr != NO_ERROR)
+      {
+	return perr;
+      }
+    if (did_parallel)
+      {
+	return NO_ERROR;
+      }
+  }
+#endif /* SERVER_MODE */
 
   std::vector<value_category> cats (attr_cnt);
   std::vector<cubsampling::reservoir_sampler<std::string>> reservoirs;
