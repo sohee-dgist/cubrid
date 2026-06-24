@@ -1387,9 +1387,98 @@ cleanup:
     return NO_ERROR;
   }
 
+  /* build one column's histogram blob into a thread-agnostic std::string. The db_private_alloc'd
+   * buffer is allocated AND freed on the building thread (thread_p); only the std::string is handed
+   * back, so a worker can build a blob that the coordinator later copies into its own private heap
+   * (private memory is per-thread, so cross-thread alloc/free is not allowed). */
+  static void
+  build_column_blob (THREAD_ENTRY *thread_p, col_collector *fin, int max_buckets, std::int64_t total_rows,
+		     std::string &out_blob, INT64 &out_ndv, std::int64_t &out_null_rows)
+  {
+    out_ndv = -1;
+    out_null_rows = 0;
+    out_blob.clear ();
+    if (fin == NULL)
+      {
+	return;			/* unsupported type */
+      }
+    int blen = 0;
+    char *b = fin->build (thread_p, max_buckets, total_rows, &blen);
+    if (b != NULL)
+      {
+	if (blen > 0)
+	  {
+	    out_blob.assign (b, (std::size_t) blen);
+	  }
+	db_private_free_and_init (thread_p, b);
+      }
+    out_ndv = fin->ndv;
+    out_null_rows = fin->null_rows;
+  }
+
+  struct build_out
+  {
+    std::string blob;
+    INT64 ndv;
+    std::int64_t null_rows;
+    build_out () : ndv (-1), null_rows (0) {}
+  };
+
+  /* worker side of the 2nd-level parallel build. Work is distributed per column: each worker claims
+   * the next column index from a shared atomic counter and builds it, until all columns are done
+   * (dynamic, so uneven per-column build cost is balanced across the workers). */
+  class build_task : public cubthread::entry_task
+  {
+    public:
+      build_task (THREAD_ENTRY *parent, parallel_query::worker_manager *wm, std::vector<col_collector *> *merged,
+		  std::vector<build_out> *outs, std::atomic<int> *next_col, int attr_cnt, int max_buckets,
+		  std::int64_t total_rows)
+	: m_parent (parent)
+	, m_wm (wm)
+	, m_merged (merged)
+	, m_outs (outs)
+	, m_next_col (next_col)
+	, m_attr_cnt (attr_cnt)
+	, m_max_buckets (max_buckets)
+	, m_total_rows (total_rows)
+      {
+      }
+
+      void execute (cubthread::entry &thread_ref) override
+      {
+	/* borrow the coordinator's transaction/connection (mirrors the scan tasks) */
+	thread_ref.m_px_orig_thread_entry = m_parent;
+	thread_ref.conn_entry = m_parent->conn_entry;
+	thread_ref.tran_index = m_parent->tran_index;
+	thread_ref.on_trace = false;
+	int c;
+	while ((c = m_next_col->fetch_add (1)) < m_attr_cnt)
+	  {
+	    build_out &o = (*m_outs)[c];
+	    build_column_blob (&thread_ref, (*m_merged)[c], m_max_buckets, m_total_rows, o.blob, o.ndv, o.null_rows);
+	  }
+      }
+
+      void retire () override
+      {
+	m_wm->pop_task ();
+	delete this;
+      }
+
+    private:
+      THREAD_ENTRY *m_parent;
+      parallel_query::worker_manager *m_wm;
+      std::vector<col_collector *> *m_merged;
+      std::vector<build_out> *m_outs;
+      std::atomic<int> *m_next_col;
+      int m_attr_cnt;
+      int m_max_buckets;
+      std::int64_t m_total_rows;
+  };
+
   /* Parallel single-scan multi-column histogram build: scan + merge via parallel_scan_merge_multi,
-   * then build each column's blob and surface its population NDV. *did_parallel is set true iff the
-   * parallel path actually ran; otherwise the caller falls back to the serial single scan. */
+   * then build each column's blob (2nd-level parallel) and surface its population NDV. *did_parallel
+   * is set true iff the parallel path actually ran; otherwise the caller falls back to serial. */
   static int
   parallel_build_multi (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid, const ATTR_ID *attr_ids,
 			const DB_TYPE *attr_types, int attr_cnt, int max_buckets, int sample_size,
@@ -1406,22 +1495,61 @@ cleanup:
       }
 
     *out_total_rows = total_rows;
+
+    /* 2nd-level parallelism: build each column's blob (group/sort + MCV + bucketize + serialize) on
+     * a worker, distributed per column. The scan workers are already released, so reserve a fresh
+     * set; each worker builds into a thread-agnostic std::string that the coordinator copies into
+     * private memory below. Falls back to a serial build when workers are unavailable. */
+    std::vector<build_out> outs (attr_cnt);
+    bool built_parallel = false;
+
+    if (attr_cnt > 1)
+      {
+	int bdeg = (attr_cnt < 16) ? attr_cnt : 16;
+	parallel_query::worker_manager *bwm = parallel_query::worker_manager::try_reserve_workers (bdeg);
+	if (bwm != NULL)
+	  {
+	    bdeg = bwm->get_reserved_workers ();
+	    if (bdeg >= 2)
+	      {
+		std::atomic<int> next_col (0);
+		for (int t = 0; t < bdeg; t++)
+		  {
+		    bwm->push_task (new build_task (thread_p, bwm, &merged, &outs, &next_col, attr_cnt, max_buckets,
+						    total_rows));
+		  }
+		bwm->wait_workers ();
+		built_parallel = true;
+	      }
+	    bwm->release_workers ();
+	  }
+      }
+
+    if (!built_parallel)
+      {
+	for (int c = 0; c < attr_cnt; c++)
+	  {
+	    build_column_blob (thread_p, merged[c], max_buckets, total_rows, outs[c].blob, outs[c].ndv,
+			       outs[c].null_rows);
+	  }
+      }
+
+    /* coordinator: copy each column's blob into private memory and publish stats */
     for (int c = 0; c < attr_cnt; c++)
       {
-	col_collector *fin = merged[c];
-	if (fin == NULL)
+	build_out &o = outs[c];
+	if (o.blob.size () > 0)
 	  {
-	    continue;   /* unsupported type */
+	    histogram_blob[c] = (char *) db_private_alloc (thread_p, o.blob.size ());
+	    if (histogram_blob[c] != NULL)
+	      {
+		o.blob.copy (histogram_blob[c], o.blob.size ());
+		blob_length[c] = (int) o.blob.size ();
+	      }
 	  }
-	histogram_blob[c] = fin->build (thread_p, max_buckets, total_rows, &blob_length[c]);
-	out_ndv[c] = fin->ndv;
-	null_frequency[c] = (total_rows > 0) ? (double) fin->null_rows / (double) total_rows : 0.0;
-	if (histogram_blob[c] != NULL && blob_length[c] <= 0)
-	  {
-	    db_private_free_and_init (thread_p, histogram_blob[c]);
-	    histogram_blob[c] = NULL;
-	  }
-	delete fin;
+	out_ndv[c] = o.ndv;
+	null_frequency[c] = (total_rows > 0) ? (double) o.null_rows / (double) total_rows : 0.0;
+	delete merged[c];
       }
     return NO_ERROR;
   }
