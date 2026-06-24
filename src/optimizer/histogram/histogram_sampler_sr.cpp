@@ -76,7 +76,8 @@ namespace
     unsupported,
     integer,			/* -> std::int64_t */
     real,			/* -> double */
-    string			/* -> std::string */
+    string,			/* -> std::string  (char/varchar + bit/varbit raw bytes) */
+    datetime			/* -> std::uint64_t (date/time family, client u64 key encoding) */
   };
 
   value_category
@@ -94,7 +95,18 @@ namespace
 	return value_category::real;
       case DB_TYPE_CHAR:
       case DB_TYPE_VARCHAR:	/* == DB_TYPE_STRING */
+      case DB_TYPE_BIT:
+      case DB_TYPE_VARBIT:
 	return value_category::string;
+      case DB_TYPE_TIME:
+      case DB_TYPE_DATE:
+      case DB_TYPE_TIMESTAMP:
+      case DB_TYPE_TIMESTAMPLTZ:
+      case DB_TYPE_TIMESTAMPTZ:
+      case DB_TYPE_DATETIME:
+      case DB_TYPE_DATETIMELTZ:
+      case DB_TYPE_DATETIMETZ:
+	return value_category::datetime;
       default:
 	return value_category::unsupported;
       }
@@ -404,8 +416,21 @@ namespace
   bool
   extract<std::string> (const DB_VALUE *v, cubsampling::reservoir_sampler<std::string> &rs)
   {
-    const char *s = db_get_string (v);
-    int len = db_get_string_size (v);
+    const char *s;
+    int len;
+    const DB_TYPE t = DB_VALUE_TYPE (v);
+    if (t == DB_TYPE_BIT || t == DB_TYPE_VARBIT)
+      {
+	/* raw bit bytes; byte length matches the client histogram key ((bitlen + 7) / 8) */
+	int bitlen = 0;
+	s = db_get_bit (v, &bitlen);
+	len = (bitlen + 7) / 8;
+      }
+    else
+      {
+	s = db_get_string (v);
+	len = db_get_string_size (v);
+      }
     if (s == NULL || len < 0)
       {
 	return false;
@@ -415,6 +440,51 @@ namespace
       {
 	/* build the std::string only when the value is actually kept */
 	rs.store (slot, std::string (s, static_cast<std::size_t> (len)));
+      }
+    return true;
+  }
+
+  /* date/time family sampled as u64, matching the client histogram key (histogram_cl.cpp) */
+  template <>
+  bool
+  extract<std::uint64_t> (const DB_VALUE *v, cubsampling::reservoir_sampler<std::uint64_t> &rs)
+  {
+    std::uint64_t out;
+    switch (DB_VALUE_TYPE (v))
+      {
+      case DB_TYPE_TIME:
+	out = (std::uint64_t) (*db_get_time (v));
+	break;
+      case DB_TYPE_DATE:
+	out = (std::uint64_t) (*db_get_date (v));
+	break;
+      case DB_TYPE_TIMESTAMP:
+      case DB_TYPE_TIMESTAMPLTZ:
+	out = (std::uint64_t) (*db_get_timestamp (v));
+	break;
+      case DB_TYPE_TIMESTAMPTZ:
+	out = (std::uint64_t) (db_get_timestamptz (v)->timestamp);
+	break;
+      case DB_TYPE_DATETIME:
+      case DB_TYPE_DATETIMELTZ:
+      {
+	DB_DATETIME *dt = db_get_datetime (v);
+	out = ((std::uint64_t) dt->date << 32) | (std::uint64_t) dt->time;
+	break;
+      }
+      case DB_TYPE_DATETIMETZ:
+      {
+	DB_DATETIMETZ *dtz = db_get_datetimetz (v);
+	out = ((std::uint64_t) dtz->datetime.date << 32) | (std::uint64_t) dtz->datetime.time;
+	break;
+      }
+      default:
+	return false;
+      }
+    int slot = rs.consider ();
+    if (slot != cubsampling::reservoir_selector::NOT_SELECTED)
+      {
+	rs.store (slot, out);
       }
     return true;
   }
@@ -976,6 +1046,8 @@ cleanup:
 	return new col_collector_t<double> (id, t, value_category::real, cap);
       case value_category::string:
 	return new col_collector_t<std::string> (id, t, value_category::string, cap);
+      case value_category::datetime:
+	return new col_collector_t<std::uint64_t> (id, t, value_category::datetime, cap);
       default:
 	return NULL;
       }
@@ -1632,6 +1704,9 @@ namespace
 	  case DB_TYPE_DOUBLE:
 	    out = db_get_double (v);
 	    break;
+	  case DB_TYPE_NUMERIC:
+	    numeric_coerce_num_to_double (v, db_get_numeric_scale (v, NULL), &out);
+	    break;
 	  default:
 	    return false;
 	  }
@@ -1640,13 +1715,62 @@ namespace
       }
       case value_category::string:
       {
-	const char *s = db_get_string (v);
-	int len = db_get_string_size (v);
+	const char *s;
+	int len;
+	const DB_TYPE t = DB_VALUE_TYPE (v);
+	if (t == DB_TYPE_BIT || t == DB_TYPE_VARBIT)
+	  {
+	    int bitlen = 0;
+	    s = db_get_bit (v, &bitlen);
+	    len = (bitlen + 7) / 8;
+	  }
+	else
+	  {
+	    s = db_get_string (v);
+	    len = db_get_string_size (v);
+	  }
 	if (s == NULL || len < 0)
 	  {
 	    return false;
 	  }
 	key.assign (s, static_cast<std::size_t> (len));
+	return true;
+      }
+      case value_category::datetime:
+      {
+	std::uint64_t out;
+	switch (DB_VALUE_TYPE (v))
+	  {
+	  case DB_TYPE_TIME:
+	    out = (std::uint64_t) (*db_get_time (v));
+	    break;
+	  case DB_TYPE_DATE:
+	    out = (std::uint64_t) (*db_get_date (v));
+	    break;
+	  case DB_TYPE_TIMESTAMP:
+	  case DB_TYPE_TIMESTAMPLTZ:
+	    out = (std::uint64_t) (*db_get_timestamp (v));
+	    break;
+	  case DB_TYPE_TIMESTAMPTZ:
+	    out = (std::uint64_t) (db_get_timestamptz (v)->timestamp);
+	    break;
+	  case DB_TYPE_DATETIME:
+	  case DB_TYPE_DATETIMELTZ:
+	  {
+	    DB_DATETIME *dt = db_get_datetime (v);
+	    out = ((std::uint64_t) dt->date << 32) | (std::uint64_t) dt->time;
+	    break;
+	  }
+	  case DB_TYPE_DATETIMETZ:
+	  {
+	    DB_DATETIMETZ *dtz = db_get_datetimetz (v);
+	    out = ((std::uint64_t) dtz->datetime.date << 32) | (std::uint64_t) dtz->datetime.time;
+	    break;
+	  }
+	  default:
+	    return false;
+	  }
+	key.assign (reinterpret_cast<const char *> (&out), sizeof (out));
 	return true;
       }
       default:
