@@ -5774,89 +5774,29 @@ int
 histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_type, int max_buckets, int sample_size,
 				      double *null_frequency, char **blob, int *blob_length)
 {
-  *blob = NULL;
-  *blob_length = 0;
-  *null_frequency = 0.0;
-
-#if defined(CS_MODE)
-  int req_error;
-  int status = ER_FAILED;
-  int len = 0;
-  double nf = 0.0;
-  char *area = NULL;
-  int area_size = 0;
-  char *ptr;
-  OR_ALIGNED_BUF (OR_OID_SIZE + OR_INT_SIZE * 4) a_request;
-  char *request;
-  OR_ALIGNED_BUF (OR_INT_SIZE + OR_INT_SIZE + OR_DOUBLE_SIZE) a_reply;
-  char *reply;
-
-  request = OR_ALIGNED_BUF_START (a_request);
-  reply = OR_ALIGNED_BUF_START (a_reply);
-
-  ptr = or_pack_oid (request, class_oid);
-  ptr = or_pack_int (ptr, attr_id);
-  ptr = or_pack_int (ptr, attr_type);
-  ptr = or_pack_int (ptr, max_buckets);
-  ptr = or_pack_int (ptr, sample_size);
-
-  req_error =
-    net_client_request2 (NET_SERVER_QST_HISTOGRAM_BUILD_BY_RESERVOIR, request, OR_ALIGNED_BUF_SIZE (a_request),
-			 reply, OR_ALIGNED_BUF_SIZE (a_reply), NULL, 0, &area, &area_size);
-  if (!req_error)
-    {
-      /* reply layout: (data_length, status, null_frequency) — first int must be the
-       * variable data length (net_client_request2 protocol) */
-      ptr = or_unpack_int (reply, &len);
-      ptr = or_unpack_int (ptr, &status);
-      ptr = or_unpack_double (ptr, &nf);
-      *null_frequency = nf;
-      *blob_length = len;
-      *blob = area;		/* malloc'd by the network layer; caller frees */
-    }
-  else
-    {
-      if (area != NULL)
-	{
-	  free (area);
-	}
-      status = req_error;
-    }
-  return status;
-#else /* CS_MODE (i.e. SA_MODE) */
+  /* The server handler is multi-column only. Issue a 1-column multi request so single-column
+   * (named-attribute) histogram builds use the same wire protocol; this avoids the request/reply
+   * format mismatch that broke `... update histogram on <col>`. */
+  int ids[1];
+  int types[1];
+  double nf[1] = { 0.0 };
+  char *blobs[1] = { NULL };
+  int blens[1] = { 0 };
+  INT64 ndv[1] = { -1 };
+  INT64 total_rows = 0;
   int status;
-  HFID hfid;
-  char *priv_blob = NULL;
-  THREAD_ENTRY *thread_p = enter_server ();
 
-  if (heap_get_class_info (thread_p, class_oid, &hfid, NULL, NULL) != NO_ERROR)
-    {
-      exit_server (*thread_p);
-      return ER_FAILED;
-    }
+  ids[0] = attr_id;
+  types[0] = attr_type;
+
   status =
-    xhistogram_build_by_fullscan_reservoir (thread_p, class_oid, &hfid, (ATTR_ID) attr_id, (DB_TYPE) attr_type,
-					    max_buckets, sample_size, null_frequency, &priv_blob, blob_length);
-  /* hand back a malloc'd copy so the caller can free() uniformly across CS/SA */
-  if (status == NO_ERROR && priv_blob != NULL && *blob_length > 0)
-    {
-      *blob = (char *) malloc ((size_t) * blob_length);
-      if (*blob != NULL)
-	{
-	  memcpy (*blob, priv_blob, (size_t) * blob_length);
-	}
-      else
-	{
-	  *blob_length = 0;
-	}
-    }
-  if (priv_blob != NULL)
-    {
-      db_private_free_and_init (thread_p, priv_blob);
-    }
-  exit_server (*thread_p);
+    histogram_build_multi_by_reservoir_request (class_oid, 1, ids, types, max_buckets, sample_size, nf, blobs, blens,
+						ndv, &total_rows);
+
+  *null_frequency = nf[0];
+  *blob = blobs[0];
+  *blob_length = blens[0];
   return status;
-#endif /* !CS_MODE */
 }
 
 /*
