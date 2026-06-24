@@ -579,6 +579,7 @@ set(HISTOGRAM_HEADERS
   ${OPTIMIZER_HISTOGRAM_DIR}/histogram_bucketizer.hpp
   ${OPTIMIZER_HISTOGRAM_DIR}/histogram_sampler_sr.hpp
   ${OPTIMIZER_HISTOGRAM_DIR}/reservoir_sampler.hpp
+  ${OPTIMIZER_HISTOGRAM_DIR}/hyperloglog.hpp
 )
 
 set(LOADDB_SOURCES

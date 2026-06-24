@@ -41,6 +41,7 @@
 #include "log_impl.h"
 #include "numeric_opfunc.h"
 #include "object_representation.h"
+#include "hyperloglog.hpp"
 #include "reservoir_sampler.hpp"
 #include "statistics.h"
 #include "system_parameter.h"
@@ -193,7 +194,8 @@ namespace
   template <typename T>
   char *
   build_blob (THREAD_ENTRY *thread_p, std::vector<T> &samples, DB_TYPE attr_type, int max_buckets,
-	      std::int64_t n_total, std::int64_t n_nn, int *blob_length, INT64 *out_ndv = NULL)
+	      std::int64_t n_total, std::int64_t n_nn, int *blob_length, INT64 *out_ndv = NULL,
+	      INT64 ndv_hint = -1)
   {
     std::vector<std::pair<T, std::int64_t>> vc = group_counts (samples);
     std::int64_t total_sample = 0;
@@ -208,8 +210,25 @@ namespace
       }
     const std::int64_t d_total = (std::int64_t) vc.size ();
 
-    /* estimated population NDV (non-null); n_nn is exact (full reservoir scan) */
-    INT64 d_pop = estimate_ndv_from_grouped (total_sample, d_total, f1_total, n_nn);
+    /* population NDV: prefer the caller's HyperLogLog estimate (frequency-blind, skew-safe),
+     * clamped to [sample distinct, non-null rows]; otherwise fall back to the sample estimator. */
+    INT64 d_pop;
+    if (ndv_hint >= 0)
+      {
+	d_pop = ndv_hint;
+	if (d_pop < d_total)
+	  {
+	    d_pop = d_total;
+	  }
+	if (n_nn > 0 && d_pop > n_nn)
+	  {
+	    d_pop = n_nn;
+	  }
+      }
+    else
+      {
+	d_pop = estimate_ndv_from_grouped (total_sample, d_total, f1_total, n_nn);
+      }
 
     /* surface the population NDV so the histogram scan can feed it to update-statistics
      * (reuse the same scan instead of a second NDV full scan) */
@@ -347,13 +366,15 @@ namespace
    * is not samplable (NULL / wrong type) so the caller counts it as null. Uses decide-then-extract:
    * the reservoir decides keep/drop from the running count alone (no value needed), so the value is
    * only materialized when it is actually kept -- this skips a per-row std::string allocation for
-   * the values dropped once the reservoir is full (the vast majority). */
+   * the values dropped once the reservoir is full (the vast majority). When `hll` is given, every
+   * non-null value is hashed into it (frequency-blind NDV; cheap, no allocation). */
   template <typename T>
-  bool extract (const DB_VALUE *v, cubsampling::reservoir_sampler<T> &rs);
+  bool extract (const DB_VALUE *v, cubsampling::reservoir_sampler<T> &rs, cubsampling::hyperloglog *hll = nullptr);
 
   template <>
   bool
-  extract<std::int64_t> (const DB_VALUE *v, cubsampling::reservoir_sampler<std::int64_t> &rs)
+  extract<std::int64_t> (const DB_VALUE *v, cubsampling::reservoir_sampler<std::int64_t> &rs,
+			 cubsampling::hyperloglog *hll)
   {
     std::int64_t out;
     switch (DB_VALUE_TYPE (v))
@@ -370,6 +391,10 @@ namespace
       default:
 	return false;
       }
+    if (hll != NULL)
+      {
+	hll->add_hash (cubsampling::hll_mix64 ((std::uint64_t) out));
+      }
     int slot = rs.consider ();
     if (slot != cubsampling::reservoir_selector::NOT_SELECTED)
       {
@@ -380,20 +405,10 @@ namespace
 
   template <>
   bool
-  extract<double> (const DB_VALUE *v, cubsampling::reservoir_sampler<double> &rs)
+  extract<double> (const DB_VALUE *v, cubsampling::reservoir_sampler<double> &rs, cubsampling::hyperloglog *hll)
   {
-    const DB_TYPE t = DB_VALUE_TYPE (v);
-    if (t != DB_TYPE_FLOAT && t != DB_TYPE_DOUBLE && t != DB_TYPE_NUMERIC)
-      {
-	return false;
-      }
-    int slot = rs.consider ();
-    if (slot == cubsampling::reservoir_selector::NOT_SELECTED)
-      {
-	return true;
-      }
-    double d = 0.0;
-    switch (t)
+    double d;
+    switch (DB_VALUE_TYPE (v))
       {
       case DB_TYPE_FLOAT:
 	d = static_cast<double> (db_get_float (v));
@@ -406,15 +421,24 @@ namespace
 	numeric_coerce_num_to_double (v, db_get_numeric_scale (v, NULL), &d);
 	break;
       default:
-	break;
+	return false;
       }
-    rs.store (slot, d);
+    if (hll != NULL)
+      {
+	hll->add_hash (cubsampling::hll_hash_double (d));
+      }
+    int slot = rs.consider ();
+    if (slot != cubsampling::reservoir_selector::NOT_SELECTED)
+      {
+	rs.store (slot, d);
+      }
     return true;
   }
 
   template <>
   bool
-  extract<std::string> (const DB_VALUE *v, cubsampling::reservoir_sampler<std::string> &rs)
+  extract<std::string> (const DB_VALUE *v, cubsampling::reservoir_sampler<std::string> &rs,
+			cubsampling::hyperloglog *hll)
   {
     const char *s;
     int len;
@@ -435,6 +459,10 @@ namespace
       {
 	return false;
       }
+    if (hll != NULL)
+      {
+	hll->add_hash (cubsampling::hll_hash_bytes (s, static_cast<std::size_t> (len)));
+      }
     int slot = rs.consider ();
     if (slot != cubsampling::reservoir_selector::NOT_SELECTED)
       {
@@ -447,7 +475,8 @@ namespace
   /* date/time family sampled as u64, matching the client histogram key (histogram_cl.cpp) */
   template <>
   bool
-  extract<std::uint64_t> (const DB_VALUE *v, cubsampling::reservoir_sampler<std::uint64_t> &rs)
+  extract<std::uint64_t> (const DB_VALUE *v, cubsampling::reservoir_sampler<std::uint64_t> &rs,
+			  cubsampling::hyperloglog *hll)
   {
     std::uint64_t out;
     switch (DB_VALUE_TYPE (v))
@@ -480,6 +509,10 @@ namespace
       }
       default:
 	return false;
+      }
+    if (hll != NULL)
+      {
+	hll->add_hash (cubsampling::hll_mix64 (out));
       }
     int slot = rs.consider ();
     if (slot != cubsampling::reservoir_selector::NOT_SELECTED)
@@ -961,7 +994,8 @@ cleanup:
       DB_TYPE attr_type;
       value_category cat;
       std::int64_t null_rows;
-      INT64 ndv;		/* population NDV estimated from this column's reservoir (set by build ()) */
+      INT64 ndv;		/* population NDV (from the HyperLogLog sketch; set by build ()/compute_ndv ()) */
+      cubsampling::hyperloglog m_hll;	/* distinct-value sketch fed by every non-null value */
 
       col_collector (ATTR_ID id, DB_TYPE t, value_category c)
 	: attr_id (id), attr_type (t), cat (c), null_rows (0), ndv (-1)
@@ -971,11 +1005,36 @@ cleanup:
       virtual void feed (const DB_VALUE *v) = 0;
       virtual char *build (THREAD_ENTRY *thread_p, int max_buckets, std::int64_t total_rows, int *blob_length) = 0;
       /* merge the (same-column, same dynamic type) per-worker collectors `peers` into this one's
-       * final sample, population-weighted, capped at `capacity`. Used by the parallel path. */
+       * final sample (population-weighted) and HLL sketch (register-wise). Used by the parallel path. */
       virtual void merge_peers (const std::vector<col_collector *> &peers, std::size_t capacity) = 0;
-      /* estimate population NDV (non-null) from this collector's (possibly merged) sample, without
-       * building the histogram blob. Stores it in `ndv` and returns it. Used by the NDV-only path. */
-      virtual INT64 compute_ndv (std::int64_t total_rows) = 0;
+
+      /* estimated population NDV (non-null) from the HyperLogLog sketch -- frequency-blind, so it is
+       * accurate on skewed/long-tail columns where a sample's distinct count collapses. Capped at the
+       * column's non-null row count. */
+      INT64 estimate_ndv (std::int64_t total_rows) const
+      {
+	const std::int64_t n_nn = total_rows - null_rows;
+	if (n_nn <= 0)
+	  {
+	    return 0;
+	  }
+	INT64 v = (INT64) (m_hll.estimate () + 0.5);
+	if (v < 1)
+	  {
+	    v = 1;
+	  }
+	if (v > n_nn)
+	  {
+	    v = n_nn;
+	  }
+	return v;
+      }
+      /* same as estimate_ndv (), also storing into `ndv`. Used by the NDV-only path. */
+      INT64 compute_ndv (std::int64_t total_rows)
+      {
+	ndv = estimate_ndv (total_rows);
+	return ndv;
+      }
   };
 
   template <typename T>
@@ -998,7 +1057,7 @@ cleanup:
 	    null_rows++;
 	    return;
 	  }
-	if (!extract<T> (v, rs))
+	if (!extract<T> (v, rs, &m_hll))
 	  {
 	    null_rows++;
 	  }
@@ -1015,6 +1074,7 @@ cleanup:
 	    col_collector_t<T> *pt = static_cast<col_collector_t<T> *> (p);
 	    parts.push_back (std::move (pt->rs.samples ()));
 	    seens.push_back (pt->rs.seen ());
+	    m_hll.merge (pt->m_hll);	/* register-wise max == one sketch over all partitions */
 	  }
 	m_merged = cubsampling::merge_partition_samples<T> (parts, seens, capacity);
 	m_has_merged = true;
@@ -1024,14 +1084,7 @@ cleanup:
       {
 	std::vector<T> &s = m_has_merged ? m_merged : rs.samples ();
 	return build_blob<T> (thread_p, s, attr_type, max_buckets, total_rows, total_rows - null_rows, blob_length,
-			      &ndv);
-      }
-
-      INT64 compute_ndv (std::int64_t total_rows) override
-      {
-	std::vector<T> &s = m_has_merged ? m_merged : rs.samples ();
-	ndv = estimate_ndv_from_samples<T> (s, total_rows - null_rows);
-	return ndv;
+			      &ndv, estimate_ndv (total_rows));
       }
   };
 
@@ -1816,12 +1869,11 @@ xstats_collect_ndv_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *cla
 #endif /* SERVER_MODE */
 
   std::vector<value_category> cats (attr_cnt);
-  std::vector<cubsampling::reservoir_sampler<std::string>> reservoirs;
-  reservoirs.reserve (attr_cnt);
+  std::vector<cubsampling::hyperloglog> hlls (attr_cnt);
+  std::vector<INT64> nn (attr_cnt, 0);	/* exact non-null rows per column */
   for (i = 0; i < attr_cnt; i++)
     {
       cats[i] = category_of (attr_types[i]);
-      reservoirs.emplace_back (STATS_NDV_RESERVOIR_ROWS);
       out_ndv[i] = -1;		/* unsupported / not computed by default */
     }
 
@@ -1870,7 +1922,8 @@ xstats_collect_ndv_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *cla
 	  std::string key;
 	  if (ndv_canonical_key (v, cats[i], key))
 	    {
-	      reservoirs[i].add (std::move (key));
+	      hlls[i].add_hash (cubsampling::hll_hash_bytes (key.data (), key.size ()));
+	      nn[i]++;
 	    }
 	}
     }
@@ -1881,51 +1934,29 @@ xstats_collect_ndv_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *cla
       goto cleanup;
     }
 
-  /* per-column: (n, d, f1) from the reservoir -> dedicated NDV estimator */
+  /* per-column NDV from the HyperLogLog sketch (frequency-blind; matches the parallel path) */
   for (i = 0; i < attr_cnt; i++)
     {
       if (cats[i] == value_category::unsupported)
 	{
 	  continue;
 	}
-
-      std::vector<std::string> &samples = reservoirs[i].samples ();
-      INT64 n_nn = (INT64) reservoirs[i].seen ();	/* exact non-null rows of the column */
-
+      INT64 n_nn = nn[i];
       if (n_nn == 0)
 	{
-	  out_ndv[i] = 0;	/* all-NULL column */
+	  out_ndv[i] = 0;       /* all-NULL column */
 	  continue;
 	}
-
-      std::sort (samples.begin (), samples.end ());
-      INT64 d = 0, f1 = 0;
-      std::size_t j = 0;
-      while (j < samples.size ())
+      INT64 v = (INT64) (hlls[i].estimate () + 0.5);
+      if (v < 1)
 	{
-	  std::size_t run = j + 1;
-	  while (run < samples.size () && samples[run] == samples[j])
-	    {
-	      run++;
-	    }
-	  d++;
-	  if (run - j == 1)
-	    {
-	      f1++;
-	    }
-	  j = run;
+	  v = 1;
 	}
-
-      INT64 k = (INT64) samples.size ();
-      STATS_NDV_SAMPLE_INPUT in;
-      in.sample_rows = k;	/* reservoir holds non-null values only */
-      in.sample_nulls = 0;
-      in.sample_distinct = d;
-      in.sample_singleton = f1;
-      in.sampling_weight = (int) MAX (1, (n_nn + k / 2) / k);	/* >1 disables the full-scan short-circuit when sampled */
-      in.total_nn_rows = n_nn;	/* exact (full reservoir scan): N_nn used directly, no integer-weight rounding */
-
-      out_ndv[i] = stats_estimate_ndv_from_sample (&in);
+      if (v > n_nn)
+	{
+	  v = n_nn;
+	}
+      out_ndv[i] = v;
     }
 
   error = NO_ERROR;
