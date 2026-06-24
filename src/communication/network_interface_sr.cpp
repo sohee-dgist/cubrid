@@ -2093,6 +2093,7 @@ sqst_histogram_build_by_reservoir (THREAD_ENTRY *thread_p, unsigned int rid, cha
   char **blobs = NULL;
   int *blob_lens = NULL;
   INT64 *ndvs = NULL;
+  int *attr_unique = NULL;
   INT64 total_rows = 0;
   OR_ALIGNED_BUF (OR_INT_SIZE + OR_INT_SIZE) a_reply;
   char *reply = OR_ALIGNED_BUF_START (a_reply);
@@ -2115,8 +2116,9 @@ sqst_histogram_build_by_reservoir (THREAD_ENTRY *thread_p, unsigned int rid, cha
   blobs = (char **) db_private_alloc (thread_p, sizeof (char *) * attr_cnt);
   blob_lens = (int *) db_private_alloc (thread_p, sizeof (int) * attr_cnt);
   ndvs = (INT64 *) db_private_alloc (thread_p, sizeof (INT64) * attr_cnt);
+  attr_unique = (int *) db_private_alloc (thread_p, sizeof (int) * attr_cnt);
   if (attr_ids == NULL || attr_types == NULL || null_freqs == NULL || blobs == NULL || blob_lens == NULL
-      || ndvs == NULL)
+      || ndvs == NULL || attr_unique == NULL)
     {
       status = ER_OUT_OF_VIRTUAL_MEMORY;
       (void) return_error_to_client (thread_p, rid);
@@ -2124,11 +2126,13 @@ sqst_histogram_build_by_reservoir (THREAD_ENTRY *thread_p, unsigned int rid, cha
     }
   for (i = 0; i < attr_cnt; i++)
     {
-      int id = 0, t = 0;
+      int id = 0, t = 0, uq = 0;
       ptr = or_unpack_int (ptr, &id);
       ptr = or_unpack_int (ptr, &t);
+      ptr = or_unpack_int (ptr, &uq);
       attr_ids[i] = (ATTR_ID) id;
       attr_types[i] = (DB_TYPE) t;
+      attr_unique[i] = uq;
       blobs[i] = NULL;
       blob_lens[i] = 0;
       null_freqs[i] = 0.0;
@@ -2141,8 +2145,8 @@ sqst_histogram_build_by_reservoir (THREAD_ENTRY *thread_p, unsigned int rid, cha
       goto cleanup;
     }
 
-  status = xhistogram_build_multi_by_fullscan_reservoir (thread_p, &class_oid, &hfid, attr_ids, attr_types, attr_cnt,
-	   max_buckets, sample_size, null_freqs, blobs, blob_lens, ndvs, &total_rows);
+  status = xhistogram_build_multi_by_fullscan_reservoir (thread_p, &class_oid, &hfid, attr_ids, attr_types,
+	   attr_unique, attr_cnt, max_buckets, sample_size, null_freqs, blobs, blob_lens, ndvs, &total_rows);
   if (status != NO_ERROR)
     {
       (void) return_error_to_client (thread_p, rid);
@@ -2222,6 +2226,10 @@ cleanup:
   if (ndvs != NULL)
     {
       db_private_free_and_init (thread_p, ndvs);
+    }
+  if (attr_unique != NULL)
+    {
+      db_private_free_and_init (thread_p, attr_unique);
     }
 
 send:

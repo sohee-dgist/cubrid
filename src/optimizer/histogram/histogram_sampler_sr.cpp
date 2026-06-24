@@ -996,9 +996,10 @@ cleanup:
       std::int64_t null_rows;
       INT64 ndv;		/* population NDV (from the HyperLogLog sketch; set by build ()/compute_ndv ()) */
       cubsampling::hyperloglog m_hll;	/* distinct-value sketch fed by every non-null value */
+      bool unique;		/* single-column UNIQUE/PK: NDV == non-null rows, so skip the HLL */
 
       col_collector (ATTR_ID id, DB_TYPE t, value_category c)
-	: attr_id (id), attr_type (t), cat (c), null_rows (0), ndv (-1)
+	: attr_id (id), attr_type (t), cat (c), null_rows (0), ndv (-1), unique (false)
       {
       }
       virtual ~col_collector () {}
@@ -1017,6 +1018,10 @@ cleanup:
 	if (n_nn <= 0)
 	  {
 	    return 0;
+	  }
+	if (unique)
+	  {
+	    return n_nn;	/* single-column UNIQUE/PK: every non-null value is distinct */
 	  }
 	INT64 v = (INT64) (m_hll.estimate () + 0.5);
 	if (v < 1)
@@ -1057,7 +1062,7 @@ cleanup:
 	    null_rows++;
 	    return;
 	  }
-	if (!extract<T> (v, rs, &m_hll))
+	if (!extract<T> (v, rs, unique ? NULL : &m_hll))
 	  {
 	    null_rows++;
 	  }
@@ -1294,8 +1299,8 @@ cleanup:
    * *did_parallel = false. */
   static int
   parallel_scan_merge_multi (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid,
-			     const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt, int sample_size,
-			     std::vector<col_collector *> &merged, std::int64_t *out_total_rows,
+			     const ATTR_ID *attr_ids, const DB_TYPE *attr_types, const int *attr_unique, int attr_cnt,
+			     int sample_size, std::vector<col_collector *> &merged, std::int64_t *out_total_rows,
 			     bool *did_parallel)
   {
     int w, c;
@@ -1318,6 +1323,10 @@ cleanup:
 	for (c = 0; c < attr_cnt; c++)
 	  {
 	    results[w].collectors[c] = make_col_collector (attr_ids[c], attr_types[c], (std::size_t) sample_size);
+	    if (results[w].collectors[c] != NULL && attr_unique != NULL && attr_unique[c])
+	      {
+		results[w].collectors[c]->unique = true;
+	      }
 	  }
       }
 
@@ -1351,6 +1360,10 @@ cleanup:
 	    if (fin == NULL)
 	      {
 		continue;       /* unsupported type */
+	      }
+	    if (attr_unique != NULL && attr_unique[c])
+	      {
+		fin->unique = true;
 	      }
 	    std::vector<col_collector *> peers;
 	    std::int64_t nulls = 0;
@@ -1481,14 +1494,14 @@ cleanup:
    * is set true iff the parallel path actually ran; otherwise the caller falls back to serial. */
   static int
   parallel_build_multi (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid, const ATTR_ID *attr_ids,
-			const DB_TYPE *attr_types, int attr_cnt, int max_buckets, int sample_size,
-			double *null_frequency, char **histogram_blob, int *blob_length, INT64 *out_ndv,
-			INT64 *out_total_rows, bool *did_parallel)
+			const DB_TYPE *attr_types, const int *attr_unique, int attr_cnt, int max_buckets,
+			int sample_size, double *null_frequency, char **histogram_blob, int *blob_length,
+			INT64 *out_ndv, INT64 *out_total_rows, bool *did_parallel)
   {
     std::vector<col_collector *> merged;
     std::int64_t total_rows = 0;
-    int error = parallel_scan_merge_multi (thread_p, class_oid, hfid, attr_ids, attr_types, attr_cnt, sample_size,
-					   merged, &total_rows, did_parallel);
+    int error = parallel_scan_merge_multi (thread_p, class_oid, hfid, attr_ids, attr_types, attr_unique, attr_cnt,
+					   sample_size, merged, &total_rows, did_parallel);
     if (error != NO_ERROR || !*did_parallel)
       {
 	return error;
@@ -1558,13 +1571,13 @@ cleanup:
    * build, but computes only the population NDV per column (no histogram blob). */
   static int
   parallel_collect_ndv_multi (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid,
-			      const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt, int sample_size,
-			      INT64 *out_ndv, INT64 *out_total_rows, bool *did_parallel)
+			      const ATTR_ID *attr_ids, const DB_TYPE *attr_types, const int *attr_unique, int attr_cnt,
+			      int sample_size, INT64 *out_ndv, INT64 *out_total_rows, bool *did_parallel)
   {
     std::vector<col_collector *> merged;
     std::int64_t total_rows = 0;
-    int error = parallel_scan_merge_multi (thread_p, class_oid, hfid, attr_ids, attr_types, attr_cnt, sample_size,
-					   merged, &total_rows, did_parallel);
+    int error = parallel_scan_merge_multi (thread_p, class_oid, hfid, attr_ids, attr_types, attr_unique, attr_cnt,
+					   sample_size, merged, &total_rows, did_parallel);
     if (error != NO_ERROR || !*did_parallel)
       {
 	return error;
@@ -1690,8 +1703,9 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
 
 int
 xhistogram_build_multi_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class_oid, const HFID *hfid,
-    const ATTR_ID *attr_ids, const DB_TYPE *attr_types, int attr_cnt, int max_buckets, int sample_size,
-    double *null_frequency, char **histogram_blob, int *blob_length, INT64 *out_ndv, INT64 *out_total_rows)
+    const ATTR_ID *attr_ids, const DB_TYPE *attr_types, const int *attr_unique, int attr_cnt, int max_buckets,
+    int sample_size, double *null_frequency, char **histogram_blob, int *blob_length, INT64 *out_ndv,
+    INT64 *out_total_rows)
 {
   HEAP_SCANCACHE scan_cache;
   HEAP_CACHE_ATTRINFO attr_info;
@@ -1738,9 +1752,9 @@ xhistogram_build_multi_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID 
   /* try the page-parallel single scan first; falls through to serial when not applicable */
   {
     bool did_parallel = false;
-    int perr = parallel_build_multi (thread_p, class_oid, hfid, attr_ids, attr_types, attr_cnt, max_buckets,
-				     sample_size, null_frequency, histogram_blob, blob_length, out_ndv, out_total_rows,
-				     &did_parallel);
+    int perr = parallel_build_multi (thread_p, class_oid, hfid, attr_ids, attr_types, attr_unique, attr_cnt,
+				     max_buckets, sample_size, null_frequency, histogram_blob, blob_length, out_ndv,
+				     out_total_rows, &did_parallel);
     if (perr != NO_ERROR)
       {
 	return perr;
@@ -1756,6 +1770,10 @@ xhistogram_build_multi_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID 
   for (i = 0; i < attr_cnt; i++)
     {
       collectors[i] = make_col_collector (attr_ids[i], attr_types[i], (std::size_t) sample_size);
+      if (collectors[i] != NULL && attr_unique != NULL && attr_unique[i])
+	{
+	  collectors[i]->unique = true;
+	}
     }
 
   error = heap_scancache_start (thread_p, &scan_cache, hfid, class_oid, true /* cache_last_fix_page */, snapshot);
@@ -1983,8 +2001,8 @@ xstats_collect_ndv_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *cla
   /* try the page-parallel scan first; falls through to the serial scan when not applicable */
   {
     bool did_parallel = false;
-    int perr = parallel_collect_ndv_multi (thread_p, class_oid, hfid, attr_ids, attr_types, attr_cnt,
-					   STATS_NDV_RESERVOIR_ROWS, out_ndv, out_total_rows, &did_parallel);
+    int perr = parallel_collect_ndv_multi (thread_p, class_oid, hfid, attr_ids, attr_types, NULL /* attr_unique */,
+					   attr_cnt, STATS_NDV_RESERVOIR_ROWS, out_ndv, out_total_rows, &did_parallel);
     if (perr != NO_ERROR)
       {
 	return perr;

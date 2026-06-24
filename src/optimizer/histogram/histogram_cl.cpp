@@ -66,6 +66,29 @@ analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_
   return analyze_classes_by_reservoir (thread_p, tbl_name, attr_name, max_number_of_buckets, classop);
 }
 
+/* true iff `attr_id` is the sole column of a UNIQUE or PRIMARY KEY constraint on `classop`. Such a
+ * column's non-null values are all distinct, so its NDV equals its non-null row count and the server
+ * can skip the HyperLogLog sketch. (db_attribute_is_unique () is unsuitable here: it is also true
+ * for members of a composite key, whose individual column is not distinct.) */
+static bool
+attr_is_single_col_unique (MOP classop, int attr_id)
+{
+  for (DB_CONSTRAINT *con = db_get_constraints (classop); con != NULL; con = db_constraint_next (con))
+    {
+      DB_CONSTRAINT_TYPE ct = db_constraint_type (con);
+      if (ct != DB_CONSTRAINT_UNIQUE && ct != DB_CONSTRAINT_PRIMARY_KEY)
+	{
+	  continue;
+	}
+      DB_ATTRIBUTE **cattrs = db_constraint_attributes (con);
+      if (cattrs != NULL && cattrs[0] != NULL && cattrs[1] == NULL && db_attribute_id (cattrs[0]) == attr_id)
+	{
+	  return true;
+	}
+    }
+  return false;
+}
+
 /*
  * analyze_classes_by_reservoir () - server-side full-scan reservoir histogram collection.
  *   Sends one server request that scans the heap, reservoir-samples the attribute, builds
@@ -103,8 +126,9 @@ analyze_classes_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, cons
     }
 
   /* server builds the histogram by full-scan reservoir sampling; sample_size 0 -> default */
-  error = histogram_build_by_reservoir_request (class_oid, attr_id, (int) attr_type, max_number_of_buckets, 0,
-	  &null_frequency, &histogram_blob, &histogram_total_length);
+  int attr_unique = attr_is_single_col_unique (classop, attr_id) ? 1 : 0;
+  error = histogram_build_by_reservoir_request (class_oid, attr_id, (int) attr_type, attr_unique, max_number_of_buckets,
+	  0, &null_frequency, &histogram_blob, &histogram_total_length);
   if (error != NO_ERROR)
     {
       if (histogram_blob != NULL)
@@ -294,6 +318,7 @@ analyze_classes_multi_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name
 
   std::vector<int> attr_ids;
   std::vector<int> attr_types;
+  std::vector<int> attr_unique;
   std::vector<std::string> attr_names;
   for (DB_ATTRIBUTE *att = db_get_attributes (classop); att != NULL; att = db_attribute_next (att))
     {
@@ -302,8 +327,10 @@ analyze_classes_multi_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name
 	{
 	  continue;
 	}
-      attr_ids.push_back (db_attribute_id (att));
+      const int aid = db_attribute_id (att);
+      attr_ids.push_back (aid);
       attr_types.push_back ((int) t);
+      attr_unique.push_back (attr_is_single_col_unique (classop, aid) ? 1 : 0);
       attr_names.push_back (db_attribute_name (att));
     }
 
@@ -321,8 +348,8 @@ analyze_classes_multi_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name
 
   int error =
 	  histogram_build_multi_by_reservoir_request (class_oid, n, attr_ids.data (), attr_types.data (),
-	      max_number_of_buckets, 0, null_freqs.data (), blobs.data (), blob_lens.data (), ndvs.data (),
-	      &total_rows);
+	      attr_unique.data (), max_number_of_buckets, 0, null_freqs.data (), blobs.data (), blob_lens.data (),
+	      ndvs.data (), &total_rows);
   if (error != NO_ERROR)
     {
       for (int i = 0; i < n; i++)

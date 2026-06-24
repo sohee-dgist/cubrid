@@ -5771,14 +5771,15 @@ stats_get_statistics_from_server (OID * classoid, unsigned int timestamp, int *l
  *   frees with free()) and the exact null frequency. No SQL query is issued.
  */
 int
-histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_type, int max_buckets, int sample_size,
-				      double *null_frequency, char **blob, int *blob_length)
+histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_type, int attr_unique, int max_buckets,
+				      int sample_size, double *null_frequency, char **blob, int *blob_length)
 {
   /* The server handler is multi-column only. Issue a 1-column multi request so single-column
    * (named-attribute) histogram builds use the same wire protocol; this avoids the request/reply
    * format mismatch that broke `... update histogram on <col>`. */
   int ids[1];
   int types[1];
+  int uniq[1];
   double nf[1] = { 0.0 };
   char *blobs[1] = { NULL };
   int blens[1] = { 0 };
@@ -5788,10 +5789,11 @@ histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_typ
 
   ids[0] = attr_id;
   types[0] = attr_type;
+  uniq[0] = attr_unique;
 
   status =
-    histogram_build_multi_by_reservoir_request (class_oid, 1, ids, types, max_buckets, sample_size, nf, blobs, blens,
-						ndv, &total_rows);
+    histogram_build_multi_by_reservoir_request (class_oid, 1, ids, types, uniq, max_buckets, sample_size, nf, blobs,
+						blens, ndv, &total_rows);
 
   *null_frequency = nf[0];
   *blob = blobs[0];
@@ -5809,9 +5811,9 @@ histogram_build_by_reservoir_request (OID * class_oid, int attr_id, int attr_typ
  */
 int
 histogram_build_multi_by_reservoir_request (OID * class_oid, int attr_cnt, const int *attr_ids,
-					    const int *attr_types, int max_buckets, int sample_size,
-					    double *null_frequency, char **blob, int *blob_length, INT64 * out_ndv,
-					    INT64 * out_total_rows)
+					    const int *attr_types, const int *attr_unique, int max_buckets,
+					    int sample_size, double *null_frequency, char **blob, int *blob_length,
+					    INT64 * out_ndv, INT64 * out_total_rows)
 {
   int i;
 
@@ -5831,7 +5833,7 @@ histogram_build_multi_by_reservoir_request (OID * class_oid, int attr_cnt, const
   char *area = NULL;
   int area_size = 0;
   char *ptr;
-  int request_size = OR_OID_SIZE + OR_INT_SIZE * 3 + attr_cnt * (OR_INT_SIZE * 2);
+  int request_size = OR_OID_SIZE + OR_INT_SIZE * 3 + attr_cnt * (OR_INT_SIZE * 3);
   char *request = (char *) malloc ((size_t) request_size);
   OR_ALIGNED_BUF (OR_INT_SIZE + OR_INT_SIZE) a_reply;
   char *reply = OR_ALIGNED_BUF_START (a_reply);
@@ -5850,6 +5852,7 @@ histogram_build_multi_by_reservoir_request (OID * class_oid, int attr_cnt, const
     {
       ptr = or_pack_int (ptr, attr_ids[i]);
       ptr = or_pack_int (ptr, attr_types[i]);
+      ptr = or_pack_int (ptr, (attr_unique != NULL) ? attr_unique[i] : 0);
     }
 
   req_error =
@@ -5932,8 +5935,9 @@ histogram_build_multi_by_reservoir_request (OID * class_oid, int attr_cnt, const
     }
   status =
     xhistogram_build_multi_by_fullscan_reservoir (thread_p, class_oid, &hfid, (const ATTR_ID *) attr_ids,
-						  (const DB_TYPE *) attr_types, attr_cnt, max_buckets, sample_size,
-						  null_frequency, priv_blobs, blob_length, out_ndv, out_total_rows);
+						  (const DB_TYPE *) attr_types, attr_unique, attr_cnt, max_buckets,
+						  sample_size, null_frequency, priv_blobs, blob_length, out_ndv,
+						  out_total_rows);
   if (status == NO_ERROR)
     {
       for (i = 0; i < attr_cnt; i++)
