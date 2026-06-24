@@ -310,19 +310,6 @@ namespace
 
     /* scaling sample -> population */
     const double scale_nn = (total_sample > 0) ? (double) n_nn / (double) total_sample : 1.0;
-    double nonmcv_ratio = 1.0;
-    {
-      double d_nonmcv_sample = (double) (d_total - num_mcv);
-      double d_nonmcv_pop = (double) d_pop - (double) num_mcv;
-      if (d_nonmcv_pop < d_nonmcv_sample)
-	{
-	  d_nonmcv_pop = d_nonmcv_sample;	/* population non-mcv distinct >= sample's */
-	}
-      if (d_nonmcv_sample > 0.0)
-	{
-	  nonmcv_ratio = d_nonmcv_pop / d_nonmcv_sample;
-	}
-    }
 
     hist::HistogramBuilder builder;
 
@@ -337,12 +324,14 @@ namespace
 	builder.add_mcv (m.first, freq);
       }
 
-    /* buckets: scale cumulative rows + approx_ndv to the population */
+    /* buckets: scale cumulative rows to the population; estimate each bucket's NDV independently
+     * from its own sample (distinct d, singletons f1) and its population rows (DUj / f1-based
+     * estimator), instead of scaling the sample distinct by a global ratio. */
     for (const hist::sample_bucket<T> &b : buckets)
       {
 	std::int64_t pop_cum = (std::int64_t) ((double) b.cumulative * scale_nn + 0.5);
-	std::int64_t ndv = (std::int64_t) (b.approx_ndv * nonmcv_ratio + 0.5);
 	std::int64_t bucket_pop_rows = (std::int64_t) ((double) b.rows_in_bucket * scale_nn + 0.5);
+	std::int64_t ndv = estimate_ndv_from_grouped (b.rows_in_bucket, b.approx_ndv, b.f1, bucket_pop_rows);
 	if (pop_cum < 0)
 	  {
 	    pop_cum = 0;

@@ -50,6 +50,7 @@ namespace hist
     std::int64_t rows_in_bucket;
     std::int64_t cumulative;	/* running sum of rows_in_bucket over endpoint order */
     std::int64_t approx_ndv;	/* distinct values represented by the bucket (sample) */
+    std::int64_t f1;		/* distinct values that occur exactly once in the bucket (sample singletons) */
   };
 
   /*
@@ -124,6 +125,7 @@ namespace hist
 	    cur.endpoint = value_counts[i].first;
 	    cur.rows_in_bucket = value_counts[i].second;
 	    cur.approx_ndv = 1;
+	    cur.f1 = (value_counts[i].second == 1) ? 1 : 0;
 	    cur_bid = bid;
 	    bucket_open = true;
 	  }
@@ -132,6 +134,7 @@ namespace hist
 	    cur.endpoint = value_counts[i].first;	/* MAX(val) within bucket (ascending) */
 	    cur.rows_in_bucket += value_counts[i].second;
 	    cur.approx_ndv += 1;
+	    cur.f1 += (value_counts[i].second == 1) ? 1 : 0;
 	  }
       }
     flush_bucket ();
