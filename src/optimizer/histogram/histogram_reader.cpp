@@ -95,7 +95,13 @@ namespace hist
     total_size_ = get_value<std::uint32_t> (base + HV2_TOTAL_SIZE);
     total_rows_hdr_ = get_value<std::int64_t> (base + HV2_TOTAL_ROWS);
     null_freq_      = get_value<double> (base + HV2_NULL_FREQ);
-    assert (total_size_ == blob_.size());
+    /* invalidation fallback: a blob whose declared total size disagrees with the actual buffer is an
+     * old-format (HST1) or corrupt record. Reject it gracefully so callers fall back to default
+     * estimates instead of aborting on an assert in a debug build. */
+    if (total_size_ != blob_.size ())
+      {
+	return ER_FAILED;
+      }
 
     const char *end = base + total_size_;
 
