@@ -43,6 +43,7 @@
 #include "optimizer.h"
 #include "query_graph.h"
 #include "query_planner.h"
+#include "histogram_cl.hpp"
 #include "schema_manager.h"
 #include "statistics.h"
 #include "system_parameter.h"
@@ -1766,6 +1767,8 @@ qo_add_term (PT_NODE * conjunct, int term_type, QO_ENV * env)
   QO_TERM_MULTI_COL_SEGS (term) = NULL;	/* init */
   QO_TERM_MULTI_COL_CNT (term) = 0;	/* init */
   QO_TERM_PRED_ORDER (term) = pt_is_expr_node (conjunct) ? conjunct->info.expr.pred_order : 0;
+  QO_TERM_HEAD_MCV_MAX_FREQUENCY (term) = 0.0;
+  QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) = 0.0;
 
   env->nterms++;
 
@@ -2788,6 +2791,35 @@ wrapup:
 
     case PREDICATE_TERM:
       QO_TERM_SELECTIVITY (term) = qo_expr_selectivity (env, pt_expr);
+
+      if (qo_is_equi_join_term (term))
+	{
+	  double lhs_mcv_max_frequency = 0.0;
+	  double rhs_mcv_max_frequency = 0.0;
+	  bool success1 = false;
+	  bool success2 = false;
+	  histogram_get_max_mcv_frequency (pt_expr->info.expr.arg1, &lhs_mcv_max_frequency, &success1);
+	  histogram_get_max_mcv_frequency (pt_expr->info.expr.arg2, &rhs_mcv_max_frequency, &success2);
+	  if (success1 || success2)
+	    {
+	      if (head_node != NULL && BITSET_MEMBER (lhs_nodes, QO_NODE_IDX (head_node)))
+		{
+		  QO_TERM_HEAD_MCV_MAX_FREQUENCY (term) = success1 ? lhs_mcv_max_frequency : 0.0;
+		  QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) = success2 ? rhs_mcv_max_frequency : 0.0;
+		}
+	      else
+		{
+		  QO_TERM_HEAD_MCV_MAX_FREQUENCY (term) = success2 ? rhs_mcv_max_frequency : 0.0;
+		  QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) = success1 ? lhs_mcv_max_frequency : 0.0;
+		}
+	    }
+	  else
+	    {
+	      QO_TERM_HEAD_MCV_MAX_FREQUENCY (term) = 0.0;
+	      QO_TERM_TAIL_MCV_MAX_FREQUENCY (term) = 0.0;
+	    }
+	}
+
       break;
 
     default:
@@ -6088,6 +6120,8 @@ qo_exchange (QO_TERM * t0, QO_TERM * t1)
   BITSET_EXCHANGE (t0->nodes, t1->nodes);
   BITSET_EXCHANGE (t0->segments, t1->segments);
   DOUBLE_EXCHANGE (t0->selectivity, t1->selectivity);
+  DOUBLE_EXCHANGE (t0->head_mcv_max_frequency, t1->head_mcv_max_frequency);
+  DOUBLE_EXCHANGE (t0->tail_mcv_max_frequency, t1->tail_mcv_max_frequency);
   INT_EXCHANGE (t0->rank, t1->rank);
   PT_NODE_EXCHANGE (t0->pt_expr, t1->pt_expr);
   INT_EXCHANGE (t0->location, t1->location);
@@ -6109,6 +6143,119 @@ qo_exchange (QO_TERM * t0, QO_TERM * t1)
   /*
    * DON'T exchange the 'idx' values!
    */
+}
+
+static double
+qo_rank_weight (int rank)
+{
+  switch (rank)
+    {
+    case 0:
+    case 1:
+      return 1.0;
+
+    case 2:
+      return 1.5;
+
+    case 3:
+      return 8.0;
+
+    default:
+      return 12.0;
+    }
+}
+
+static double
+qo_term_eval_weight (QO_TERM * term)
+{
+  PT_NODE *expr;
+  PT_NODE *lhs;
+  PT_NODE *rhs;
+
+  if (term == NULL)
+    {
+      return 1.0;
+    }
+
+  expr = QO_TERM_PT_EXPR (term);
+  if (expr == NULL || expr->node_type != PT_EXPR)
+    {
+      return 1.0;
+    }
+
+  lhs = expr->info.expr.arg1;
+  rhs = expr->info.expr.arg2;
+
+  switch (expr->info.expr.op)
+    {
+    case PT_EQ:
+    case PT_NE:
+    case PT_NULLSAFE_EQ:
+      if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	{
+	  return 1.1;
+	}
+      return 1.0;
+
+    case PT_LT:
+    case PT_LE:
+    case PT_GT:
+    case PT_GE:
+    case PT_BETWEEN:
+    case PT_RANGE:
+      if (lhs != NULL && (lhs->type_enum == PT_TYPE_CHAR || lhs->type_enum == PT_TYPE_VARCHAR))
+	{
+	  return 1.25;
+	}
+      return 1.0;
+
+    case PT_LIKE:
+      if (rhs != NULL && rhs->node_type == PT_VALUE)
+	{
+	  const char *pat = db_get_string (&rhs->info.value.db_value);
+	  if (pat != NULL)
+	    {
+	      const char *pct = strchr (pat, '%');
+	      const char *und = strchr (pat, '_');
+
+	      if (pct != NULL && pct[1] == '\0' && und == NULL && pct != pat)
+		{
+		  return 1.25;	/* prefix like 'abc%' */
+		}
+
+	      if (pat[0] == '%' || und != NULL)
+		{
+		  return 2.5;	/* contains/complex pattern */
+		}
+	    }
+	}
+      return 1.5;
+
+    default:
+      return 1.0;
+    }
+}
+
+static double
+qo_term_eval_score (QO_TERM * term)
+{
+  double sel;
+  double weight;
+
+  sel = QO_TERM_SELECTIVITY (term);
+
+  if (sel <= 0.0)
+    {
+      sel = 1e-12;
+    }
+  else if (sel > 1.0)
+    {
+      sel = 1.0;
+    }
+
+  weight = qo_term_eval_weight (term);
+
+  return (1.0 - sel) / weight;
 }
 
 /*
@@ -6169,25 +6316,68 @@ qo_discover_edges (QO_ENV * env)
 	  if (QO_TERM_SELECTIVITY (term1) < QO_TERM_SELECTIVITY (term2))
 	    {
 	      qo_exchange (term1, term2);
+	      term1 = QO_ENV_TERM (env, t1);
 	    }
 	}
     }
-  /* sort sarg-term on pred_order desc, selectivity asc */
+
+  /*
+   * IMPORTANT:
+   * get_rank() is normally called after qo_discover_edges() in qo_optimize_helper().
+   * If we want to use rank here for sarg-term ordering, compute it here explicitly.
+   */
+  for (t1 = i; t1 < env->nterms; t1++)
+    {
+      get_term_rank (env, QO_ENV_TERM (env, t1));
+    }
+
+  /*
+   * sort sarg-term on:
+   *   1) pred_order desc
+   *   2) effective score desc
+   *      effective score = -log(selectivity) / rank_weight
+   *   3) selectivity asc
+   *   4) rank asc
+   */
   for (t1 = i; t1 < env->nterms - 1; t1++)
     {
       term1 = QO_ENV_TERM (env, t1);
+
       for (t2 = t1 + 1; t2 < env->nterms; t2++)
 	{
+	  double score1, score2;
+
 	  term2 = QO_ENV_TERM (env, t2);
 
 	  if (QO_TERM_PRED_ORDER (term1) < QO_TERM_PRED_ORDER (term2))
 	    {
 	      qo_exchange (term1, term2);
+	      term1 = QO_ENV_TERM (env, t1);
 	    }
-	  else if ((QO_TERM_PRED_ORDER (term1) == QO_TERM_PRED_ORDER (term2))
-		   && (QO_TERM_SELECTIVITY (term1) > QO_TERM_SELECTIVITY (term2)))
+	  else if (QO_TERM_PRED_ORDER (term1) == QO_TERM_PRED_ORDER (term2))
 	    {
-	      qo_exchange (term1, term2);
+	      score1 = qo_term_eval_score (term1);
+	      score2 = qo_term_eval_score (term2);
+
+	      if (score1 < score2)
+		{
+		  qo_exchange (term1, term2);
+		  term1 = QO_ENV_TERM (env, t1);
+		}
+	      else if (fabs (score1 - score2) <= 1e-12)
+		{
+		  if (QO_TERM_SELECTIVITY (term1) > QO_TERM_SELECTIVITY (term2))
+		    {
+		      qo_exchange (term1, term2);
+		      term1 = QO_ENV_TERM (env, t1);
+		    }
+		  else if (QO_TERM_SELECTIVITY (term1) == QO_TERM_SELECTIVITY (term2)
+			   && QO_TERM_RANK (term1) > QO_TERM_RANK (term2))
+		    {
+		      qo_exchange (term1, term2);
+		      term1 = QO_ENV_TERM (env, t1);
+		    }
+		}
 	    }
 	}
     }
@@ -6240,7 +6430,7 @@ qo_discover_edges (QO_ENV * env)
 		{
 		  bitset_union (&direct_nodes, &(QO_TERM_NODES (edge2)));
 		}
-	    }			/* for (j = 0; ...) */
+	    }
 
 	  /* check for direct connected nodes */
 	  for (t = bitset_iterate (&direct_nodes, &iter); t != -1; t = bitset_next_member (&iter))
@@ -6248,7 +6438,7 @@ qo_discover_edges (QO_ENV * env)
 	      node = QO_ENV_NODE (env, t);
 	      if (!QO_NODE_SARGABLE (node))
 		{
-		  break;	/* give up */
+		  break;
 		}
 	    }
 

@@ -627,6 +627,12 @@ struct qo_term
   double selectivity;
 
   /*
+   * The largest single-MCV frequency for each join side.
+   */
+  double head_mcv_max_frequency;
+  double tail_mcv_max_frequency;
+
+  /*
    * The "flavor" of this term.  This is determined by analysis of the
    * segment or where-clause disjunct that gives rise to the term.
    */
@@ -724,6 +730,8 @@ struct qo_term
 #define QO_TERM_NODES(t)	(t)->nodes
 #define QO_TERM_SEGS(t)		(t)->segments
 #define QO_TERM_SELECTIVITY(t)	(t)->selectivity
+#define QO_TERM_HEAD_MCV_MAX_FREQUENCY(t)	(t)->head_mcv_max_frequency
+#define QO_TERM_TAIL_MCV_MAX_FREQUENCY(t)	(t)->tail_mcv_max_frequency
 #define QO_TERM_RANK(t)		(t)->rank
 #define QO_TERM_HEAD(t)		(t)->head
 #define QO_TERM_TAIL(t)		(t)->tail
