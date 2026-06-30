@@ -55,10 +55,7 @@
 #include "query_planner_constants.h"
 #include "histogram_cl.hpp"
 
-#define TEST_DUMP_PLAN_SCAN_COST 0
-#define TEST_DUMP_PLAN_SORT_COST 0
-#define TEST_DUMP_PLAN_JOIN_COST 0
-#define TEST_DUMP_PLAN_FOLLOW_COST 0
+/* TEST_DUMP_PLAN_*_COST come from query_planner_constants.h (single source) */
 
 #define TEST_HASH_JOIN_ENABLE 0
 #define TEST_HASH_JOIN_FORCE_ENABLE 0
@@ -2208,6 +2205,22 @@ qo_iscan_cost (QO_PLAN *planp)
 	    }
 	}
     }
+
+  /* Prefer the reservoir column NDV (QO_SEG_INFO(seg)->ndv, derived from ATTR_STATS) over the
+   * sampled B+tree key statistic (cum_stats.pkeys / keys): the B+tree sampling extrapolates distinct
+   * keys by the page ratio (btree_get_stats_with_AR_sampling) and grossly over-estimates NDV for
+   * low-NDV sorted indexes, collapsing 1/pkeys[0] so the index scan is mis-costed as nearly free.
+   * This NDV is already loaded (O(1)); only the leading single index column (index == 0) applies. */
+  if (index == 0 && index_entryp->nsegs > 0 && index_entryp->seg_idxs != NULL && index_entryp->seg_idxs[0] >= 0)
+    {
+      QO_SEGMENT *lead_segp = QO_ENV_SEG (QO_NODE_ENV (nodep), index_entryp->seg_idxs[0]);
+
+      if (lead_segp != NULL && QO_SEG_INFO (lead_segp) != NULL && QO_SEG_INFO (lead_segp)->ndv > 0)
+	{
+	  sel_limit = 1.0 / (double) QO_SEG_INFO (lead_segp)->ndv;
+	}
+    }
+
   assert (sel_limit <= 1.0);
 
   /* check lower bound */

@@ -1951,49 +1951,43 @@ histogram_eqjoin_exact_mcv_mass_t (const hist::HistogramReader &lhs_reader,
   std::unordered_map<T, double> rhs_prob_by_value;
   std::unordered_set<T> matched_rhs_values;
 
-  for (std::size_t j = 0; j < rhs_reader.bucket_count (); ++j)
+  /* Iterate the histogram's MCV list, NOT the buckets. In the reservoir v2 blob the MCVs are stored
+   * in a separate list (mcv_count/mcv_hi/mcv_freq) and bucket_* holds only the non-MCV residual, so
+   * reading MCVs from buckets misses them entirely (e.g. role_type.id has 12 MCVs / 0 buckets ->
+   * the old bucket loop saw 0 MCVs and returned mass 0). mcv_freq() is already a row fraction. */
+  for (std::uint32_t j = 0; j < static_cast<std::uint32_t> (rhs_reader.mcv_count ()); ++j)
     {
-      if (rhs_reader.bucket_approx_ndv (j) != 1)
+      const double rhs_freq = rhs_reader.mcv_freq (j);
+      if (rhs_freq <= 0.0)
 	{
 	  continue;
 	}
 
-      const double rhs_rows = static_cast<double> (rhs_reader.bucket_rows (j));
-      if (rhs_rows <= 0.0)
-	{
-	  continue;
-	}
-
-      rhs_mcv_rows += rhs_rows;
+      rhs_mcv_rows += rhs_freq * rhs_total_rows;
       rhs_mcv_count++;
 
-      const T &rhs_val = rhs_reader.bucket_hi<T> (j);
-      rhs_prob_by_value[rhs_val] += rhs_rows / rhs_total_rows;
+      const T rhs_val = rhs_reader.mcv_hi<T> (j);
+      rhs_prob_by_value[rhs_val] += rhs_freq;
     }
 
   double exact_mass = 0.0;
 
-  for (std::size_t i = 0; i < lhs_reader.bucket_count (); ++i)
+  for (std::uint32_t i = 0; i < static_cast<std::uint32_t> (lhs_reader.mcv_count ()); ++i)
     {
-      if (lhs_reader.bucket_approx_ndv (i) != 1)
+      const double lhs_freq = lhs_reader.mcv_freq (i);
+      if (lhs_freq <= 0.0)
 	{
 	  continue;
 	}
 
-      const double lhs_rows = static_cast<double> (lhs_reader.bucket_rows (i));
-      if (lhs_rows <= 0.0)
-	{
-	  continue;
-	}
-
-      lhs_mcv_rows += lhs_rows;
+      lhs_mcv_rows += lhs_freq * lhs_total_rows;
       lhs_mcv_count++;
 
-      const T &lhs_val = lhs_reader.bucket_hi<T> (i);
+      const T lhs_val = lhs_reader.mcv_hi<T> (i);
       typename std::unordered_map<T, double>::const_iterator it = rhs_prob_by_value.find (lhs_val);
       if (it != rhs_prob_by_value.end ())
 	{
-	  const double lhs_prob = lhs_rows / lhs_total_rows;
+	  const double lhs_prob = lhs_freq;
 	  exact_mass += lhs_prob * it->second;
 	  lhs_matched_mcv_frac += lhs_prob;
 	  matched_rhs_values.insert (lhs_val);
@@ -2391,6 +2385,26 @@ histogram_get_eqjoin_selectivity (PT_NODE *lhs, PT_NODE *rhs, double *selectivit
   const double rhs_non_null_frac = clamp01 (1.0 - rhs->info.name.null_frequency);
 
   *selectivity = clamp01 (*selectivity * lhs_non_null_frac * rhs_non_null_frac);
+
+  /* Floor at 1/max(NDV): an equi-join over distinct keys cannot be more selective than matching one
+   * value on the larger side. This catches degenerate distributions the MCV/residual decomposition
+   * misses, e.g. one side all non-MCV (info_type.id: 113 buckets, 0 MCVs) joining a side whose MCVs
+   * cover ~all rows (movie_info.info_type_id) -> residual mass collapses to 0. NOTE: relies on the
+   * MCV-list-based NDV being correct (lhs/rhs_total_ndv = non-MCV bucket NDV + mcv_count); with the
+   * old bucket-read NDV this floored to absurd values (e.g. 1/2 = 0.5). */
+  {
+    const double max_ndv = (lhs_total_ndv > rhs_total_ndv) ? lhs_total_ndv : rhs_total_ndv;
+
+    if (max_ndv >= 1.0)
+      {
+	const double sel_floor = 1.0 / max_ndv;
+
+	if (*selectivity < sel_floor)
+	  {
+	    *selectivity = sel_floor;
+	  }
+      }
+  }
 
   *success = true;
 }
