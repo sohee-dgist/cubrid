@@ -2201,6 +2201,11 @@ sqst_histogram_build_by_reservoir (THREAD_ENTRY *thread_p, unsigned int rid, cha
     }
   else
     {
+      /* reply buffer allocation failed: return an explicit error instead of a zero-length reply,
+       * which the client would otherwise accept as "no data" and silently keep a stale histogram. */
+      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, (size_t) send_len);
+      status = ER_OUT_OF_VIRTUAL_MEMORY;
+      (void) return_error_to_client (thread_p, rid);
       send_len = 0;
     }
 
