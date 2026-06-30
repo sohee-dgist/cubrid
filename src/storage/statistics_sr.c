@@ -67,16 +67,16 @@ struct partition_stats_acumulator
 };
 
 #if defined(ENABLE_UNUSED_FUNCTION)
-static int stats_compare_data (DB_DATA * data1, DB_DATA * data2, DB_TYPE type);
-static int stats_compare_date (DB_DATE * date1, DB_DATE * date2);
-static int stats_compare_time (DB_TIME * time1, DB_TIME * time2);
-static int stats_compare_utime (DB_UTIME * utime1, DB_UTIME * utime2);
-static int stats_compare_datetime (DB_DATETIME * datetime1_p, DB_DATETIME * datetime2_p);
-static int stats_compare_money (DB_MONETARY * mn1, DB_MONETARY * mn2);
+static int stats_compare_data (DB_DATA *data1, DB_DATA *data2, DB_TYPE type);
+static int stats_compare_date (DB_DATE *date1, DB_DATE *date2);
+static int stats_compare_time (DB_TIME *time1, DB_TIME *time2);
+static int stats_compare_utime (DB_UTIME *utime1, DB_UTIME *utime2);
+static int stats_compare_datetime (DB_DATETIME *datetime1_p, DB_DATETIME *datetime2_p);
+static int stats_compare_money (DB_MONETARY *mn1, DB_MONETARY *mn2);
 #endif
-static int stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_oid, const char *class_name,
-						OID * partitions, int count, bool with_fullscan,
-						CLASS_ATTR_NDV * class_attr_ndv);
+static int stats_update_partitioned_statistics (THREAD_ENTRY *thread_p, OID *class_oid, const char *class_name,
+    OID *partitions, int count, bool with_fullscan,
+    CLASS_ATTR_NDV *class_attr_ndv);
 
 /*
  * xstats_update_statistics () -  Updates the statistics for the objects
@@ -107,8 +107,8 @@ static int stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * c
  *       for the last class representation.
  */
 int
-xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_fullscan,
-			  CLASS_ATTR_NDV * class_attr_ndv)
+xstats_update_statistics (THREAD_ENTRY *thread_p, OID *class_id_p, bool with_fullscan,
+			  CLASS_ATTR_NDV *class_attr_ndv)
 {
   CLS_INFO *cls_info_p = NULL;
   REPR_ID repr_id;
@@ -213,8 +213,8 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
       assert (partitions != NULL);
       catalog_free_class_info_and_init (cls_info_p);
       error_code =
-	stats_update_partitioned_statistics (thread_p, class_id_p, class_name, partitions, count, with_fullscan,
-					     class_attr_ndv);
+	      stats_update_partitioned_statistics (thread_p, class_id_p, class_name, partitions, count, with_fullscan,
+		  class_attr_ndv);
       db_private_free (thread_p, partitions);
       if (error_code != NO_ERROR)
 	{
@@ -245,7 +245,7 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
   npages = estimated_nobjs = 0;
 
   /* do not use estimated npages, get correct info */
-  if (file_get_num_user_pages (thread_p, &(cls_info_p->ci_hfid.vfid), &npages) != NO_ERROR)
+  if (file_get_num_user_pages (thread_p, & (cls_info_p->ci_hfid.vfid), &npages) != NO_ERROR)
     {
       goto error;
     }
@@ -300,6 +300,22 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
 		    }
 		}
 	    }
+	  /* The provided NDV may cover only a subset of columns (the histogram path skips columns it
+	   * cannot sample). A column left unmeasured (-1) here would keep its stale optimizer NDV, so
+	   * unless every column is covered, fall back to the dedicated full-scan collector below
+	   * (it measures every supported column in a single pass). */
+	  for (rs_i = 0; rs_i < rs_n_attrs; rs_i++)
+	    {
+	      if (rs_ndv_values[rs_i] < 0)
+		{
+		  use_provided_ndv = false;
+		  break;
+		}
+	    }
+	}
+
+      if (use_provided_ndv)
+	{
 	  /* exact row count rides along with the provided NDV (from the histogram full scan);
 	   * fall back to heap metadata only if it was not supplied */
 	  if (class_attr_ndv->total_rows > 0)
@@ -309,7 +325,7 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
 	  else
 	    {
 	      int hp = 0, ho = 0, ha = 0;
-	      if (heap_get_num_objects (thread_p, &(cls_info_p->ci_hfid), &hp, &ho, &ha) == NO_ERROR)
+	      if (heap_get_num_objects (thread_p, & (cls_info_p->ci_hfid), &hp, &ho, &ha) == NO_ERROR)
 		{
 		  rs_total_rows = ho;
 		}
@@ -318,9 +334,9 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
 	}
       else
 	{
-	  if (xstats_collect_ndv_by_fullscan_reservoir (thread_p, class_id_p, &(cls_info_p->ci_hfid), rs_ndv_attr_ids,
-							rs_ndv_attr_types, rs_n_attrs, rs_ndv_values,
-							&rs_total_rows) != NO_ERROR)
+	  if (xstats_collect_ndv_by_fullscan_reservoir (thread_p, class_id_p, & (cls_info_p->ci_hfid), rs_ndv_attr_ids,
+	      rs_ndv_attr_types, rs_n_attrs, rs_ndv_values,
+	      &rs_total_rows) != NO_ERROR)
 	    {
 	      goto error;
 	    }
@@ -377,10 +393,10 @@ xstats_update_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, bool with_f
     }
 
   /* replace the current disk representation structure/information in the catalog with the newly computed statistics */
-  assert (!OID_ISNULL (&(cls_info_p->ci_rep_dir)));
+  assert (!OID_ISNULL (& (cls_info_p->ci_rep_dir)));
   error_code =
-    catalog_add_representation (thread_p, class_id_p, repr_id, disk_repr_p, &(cls_info_p->ci_rep_dir),
-				&catalog_access_info);
+	  catalog_add_representation (thread_p, class_id_p, repr_id, disk_repr_p, & (cls_info_p->ci_rep_dir),
+				      &catalog_access_info);
   if (error_code != NO_ERROR)
     {
       goto error;
@@ -469,7 +485,7 @@ error:
  *       but stored into a buffer area to be transmitted to the client side.
  */
 char *
-xstats_get_statistics_from_server (THREAD_ENTRY * thread_p, OID * class_id_p, unsigned int time_stamp, int *length_p)
+xstats_get_statistics_from_server (THREAD_ENTRY *thread_p, OID *class_id_p, unsigned int time_stamp, int *length_p)
 {
   CLS_INFO *cls_info_p;
   REPR_ID repr_id;
@@ -583,7 +599,7 @@ xstats_get_statistics_from_server (THREAD_ENTRY * thread_p, OID * class_id_p, un
 	     + OR_INT_SIZE	/* type of DISK_ATTR */
 	     + OR_INT_SIZE	/* n_btstats of DISK_ATTR */
 	     + OR_INT64_SIZE	/* Number of Distinct Values */
-	  ) * n_attrs);		/* number of attributes */
+	    ) * n_attrs);		/* number of attributes */
 
   size += ((OR_BTID_ALIGNED_SIZE	/* btid of BTREE_STATS */
 	    + OR_INT_SIZE	/* leafs of BTREE_STATS */
@@ -746,7 +762,7 @@ exit_on_error:
  *       equal to, or greater than the second one, respectively.
  */
 static int
-stats_compare_date (DB_DATE * date1_p, DB_DATE * date2_p)
+stats_compare_date (DB_DATE *date1_p, DB_DATE *date2_p)
 {
   return (*date1_p - *date2_p);
 }
@@ -762,7 +778,7 @@ stats_compare_date (DB_DATE * date1_p, DB_DATE * date2_p)
  *       equal to, or greater than the second one, respectively.
  */
 static int
-stats_compare_time (DB_TIME * time1_p, DB_TIME * time2_p)
+stats_compare_time (DB_TIME *time1_p, DB_TIME *time2_p)
 {
   return (int) (*time1_p - *time2_p);
 }
@@ -778,7 +794,7 @@ stats_compare_time (DB_TIME * time1_p, DB_TIME * time2_p)
  *       equal to, or greater than the second one, respectively.
  */
 static int
-stats_compare_utime (DB_UTIME * utime1_p, DB_UTIME * utime2_p)
+stats_compare_utime (DB_UTIME *utime1_p, DB_UTIME *utime2_p)
 {
   return (int) (*utime1_p - *utime2_p);
 }
@@ -794,7 +810,7 @@ stats_compare_utime (DB_UTIME * utime1_p, DB_UTIME * utime2_p)
  *       equal to, or greater than the second one, respectively.
  */
 static int
-stats_compare_datetime (DB_DATETIME * datetime1_p, DB_DATETIME * datetime2_p)
+stats_compare_datetime (DB_DATETIME *datetime1_p, DB_DATETIME *datetime2_p)
 {
   if (datetime1_p->date < datetime2_p->date)
     {
@@ -829,7 +845,7 @@ stats_compare_datetime (DB_DATETIME * datetime1_p, DB_DATETIME * datetime2_p)
  *       equal to, or greater than the second one, respectively.
  */
 static int
-stats_compare_money (DB_MONETARY * money1_p, DB_MONETARY * money2_p)
+stats_compare_money (DB_MONETARY *money1_p, DB_MONETARY *money2_p)
 {
   double comp_result = money1_p->amount - money2_p->amount;
 
@@ -855,7 +871,7 @@ stats_compare_money (DB_MONETARY * money1_p, DB_MONETARY * money2_p)
  *   type(in):
  */
 static int
-stats_compare_data (DB_DATA * data1_p, DB_DATA * data2_p, DB_TYPE type)
+stats_compare_data (DB_DATA *data1_p, DB_DATA *data2_p, DB_TYPE type)
 {
   int status = 0;
 
@@ -939,7 +955,7 @@ stats_get_time_stamp (void)
  *   fpp(in):
  */
 void
-stats_dump_class_statistics (CLASS_STATS * class_stats, FILE * fpp)
+stats_dump_class_statistics (CLASS_STATS *class_stats, FILE *fpp)
 {
   int i, j, k;
   const char *prefix = "";
@@ -1141,9 +1157,9 @@ stats_dump_class_statistics (CLASS_STATS * class_stats, FILE * fpp)
  * will be used in the query.
  */
 static int
-stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, const char *class_name,
-				     OID * partitions, int partitions_count, bool with_fullscan,
-				     CLASS_ATTR_NDV * class_attr_ndv)
+stats_update_partitioned_statistics (THREAD_ENTRY *thread_p, OID *class_id_p, const char *class_name,
+				     OID *partitions, int partitions_count, bool with_fullscan,
+				     CLASS_ATTR_NDV *class_attr_ndv)
 {
   int i, j, k, btree_iter, m;
   int error = NO_ERROR;
@@ -1171,7 +1187,12 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
 
   for (i = 0; i < partitions_count; i++)
     {
-      error = xstats_update_statistics (thread_p, &partitions[i], with_fullscan, class_attr_ndv);
+      /* Do NOT forward the parent's provided NDV/total_rows to each partition: it is a whole-table
+       * value, so every partition would record the parent total as its own ci_tot_objects and the
+       * aggregation below (sum of partition totals) would multiply the row count by the partition
+       * count. Passing NULL makes each partition compute its own exact stats; the parent is then the
+       * correct sum. */
+      error = xstats_update_statistics (thread_p, &partitions[i], with_fullscan, NULL);
       if (error != NO_ERROR)
 	{
 	  goto cleanup;
@@ -1279,7 +1300,7 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
 	    {
 	      sum[btree_iter].pkeys_size = btree_stats_p->pkeys_size;
 	      sum[btree_iter].pkeys =
-		(double *) db_private_alloc (thread_p, sum[btree_iter].pkeys_size * sizeof (double));
+		      (double *) db_private_alloc (thread_p, sum[btree_iter].pkeys_size * sizeof (double));
 	      if (sum[btree_iter].pkeys == NULL)
 		{
 		  error = ER_FAILED;
@@ -1357,7 +1378,7 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
 	}
 
       subcls_disk_rep = catalog_get_representation (thread_p, &partitions[i], subcls_repr_id,
-						    &part_catalog_access_info);
+			&part_catalog_access_info);
       if (subcls_disk_rep == NULL)
 	{
 	  ASSERT_ERROR_AND_SET (error);
@@ -1410,7 +1431,7 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
 	      const BTREE_STATS *subcls_stats;
 
 	      subcls_stats = stats_find_inherited_index_stats (cls_rep, subcls_rep, subcls_attr_p,
-							       &btree_stats_p->btid);
+			     &btree_stats_p->btid);
 	      if (subcls_stats == NULL)
 		{
 		  error = ER_FAILED;
@@ -1491,8 +1512,8 @@ stats_update_partitioned_statistics (THREAD_ENTRY * thread_p, OID * class_id_p, 
     }
 
   /* replace the current disk representation structure/information in the catalog with the newly computed statistics */
-  assert (!OID_ISNULL (&(cls_info_p->ci_rep_dir)));
-  error = catalog_add_representation (thread_p, class_id_p, repr_id, disk_repr_p, &(cls_info_p->ci_rep_dir),
+  assert (!OID_ISNULL (& (cls_info_p->ci_rep_dir)));
+  error = catalog_add_representation (thread_p, class_id_p, repr_id, disk_repr_p, & (cls_info_p->ci_rep_dir),
 				      &catalog_access_info);
   if (error != NO_ERROR)
     {
@@ -1565,8 +1586,8 @@ cleanup:
  * cls_btid (in)   : BTID of the index in the superclass
  */
 const BTREE_STATS *
-stats_find_inherited_index_stats (OR_CLASSREP * cls_rep, OR_CLASSREP * subcls_rep, DISK_ATTR * subcls_attr,
-				  BTID * cls_btid)
+stats_find_inherited_index_stats (OR_CLASSREP *cls_rep, OR_CLASSREP *subcls_rep, DISK_ATTR *subcls_attr,
+				  BTID *cls_btid)
 {
   int i;
   const char *cls_btname = NULL;

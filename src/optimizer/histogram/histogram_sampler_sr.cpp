@@ -1667,6 +1667,21 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
 	}
       break;
     }
+    case value_category::datetime:
+    {
+      /* DATE/TIME family: encode as u64 (same key encoding the multi-column path uses). Without this
+       * case DATE/TIME columns fell through to default, returning NO_ERROR with a NULL/zero blob so the
+       * caller treated ANALYZE as successful and left the previous histogram in place. */
+      std::vector<std::uint64_t> samples;
+      error = parallel_scan_and_collect<std::uint64_t> (thread_p, class_oid, hfid, attr_id, sample_size, samples,
+	      &total_rows, &null_rows);
+      if (error == NO_ERROR)
+	{
+	  *histogram_blob = build_blob<std::uint64_t> (thread_p, samples, attr_type, max_buckets, total_rows,
+			    total_rows - null_rows, blob_length);
+	}
+      break;
+    }
     default:
       break;
     }
@@ -1883,6 +1898,23 @@ namespace
       }
       case value_category::real:
       {
+	if (DB_VALUE_TYPE (v) == DB_TYPE_NUMERIC)
+	  {
+	    /* Preserve full NUMERIC precision in the NDV key. Coercing to double would merge distinct
+	     * high-precision values that are not separately representable as double (adjacent integers
+	     * above 2^53, scale-sensitive decimals) and undercount NDV. The raw coefficient bytes plus
+	     * scale form an exact, equality-preserving key. */
+	    DB_C_NUMERIC nbuf = db_get_numeric (v);
+	    if (nbuf == NULL)
+	      {
+		return false;
+	      }
+	    const int nscale = db_get_numeric_scale (v, NULL);
+	    key.assign (reinterpret_cast<const char *> (nbuf), DB_NUMERIC_BUF_SIZE);
+	    key.append (reinterpret_cast<const char *> (&nscale), sizeof (nscale));
+	    return true;
+	  }
+
 	double out;
 	switch (DB_VALUE_TYPE (v))
 	  {
@@ -1891,9 +1923,6 @@ namespace
 	    break;
 	  case DB_TYPE_DOUBLE:
 	    out = db_get_double (v);
-	    break;
-	  case DB_TYPE_NUMERIC:
-	    numeric_coerce_num_to_double (v, db_get_numeric_scale (v, NULL), &out);
 	    break;
 	  default:
 	    return false;
