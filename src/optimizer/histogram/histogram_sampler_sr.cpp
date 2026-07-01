@@ -1536,24 +1536,50 @@ cleanup:
 	  }
       }
 
-    /* coordinator: copy each column's blob into private memory and publish stats */
+    /* coordinator: copy each column's blob into private memory and publish stats. Two failures must
+     * abort the whole request rather than report success: (a) a supported column (merged[c] != NULL)
+     * whose worker produced an empty blob failed to build it, and (b) a failed private-memory copy
+     * below. In either case a "success" return would let the caller persist the column's new
+     * NDV/null_frequency over a stale histogram_values blob, mixing old and new stats in one catalog
+     * row. Keep looping to delete every merged collector; leftover histogram_blob[] entries are
+     * freed by the request handler on the error return. */
+    int cerr = NO_ERROR;
     for (int c = 0; c < attr_cnt; c++)
       {
 	build_out &o = outs[c];
-	if (o.blob.size () > 0)
+	if (cerr == NO_ERROR)
 	  {
-	    histogram_blob[c] = (char *) db_private_alloc (thread_p, o.blob.size ());
-	    if (histogram_blob[c] != NULL)
+	    if (merged[c] != NULL && o.blob.size () == 0)
 	      {
-		o.blob.copy (histogram_blob[c], o.blob.size ());
-		blob_length[c] = (int) o.blob.size ();
+		er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, (size_t) 0);
+		cerr = ER_OUT_OF_VIRTUAL_MEMORY;
+	      }
+	    else if (o.blob.size () > 0)
+	      {
+		histogram_blob[c] = (char *) db_private_alloc (thread_p, o.blob.size ());
+		if (histogram_blob[c] == NULL)
+		  {
+		    er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, o.blob.size ());
+		    cerr = ER_OUT_OF_VIRTUAL_MEMORY;
+		  }
+		else
+		  {
+		    o.blob.copy (histogram_blob[c], o.blob.size ());
+		    blob_length[c] = (int) o.blob.size ();
+		    out_ndv[c] = o.ndv;
+		    null_frequency[c] = (total_rows > 0) ? (double) o.null_rows / (double) total_rows : 0.0;
+		  }
+	      }
+	    else
+	      {
+		/* unsupported column (merged[c] == NULL): no histogram, NDV stays -1 */
+		out_ndv[c] = o.ndv;
+		null_frequency[c] = (total_rows > 0) ? (double) o.null_rows / (double) total_rows : 0.0;
 	      }
 	  }
-	out_ndv[c] = o.ndv;
-	null_frequency[c] = (total_rows > 0) ? (double) o.null_rows / (double) total_rows : 0.0;
 	delete merged[c];
       }
-    return NO_ERROR;
+    return cerr;
   }
 
   /* Parallel multi-column NDV-only collection: same page-parallel scan + merge as the histogram
@@ -1836,12 +1862,21 @@ xhistogram_build_multi_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID 
 	  continue;
 	}
       histogram_blob[i] = collectors[i]->build (thread_p, max_buckets, total_rows, &blob_length[i]);
+      if (histogram_blob[i] == NULL)
+	{
+	  /* A supported column whose histogram blob failed to build (OOM / serialization). Fail the
+	   * whole request: reporting success here lets the caller persist this column's new NDV and
+	   * null_frequency while the stale histogram_values blob remains, mixing old and new stats in
+	   * one catalog row. (An all-null column still yields a valid header-only blob, not NULL.) */
+	  ASSERT_ERROR_AND_SET (error);
+	  goto cleanup;
+	}
       out_ndv[i] = collectors[i]->ndv;
       if (total_rows > 0)
 	{
 	  null_frequency[i] = (double) collectors[i]->null_rows / (double) total_rows;
 	}
-      if (histogram_blob[i] != NULL && blob_length[i] <= 0)
+      if (blob_length[i] <= 0)
 	{
 	  db_private_free_and_init (thread_p, histogram_blob[i]);
 	  histogram_blob[i] = NULL;
