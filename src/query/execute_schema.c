@@ -4371,16 +4371,24 @@ update_or_drop_histogram_helper (PARSER_CONTEXT * parser, DB_OBJECT * const obj,
        * (instead of one full scan per column), then dump each result */
       if (do_histogram == DO_HISTOGRAM_CREATE)
 	{
-	  /* one heap scan builds all histograms AND yields per-column NDV + row count; feed those
-	   * to UPDATE STATISTICS so it reuses this scan instead of doing its own NDV full scan */
+	  /* one heap scan yields all histogram blobs AND per-column NDV + row count. The blobs are
+	   * COLLECTED (not yet written to the catalog); UPDATE STATISTICS reuses the NDV/row count from
+	   * the same scan, and the histograms are written only after it succeeds -- so a failed stats
+	   * update never leaves new histograms beside stale class statistics. */
 	  CLASS_ATTR_NDV ndv_info = CLASS_ATTR_NDV_INITIALIZER;
 	  INT64 hist_total_rows = 0;
+	  HISTOGRAM_COLLECT hist_collect = HISTOGRAM_COLLECT_INITIALIZER;
 	  error = analyze_classes_multi_by_reservoir (NULL, db_get_class_name (obj), bucket_count, obj, &ndv_info,
-						      &hist_total_rows);
+						      &hist_total_rows, &hist_collect);
 	  if (error == NO_ERROR)
 	    {
 	      error = sm_update_statistics (obj, with_fullscan, &ndv_info);
 	    }
+	  if (error == NO_ERROR)
+	    {
+	      error = store_collected_histograms (obj, &hist_collect);
+	    }
+	  histogram_collect_clear (&hist_collect);
 	  if (ndv_info.attr_ndv != NULL)
 	    {
 	      free_and_init (ndv_info.attr_ndv);

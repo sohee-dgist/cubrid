@@ -61,6 +61,20 @@ namespace hist
 
 } // namespace hist
 
+/* Collected-but-not-yet-stored per-column histogram blobs. Lets the caller defer the _db_histogram
+ * catalog write until after UPDATE STATISTICS succeeds, so a failed statistics update never leaves
+ * new histograms beside stale class statistics. Ownership is the caller's; free with
+ * histogram_collect_clear (). */
+typedef struct histogram_collect
+{
+  int count;
+  char **names;			/* attribute names */
+  char **blobs;			/* histogram blobs (NULL entry = no blob for that column) */
+  int *lens;			/* blob lengths (same unit passed to store_one_histogram) */
+  double *null_freqs;		/* exact null frequency per column */
+} HISTOGRAM_COLLECT;
+#define HISTOGRAM_COLLECT_INITIALIZER { 0, NULL, NULL, NULL, NULL }
+
 /* histogram analysis functions */
 int analyze_classes (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, int max_number_of_buckets,
 		     bool with_fullscan, MOP classop);
@@ -69,9 +83,18 @@ int analyze_classes_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, 
 				  int max_number_of_buckets, MOP classop);
 /* single-scan variant: build histograms for all histogrammable columns of the class in one heap scan.
  * Also surfaces the per-column NDV + exact row count derived from the same scan (out_ndv_info /
- * out_total_rows, may be NULL) so the caller can feed them to UPDATE STATISTICS and skip its NDV scan. */
+ * out_total_rows, may be NULL) so the caller can feed them to UPDATE STATISTICS and skip its NDV scan.
+ * If out_collect is non-NULL the per-column blobs are NOT written to the catalog; they are handed to
+ * the caller (transfer of ownership) so it can store them only after UPDATE STATISTICS succeeds --
+ * store with store_collected_histograms () and release with histogram_collect_clear (). When
+ * out_collect is NULL the blobs are stored immediately (legacy behavior). */
 int analyze_classes_multi_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, int max_number_of_buckets,
-					MOP classop, CLASS_ATTR_NDV *out_ndv_info, INT64 *out_total_rows);
+					MOP classop, CLASS_ATTR_NDV *out_ndv_info, INT64 *out_total_rows,
+					HISTOGRAM_COLLECT *out_collect);
+/* store all collected per-column histograms into the catalog; returns the first error, if any. */
+int store_collected_histograms (MOP classop, HISTOGRAM_COLLECT *hc);
+/* free everything owned by a HISTOGRAM_COLLECT and reset it. */
+void histogram_collect_clear (HISTOGRAM_COLLECT *hc);
 int set_histogram (THREAD_ENTRY *thread_p, const char *tbl_name, const char *attr_name, char *histogram_blob,
 		   int histogram_total_length, MOP classop);
 

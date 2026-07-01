@@ -43,6 +43,7 @@
 #include "query_planner.h"
 
 static bool histogram_extract_key (const DB_VALUE *db_val, hist::histogram_key &key);
+static int store_one_histogram (MOP classop, const char *attr_name, char *blob, int blob_length, double null_freq);
 
 /*
  * analyze_classes ()
@@ -106,9 +107,6 @@ analyze_classes_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, cons
   double null_frequency = 0.0;
   char *histogram_blob = NULL;
   int histogram_total_length = 0;
-  DB_OBJECT *histogram_obj = NULL, *edit_histogram_object = NULL;
-  DB_OTMPL *obj_tmpl = NULL;
-  DB_VALUE null_frequency_value;
 
   att = db_get_attribute (classop, attr_name);
   if (att == NULL)
@@ -138,48 +136,11 @@ analyze_classes_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, cons
       return error;
     }
 
-  /* store the exact null frequency in the _db_histogram catalog */
-  db_make_double (&null_frequency_value, null_frequency);
-  error = db_get_histogram (classop, attr_name, &histogram_obj);
-  if (error != NO_ERROR)
-    {
-      error = ER_FAILED;
-      goto end;
-    }
-  obj_tmpl = dbt_edit_object (histogram_obj);
-  if (obj_tmpl == NULL)
-    {
-      error = ER_FAILED;
-      goto end;
-    }
-  error = dbt_put (obj_tmpl, "null_frequency", &null_frequency_value);
-  if (error != NO_ERROR)
-    {
-      error = ER_FAILED;
-      dbt_abort_object (obj_tmpl);
-      goto end;
-    }
-  edit_histogram_object = dbt_finish_object (obj_tmpl);
-  if (edit_histogram_object == NULL)
-    {
-      ASSERT_ERROR_AND_SET (error);
-      dbt_abort_object (obj_tmpl);
-      goto end;
-    }
-  error = locator_flush_instance (edit_histogram_object);
-  if (error != NO_ERROR)
-    {
-      error = ER_FAILED;
-      goto end;
-    }
+  /* Store the exact null frequency AND the histogram blob together in a single object template
+   * (one dbt_edit + one flush) so a failure never leaves a mixed catalog row -- a new
+   * null_frequency alongside the previous histogram blob. Mirrors the multi-column path. */
+  error = store_one_histogram (classop, attr_name, histogram_blob, histogram_total_length, null_frequency);
 
-  /* store the histogram blob via the existing catalog writer */
-  if (histogram_blob != NULL && histogram_total_length > 0)
-    {
-      error = set_histogram (thread_p, tbl_name, attr_name, histogram_blob, histogram_total_length, classop);
-    }
-
-end:
   if (histogram_blob != NULL)
     {
       free (histogram_blob);
@@ -308,7 +269,8 @@ store_one_histogram (MOP classop, const char *attr_name, char *blob, int blob_le
  */
 int
 analyze_classes_multi_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name, int max_number_of_buckets,
-				    MOP classop, CLASS_ATTR_NDV *out_ndv_info, INT64 *out_total_rows)
+				    MOP classop, CLASS_ATTR_NDV *out_ndv_info, INT64 *out_total_rows,
+				    HISTOGRAM_COLLECT *out_collect)
 {
   OID *class_oid = ws_oid (classop);
   if (class_oid == NULL || OID_ISNULL (class_oid))
@@ -362,16 +324,56 @@ analyze_classes_multi_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name
       return error;
     }
 
-  for (int i = 0; i < n; i++)
+  if (out_collect != NULL)
     {
-      int e = store_one_histogram (classop, attr_names[i].c_str (), blobs[i], blob_lens[i], null_freqs[i]);
-      if (e != NO_ERROR && error == NO_ERROR)
+      /* Defer catalog storage: hand the per-column blobs to the caller (transfer of ownership) so
+       * they are written only after UPDATE STATISTICS succeeds. Otherwise a failed statistics update
+       * would leave new HST2 histograms in _db_histogram beside stale class statistics. */
+      out_collect->count = n;
+      out_collect->names = (char **) calloc ((size_t) n, sizeof (char *));
+      out_collect->blobs = (char **) calloc ((size_t) n, sizeof (char *));
+      out_collect->lens = (int *) calloc ((size_t) n, sizeof (int));
+      out_collect->null_freqs = (double *) calloc ((size_t) n, sizeof (double));
+      if (out_collect->names == NULL || out_collect->blobs == NULL || out_collect->lens == NULL
+	  || out_collect->null_freqs == NULL)
 	{
-	  error = e;
+	  for (int i = 0; i < n; i++)
+	    {
+	      if (blobs[i] != NULL)
+		{
+		  free (blobs[i]);
+		}
+	    }
+	  histogram_collect_clear (out_collect);
+	  return ER_OUT_OF_VIRTUAL_MEMORY;
 	}
-      if (blobs[i] != NULL)
+      for (int i = 0; i < n; i++)
 	{
-	  free (blobs[i]);
+	  const std::string &nm = attr_names[i];
+	  out_collect->names[i] = (char *) malloc (nm.size () + 1);
+	  if (out_collect->names[i] != NULL)
+	    {
+	      memcpy (out_collect->names[i], nm.c_str (), nm.size () + 1);
+	    }
+	  out_collect->blobs[i] = blobs[i];	/* transfer ownership */
+	  out_collect->lens[i] = blob_lens[i];
+	  out_collect->null_freqs[i] = null_freqs[i];
+	  blobs[i] = NULL;
+	}
+    }
+  else
+    {
+      for (int i = 0; i < n; i++)
+	{
+	  int e = store_one_histogram (classop, attr_names[i].c_str (), blobs[i], blob_lens[i], null_freqs[i]);
+	  if (e != NO_ERROR && error == NO_ERROR)
+	    {
+	      error = e;
+	    }
+	  if (blobs[i] != NULL)
+	    {
+	      free (blobs[i]);
+	    }
 	}
     }
 
@@ -397,6 +399,82 @@ analyze_classes_multi_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name
     }
 
   return error;
+}
+
+/*
+ * store_collected_histograms () - write every collected per-column blob into its _db_histogram
+ *   catalog entry. Called after UPDATE STATISTICS succeeds so histograms and class statistics are
+ *   not left inconsistent on a stats failure. Returns the first error, if any.
+ */
+int
+store_collected_histograms (MOP classop, HISTOGRAM_COLLECT *hc)
+{
+  int error = NO_ERROR;
+
+  if (hc == NULL || hc->names == NULL)
+    {
+      return NO_ERROR;
+    }
+  for (int i = 0; i < hc->count; i++)
+    {
+      if (hc->names[i] == NULL)
+	{
+	  continue;
+	}
+      int e = store_one_histogram (classop, hc->names[i], hc->blobs[i], hc->lens[i], hc->null_freqs[i]);
+      if (e != NO_ERROR && error == NO_ERROR)
+	{
+	  error = e;
+	}
+    }
+  return error;
+}
+
+/*
+ * histogram_collect_clear () - free everything owned by a HISTOGRAM_COLLECT and reset it.
+ */
+void
+histogram_collect_clear (HISTOGRAM_COLLECT *hc)
+{
+  if (hc == NULL)
+    {
+      return;
+    }
+  if (hc->names != NULL)
+    {
+      for (int i = 0; i < hc->count; i++)
+	{
+	  if (hc->names[i] != NULL)
+	    {
+	      free (hc->names[i]);
+	    }
+	}
+      free (hc->names);
+    }
+  if (hc->blobs != NULL)
+    {
+      for (int i = 0; i < hc->count; i++)
+	{
+	  if (hc->blobs[i] != NULL)
+	    {
+	      free (hc->blobs[i]);
+	    }
+	}
+      free (hc->blobs);
+    }
+  if (hc->lens != NULL)
+    {
+      free (hc->lens);
+    }
+  if (hc->null_freqs != NULL)
+    {
+      free (hc->null_freqs);
+    }
+  hc->count = 0;
+  hc->names = NULL;
+  hc->blobs = NULL;
+  hc->lens = NULL;
+  hc->null_freqs = NULL;
 }
 
 static bool
