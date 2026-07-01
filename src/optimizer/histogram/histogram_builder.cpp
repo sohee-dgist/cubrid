@@ -135,6 +135,8 @@ namespace hist
       case DB_TYPE_DATE:
       case DB_TYPE_TIMESTAMPTZ:
       case DB_TYPE_DATETIME:
+      case DB_TYPE_DATETIMELTZ:
+      case DB_TYPE_DATETIMETZ:
 	if (std::holds_alternative<std::uint64_t> (v))
 	  {
 	    write<std::uint64_t> (dest, std::get<std::uint64_t> (v));
