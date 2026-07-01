@@ -794,7 +794,19 @@ cleanup:
     int npages = 0, nobjs = 0, avg_len = 0;
     (void) heap_get_num_objects (thread_p, hfid, &npages, &nobjs, &avg_len);
 
-    int degree = (int) parallel_query::compute_parallel_degree (parallel_query::parallel_type::SCAN, (UINT64) npages);
+    /* This dedicated UPDATE STATISTICS / histogram full scan requests up to 2x the configured
+     * 'parallelism' cap (without changing the global parameter). Passing an explicit hint_degree
+     * makes compute_parallel_degree bypass the 'parallelism' cap; it still clamps the result to the
+     * CPU core count (system_core_count) and to the table's page count, so the degree never exceeds
+     * the number of cores. Bound the hint by PRM_MAX_PARALLELISM to satisfy its assert. */
+    int scan_hint = 2 * prm_get_integer_value (PRM_ID_PARALLELISM);
+    if (scan_hint > PRM_MAX_PARALLELISM)
+      {
+	scan_hint = PRM_MAX_PARALLELISM;
+      }
+    int degree =
+	    (int) parallel_query::compute_parallel_degree (parallel_query::parallel_type::SCAN, (UINT64) npages,
+		scan_hint);
     if (degree < 2)
       {
 	return 0;		/* not worth it / parallelism disabled -> serial */
