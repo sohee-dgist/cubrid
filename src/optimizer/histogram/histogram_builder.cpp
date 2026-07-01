@@ -252,12 +252,16 @@ namespace hist
 	  }
 
 	assert (cur_str_blob_ptr == str_blob_ptr_end);
-	buffer = static_cast<char *> (db_private_realloc (thread_p, buffer, fixed_size + cur_str_off_));
-	if (buffer == NULL)
+	/* take the realloc result in a temp: on failure db_private_realloc leaves the original
+	 * buffer valid, so overwriting `buffer` with NULL would leak it. */
+	char *new_buffer = static_cast<char *> (db_private_realloc (thread_p, buffer, fixed_size + cur_str_off_));
+	if (new_buffer == NULL)
 	  {
+	    db_private_free (thread_p, buffer);
 	    db_private_free (thread_p, str_blob_ptr);
 	    return NULL;
 	  }
+	buffer = new_buffer;
 	memcpy (buffer + fixed_size, str_blob_ptr, cur_str_off_);
 	db_private_free (thread_p, str_blob_ptr);
       }
