@@ -351,10 +351,24 @@ analyze_classes_multi_by_reservoir (THREAD_ENTRY *thread_p, const char *tbl_name
 	{
 	  const std::string &nm = attr_names[i];
 	  out_collect->names[i] = (char *) malloc (nm.size () + 1);
-	  if (out_collect->names[i] != NULL)
+	  if (out_collect->names[i] == NULL)
 	    {
-	      memcpy (out_collect->names[i], nm.c_str (), nm.size () + 1);
+	      /* A NULL name would make store_collected_histograms () silently skip this column, so
+	       * ANALYZE would report success while its histogram row keeps the stale blob beside new
+	       * class stats. Fail the whole request instead. Blobs already transferred (0..i-1) are
+	       * released by histogram_collect_clear (); the rest (i..n-1) are still owned here. */
+	      er_set (ER_ERROR_SEVERITY, ARG_FILE_LINE, ER_OUT_OF_VIRTUAL_MEMORY, 1, nm.size () + 1);
+	      for (int j = i; j < n; j++)
+		{
+		  if (blobs[j] != NULL)
+		    {
+		      free (blobs[j]);
+		    }
+		}
+	      histogram_collect_clear (out_collect);
+	      return ER_OUT_OF_VIRTUAL_MEMORY;
 	    }
+	  memcpy (out_collect->names[i], nm.c_str (), nm.size () + 1);
 	  out_collect->blobs[i] = blobs[i];	/* transfer ownership */
 	  out_collect->lens[i] = blob_lens[i];
 	  out_collect->null_freqs[i] = null_freqs[i];

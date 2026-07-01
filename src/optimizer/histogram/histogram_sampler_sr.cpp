@@ -1734,7 +1734,14 @@ xhistogram_build_by_fullscan_reservoir (THREAD_ENTRY *thread_p, const OID *class
       *null_frequency = static_cast<double> (null_rows) / static_cast<double> (total_rows);
     }
 
-  if (*histogram_blob != NULL && *blob_length <= 0)
+  /* A supported column reaches here only after build_blob (); a NULL blob means an OOM / serialization
+   * failure (an all-null column still yields a valid header-only blob, not NULL). Do not report
+   * success -- the caller would then flush the new null_frequency over the stale histogram blob. */
+  if (*histogram_blob == NULL)
+    {
+      return ER_FAILED;
+    }
+  if (*blob_length <= 0)
     {
       db_private_free_and_init (thread_p, *histogram_blob);
       return ER_FAILED;
